@@ -1,9 +1,10 @@
+import { CaretRight } from "@phosphor-icons/react";
 import { Link, usePath } from "../../router";
 import { BrandArt } from "../Brand/BrandArt";
 
 /**
- * Sticky top navigation. ASCII-art brand mark on the left, three center
- * links, primary CTA on the right. Dark-mode minimalist per the design spec.
+ * Sticky top navigation. ASCII-art brand mark on the left, center links,
+ * primary CTA on the right. Dark-mode minimalist per the design spec.
  */
 export function NavBar() {
   const pathname = usePath();
@@ -20,9 +21,6 @@ export function NavBar() {
         </Link>
 
         <nav className="flex flex-1 items-center justify-center gap-8 text-[13px]">
-          <NavLink href="/builder" active={isActive(pathname, "/builder")}>
-            Build
-          </NavLink>
           <NavLink
             href="/community"
             active={isActive(pathname, "/community")}
@@ -36,10 +34,10 @@ export function NavBar() {
 
         <Link
           href="/builder"
-          className="inline-flex items-center gap-1.5 rounded-[4px] border border-white/[0.06] bg-[#1C1C1F] px-3 py-2 text-xs uppercase tracking-wider text-[#E8E8E6] no-underline transition-transform hover:scale-[0.98]"
+          className="inline-flex items-center gap-1.5 rounded-[6px] bg-[#E8E8E6] px-4 py-2 text-[13px] font-medium text-[#0E0E10] no-underline transition-transform duration-150 ease-out hover:scale-[0.98] active:scale-[0.96]"
         >
-          New statusline
-          <span aria-hidden="true">{"→"}</span>
+          Build
+          <CaretRight size={14} weight="bold" />
         </Link>
       </div>
     </header>
