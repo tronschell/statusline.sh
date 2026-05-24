@@ -75,6 +75,7 @@ CLAUDE.local.md
 .tmp/
 tmp/
 scratch/
+builder-initial.png
 
 # Cloudflare Worker
 .wrangler/
@@ -85,3 +86,10 @@ worker/.dev.vars
 # Vercel
 .vercel/
 .vercel
+
+#Plans folder
+plans/
+
+#Playwright
+.playwright-mcp/
+
