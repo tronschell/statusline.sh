@@ -2,6 +2,16 @@ name = "statusline-community"
 main = "src/index.ts"
 compatibility_date = "2025-05-01"
 
+# Production custom domain. Uncomment ONLY after the statusline.sh zone is on
+# Cloudflare DNS (i.e. you've switched the registrar nameservers at Vercel to
+# the two Cloudflare-provided NS records and Cloudflare has marked the zone
+# Active). Until then, `wrangler deploy` with this block enabled will fail
+# with "zone not found".
+#
+# [[routes]]
+# pattern = "api.statusline.sh"
+# custom_domain = true
+
 [[d1_databases]]
 binding = "DB"
 database_name = "statusline-community"
@@ -9,7 +19,10 @@ database_id = "c14c1902-21df-4cdd-a7bb-29921e8203d2"
 
 [vars]
 TURNSTILE_SITE_KEY = "0x4AAAAAADVg_EZkr8VbHhOf"
-ALLOWED_ORIGINS = "https://statusline.sh,https://www.statusline.sh,https://statusline-maker.vercel.app"
+# Localhost entries are for `wrangler dev` so the Bun SPA at :3001 can fetch
+# from the local Worker at :8787. The production deploy's ALLOWED_ORIGINS should
+# be overridden in the Cloudflare dashboard to drop the localhost entries.
+ALLOWED_ORIGINS = "https://statusline.sh,https://www.statusline.sh,https://statusline-maker.vercel.app,http://localhost:3001,http://127.0.0.1:3001"
 
 # Rate limiting bindings (added in S2).
 # Each endpoint gets its own namespace_id so counters don't share. Limits are

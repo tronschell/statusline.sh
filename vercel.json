@@ -7,6 +7,10 @@
   "cleanUrls": true,
   "trailingSlash": false,
   "rewrites": [
+    { "source": "/community", "destination": "/community.html" },
+    { "source": "/builder", "destination": "/builder.html" },
+    { "source": "/privacy", "destination": "/privacy.html" },
+    { "source": "/terms", "destination": "/terms.html" },
     { "source": "/((?!_next|assets|.*\\..*).*)", "destination": "/index.html" }
   ],
   "headers": [
