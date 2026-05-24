@@ -1,5 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import worker, {
+  handleCommunityOgSvg,
   handleRobotsTxt,
   handleSitemapXml,
   type Env,
@@ -8,15 +9,20 @@ import { match, route } from "../src/router";
 import {
   communityCanonicalUrl,
   communityDescription,
+  escapeXml,
   renderRobotsTxt,
   renderSitemapXml,
 } from "../src/seo";
+import { renderCommunityOgSvg } from "../src/og";
 
 interface FakeDesignRow {
   slug: string;
   name: string;
+  author_name?: string;
   description: string;
   published_at: number;
+  views?: number;
+  forks?: number;
 }
 
 function makeCtx(): ExecutionContext {
@@ -35,7 +41,9 @@ function makeEnv(rows: FakeDesignRow[]): Env {
       }
 
       const stmt = {
+        args: [] as unknown[],
         bind() {
+          stmt.args = Array.from(arguments);
           return stmt;
         },
         async all<T = unknown>(): Promise<{ results: T[] }> {
@@ -52,6 +60,20 @@ function makeEnv(rows: FakeDesignRow[]): Env {
           throw new Error("unexpected all() SQL: " + norm);
         },
         async first<T = unknown>(): Promise<T | null> {
+          if (
+            norm ===
+            "SELECT slug, name, author_name, description, published_at, views, forks FROM designs WHERE slug = ?"
+          ) {
+            const slug = stmt.args[0];
+            const row = rows.find((candidate) => candidate.slug === slug);
+            if (!row) return null;
+            return {
+              author_name: "Anonymous",
+              views: 0,
+              forks: 0,
+              ...row,
+            } as T;
+          }
           throw new Error("unexpected first() SQL: " + norm);
         },
         async run(): Promise<D1Response> {
@@ -74,6 +96,12 @@ function makeEnv(rows: FakeDesignRow[]): Env {
 }
 
 describe("SEO render helpers", () => {
+  test("escapes XML-sensitive characters", () => {
+    expect(escapeXml(`<tag attr="value">Tom & 'Jerry'</tag>`)).toBe(
+      "&lt;tag attr=&quot;value&quot;&gt;Tom &amp; &apos;Jerry&apos;&lt;/tag&gt;",
+    );
+  });
+
   test("renders robots.txt with sitemap location", () => {
     expect(renderRobotsTxt()).toBe(
       "User-agent: *\nAllow: /\nSitemap: https://statusline.sh/sitemap.xml\n",
@@ -119,6 +147,11 @@ describe("SEO worker routes", () => {
     if (!match("GET", "/sitemap.xml")) {
       route("GET", "/sitemap.xml", (_req, env) =>
         handleSitemapXml(env as Env),
+      );
+    }
+    if (!match("GET", "/og/community/example.svg")) {
+      route("GET", "/og/community/:slug.svg", (_req, env, _ctx, params) =>
+        handleCommunityOgSvg(env as Env, params),
       );
     }
   }
@@ -182,5 +215,78 @@ describe("SEO worker routes", () => {
     );
     expect(xml.indexOf("newer-bbbb")).toBeLessThan(xml.indexOf("older-aaaa"));
     expect(writes).toEqual([]);
+  });
+
+  test("GET /og/community/:slug.svg returns an escaped SVG preview", async () => {
+    ensureSeoRoutes();
+    const res = await worker.fetch(
+      new Request("https://worker.example.com/og/community/quiet-prompt-abcd.svg"),
+      makeEnv([
+        {
+          slug: "quiet-prompt-abcd",
+          name: "Quiet <Prompt>",
+          author_name: "Taylor & Co",
+          description: "Muted borders & careful spacing",
+          published_at: Date.UTC(2026, 0, 2, 3, 4, 5),
+          views: 1234,
+          forks: 56,
+        },
+      ]),
+      makeCtx(),
+    );
+
+    expect(res.status).toBe(200);
+    expect(res.headers.get("content-type")).toBe("image/svg+xml; charset=utf-8");
+    expect(res.headers.get("cache-control")).toBe(
+      "public, max-age=3600, s-maxage=86400",
+    );
+    const svg = await res.text();
+    expect(svg).toContain("<svg xmlns=\"http://www.w3.org/2000/svg\"");
+    expect(svg).toContain("Quiet &lt;Prompt&gt;");
+    expect(svg).toContain("by Taylor &amp; Co");
+    expect(svg).toContain("1,234 views / 56 forks");
+    expect(svg).toContain("Muted borders &amp; careful spacing");
+    expect(svg).toContain("statusline.sh/community/quiet-prompt-abcd");
+    expect(svg).not.toContain("Quiet <Prompt>");
+  });
+
+  test("GET /og/community/:slug.svg returns 404 for a missing slug", async () => {
+    ensureSeoRoutes();
+    const res = await worker.fetch(
+      new Request("https://worker.example.com/og/community/missing.svg"),
+      makeEnv([]),
+      makeCtx(),
+    );
+
+    expect(res.status).toBe(404);
+  });
+});
+
+describe("Open Graph SVG renderer", () => {
+  test("renders deterministic XML-safe SVG without design JSON", () => {
+    const svg = renderCommunityOgSvg({
+      slug: "warm-lines-abcd",
+      name: "Warm Lines",
+      author_name: "Mina",
+      description: "A dark, border-led statusline card",
+      published_at: 1_767_225_600_000,
+      views: 12,
+      forks: 3,
+    });
+
+    expect(svg).toBe(
+      renderCommunityOgSvg({
+        slug: "warm-lines-abcd",
+        name: "Warm Lines",
+        author_name: "Mina",
+        description: "A dark, border-led statusline card",
+        published_at: 1_767_225_600_000,
+        views: 12,
+        forks: 3,
+      }),
+    );
+    expect(svg).toContain("#0d0c0b");
+    expect(svg).toContain("COMMUNITY DESIGN");
+    expect(svg).not.toContain("<script");
   });
 });

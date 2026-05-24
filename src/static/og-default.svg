@@ -1,0 +1,30 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630" role="img" aria-labelledby="title desc">
+  <title id="title">statusline.sh default share image</title>
+  <desc id="desc">A dark minimalist preview card for the Claude Code statusline builder.</desc>
+  <rect width="1200" height="630" fill="#0E0E10" />
+  <rect x="44" y="44" width="1112" height="542" rx="18" fill="#141416" stroke="#2A2A2D" />
+  <rect x="84" y="84" width="1032" height="462" rx="12" fill="#101012" stroke="#232326" />
+  <path d="M84 158H1116" stroke="#232326" />
+  <circle cx="122" cy="121" r="7" fill="#3A3A3D" />
+  <circle cx="148" cy="121" r="7" fill="#3A3A3D" />
+  <circle cx="174" cy="121" r="7" fill="#3A3A3D" />
+  <text x="84" y="617" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="16" fill="#5F625F">statusline.sh</text>
+  <text x="122" y="247" font-family="ui-serif, Georgia, Cambria, 'Times New Roman', serif" font-size="76" font-weight="600" letter-spacing="-3" fill="#EFEDEA">Claude Code</text>
+  <text x="122" y="329" font-family="ui-serif, Georgia, Cambria, 'Times New Roman', serif" font-size="76" font-weight="600" letter-spacing="-3" fill="#EFEDEA">statuslines, composed visually.</text>
+  <text x="124" y="386" font-family="ui-sans-serif, -apple-system, BlinkMacSystemFont, 'Helvetica Neue', Arial, sans-serif" font-size="25" fill="#A7A49D">Drag, preview, share, and install a terminal statusline.</text>
+  <g transform="translate(124 438)">
+    <rect width="790" height="58" rx="10" fill="#0C0C0D" stroke="#303033" />
+    <rect x="18" y="16" width="72" height="26" rx="5" fill="#1B1B1D" stroke="#343438" />
+    <rect x="108" y="16" width="168" height="26" rx="5" fill="#182019" stroke="#3E5742" />
+    <rect x="294" y="16" width="116" height="26" rx="5" fill="#1C1B17" stroke="#5B4B25" />
+    <rect x="428" y="16" width="132" height="26" rx="5" fill="#171B1E" stroke="#294758" />
+    <rect x="578" y="16" width="64" height="26" rx="5" fill="#1B1B1D" stroke="#343438" />
+    <text x="34" y="35" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="15" font-weight="700" fill="#EFEDEA">main</text>
+    <text x="124" y="35" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="15" font-weight="700" fill="#B9CDBB">claude sonnet</text>
+    <text x="310" y="35" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="15" font-weight="700" fill="#D1BC83">12.4k tok</text>
+    <text x="444" y="35" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="15" font-weight="700" fill="#A9C2CF">workspace</text>
+    <text x="596" y="35" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="15" font-weight="700" fill="#C9C7C1">42%</text>
+  </g>
+  <rect x="986" y="438" width="82" height="58" rx="10" fill="#9CC09F" fill-opacity="0.16" stroke="#4B6A4F" />
+  <path d="M1012 467H1042" stroke="#B9CDBB" stroke-width="4" stroke-linecap="round" />
+</svg>

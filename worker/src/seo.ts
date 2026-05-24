@@ -2,7 +2,7 @@ import type { CommunitySitemapEntry, CommunitySeoRow } from "./designs";
 
 export const SITE_ORIGIN = "https://statusline.sh";
 
-function escapeXml(value: string): string {
+export function escapeXml(value: string): string {
   return value.replace(/[<>&"']/g, (ch) => {
     switch (ch) {
       case "<":

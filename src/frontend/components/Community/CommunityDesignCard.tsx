@@ -97,8 +97,9 @@ export function CommunityDesignCard({ summary }: CommunityDesignCardProps) {
           <div className="flex items-center gap-2">
             <Link
               href={detailHref}
-              className="rounded-[6px] border border-white/[0.06] bg-[#1C1C1F] px-2.5 py-1 text-[11px] text-[#E8E8E6] no-underline transition-colors hover:border-white/[0.14] hover:bg-[#222226] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/40"
+              className="inline-flex items-center gap-1.5 rounded-[6px] border border-white/[0.06] bg-[#1C1C1F] px-2.5 py-1 text-[11px] text-[#E8E8E6] no-underline transition-colors hover:border-white/[0.14] hover:bg-[#222226] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/40"
             >
+              <GitForkIcon size={12} weight="bold" />
               Fork
             </Link>
             <Link

@@ -5,43 +5,64 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta
       name="description"
-      content="Design your Claude Code statusline with a drag-and-drop builder. Preview, share, and install it with one terminal command."
+      content="Build a custom Claude Code statusline visually. Drag, preview, share, and install with one terminal command."
     />
     <meta name="robots" content="index,follow" />
     <meta property="og:site_name" content="statusline.sh" />
     <meta property="og:type" content="website" />
     <meta
       property="og:title"
-      content="statusline.sh | Claude Code Statusline Builder"
+      content="Claude Code Statusline Builder | statusline.sh"
     />
     <meta
       property="og:description"
-      content="Design your Claude Code statusline with a drag-and-drop builder. Preview, share, and install it with one terminal command."
+      content="Build a custom Claude Code statusline visually. Drag, preview, share, and install with one terminal command."
     />
     <meta property="og:url" content="https://statusline.sh/" />
-    <meta property="og:image" content="https://statusline.sh/og.png" />
+    <meta property="og:image" content="https://statusline.sh/og-default.svg" />
     <meta name="twitter:card" content="summary_large_image" />
     <meta
       name="twitter:title"
-      content="statusline.sh | Claude Code Statusline Builder"
+      content="Claude Code Statusline Builder | statusline.sh"
     />
     <meta
       name="twitter:description"
-      content="Design your Claude Code statusline with a drag-and-drop builder. Preview, share, and install it with one terminal command."
+      content="Build a custom Claude Code statusline visually. Drag, preview, share, and install with one terminal command."
     />
-    <meta name="twitter:image" content="https://statusline.sh/og.png" />
+    <meta name="twitter:image" content="https://statusline.sh/og-default.svg" />
+    <meta name="theme-color" content="#0E0E10" />
     <link rel="canonical" href="https://statusline.sh/" />
+    <link rel="manifest" href="https://statusline.sh/site.webmanifest" />
     <link rel="icon" type="image/svg+xml" href="./logo.svg" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <title>statusline.sh | Claude Code Statusline Builder</title>
+    <script>
+      // Dev-only safety net: the production build inlines every
+      // `process.env.NEXT_PUBLIC_*` reference as a string literal via Bun.build's
+      // `define` map (see build.ts), but the dev server (`bun --hot src/dev.ts`)
+      // does no such substitution, so a bare `process.env.X` lookup would throw
+      // a ReferenceError in the browser. This shim makes those lookups return
+      // `undefined` in dev; it's a no-op in prod because the references were
+      // already replaced at build time.
+      if (typeof process === "undefined") {
+        window.process = { env: {} };
+      }
+    </script>
+    <title>Claude Code Statusline Builder | statusline.sh</title>
     <script type="application/ld+json">
       {
         "@context": "https://schema.org",
-        "@type": "WebSite",
+        "@type": "SoftwareApplication",
         "name": "statusline.sh",
+        "applicationCategory": "DeveloperApplication",
+        "operatingSystem": "Web",
         "url": "https://statusline.sh/",
-        "description": "Design, preview, share, and install Claude Code statuslines from a browser-based builder."
+        "description": "A visual builder for Claude Code statuslines.",
+        "offers": {
+          "@type": "Offer",
+          "price": "0",
+          "priceCurrency": "USD"
+        }
       }
     </script>
   </head>

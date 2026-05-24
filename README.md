@@ -87,6 +87,8 @@ wrangler d1 execute statusline-community --remote --file=/tmp/seed.sql
 wrangler deploy
 ```
 
+The Worker also serves crawl assets for community content: `GET /sitemap.xml` lists community design URLs from D1 without loading design JSON, and `GET /og/community/:slug.svg` returns deterministic SVG share images.
+
 ### Deploying the SPA (Vercel)
 
 Set the following env vars in the Vercel project, then `bun run build` produces `./dist` which Vercel serves:
@@ -97,6 +99,8 @@ Set the following env vars in the Vercel project, then `bun run build` produces 
 | `NEXT_PUBLIC_TURNSTILE_SITE_KEY` | Public site key for the Cloudflare Turnstile widget shown in the publish dialog |
 
 Both values are inlined into the JS bundle at build time.
+
+The SPA build also writes `robots.txt`, `sitemap.xml`, `site.webmanifest`, `og-default.svg`, and route-specific HTML shells for static routes into `./dist`. Keep Vercel's `cleanUrls` enabled so `/builder`, `/community`, `/privacy`, and `/terms` can serve those generated shells before the SPA fallback.
 
 ---
 

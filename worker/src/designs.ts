@@ -65,8 +65,11 @@ export interface CommunitySitemapEntry {
 export interface CommunitySeoRow {
   slug: string;
   name: string;
+  author_name: string;
   description: string;
   published_at: number;
+  views: number;
+  forks: number;
 }
 
 interface RawDesignRow {
@@ -355,7 +358,7 @@ export async function getCommunitySeoBySlug(
 ): Promise<CommunitySeoRow | null> {
   return (await env.DB
     .prepare(
-      `SELECT slug, name, description, published_at
+      `SELECT slug, name, author_name, description, published_at, views, forks
        FROM designs
        WHERE slug = ?`,
     )

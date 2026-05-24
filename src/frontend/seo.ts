@@ -1,6 +1,6 @@
 export const SITE_NAME = "statusline.sh";
 export const SITE_URL = "https://statusline.sh";
-export const DEFAULT_OG_IMAGE = "/og.png";
+export const DEFAULT_OG_IMAGE = "/og-default.svg";
 
 export interface RouteMeta {
   title: string;
@@ -77,22 +77,22 @@ export function buildBreadcrumbJsonLd(
 
 export const STATIC_ROUTE_META: Record<string, RouteMeta> = {
   "/": {
-    title: "statusline.sh | Claude Code Statusline Builder",
+    title: "Claude Code Statusline Builder | statusline.sh",
     description:
-      "Design your Claude Code statusline with a drag-and-drop builder. Preview, share, and install it with one terminal command.",
+      "Build a custom Claude Code statusline visually. Drag, preview, share, and install with one terminal command.",
     canonicalPath: "/",
     jsonLd: [buildWebSiteJsonLd(), buildSoftwareApplicationJsonLd()],
   },
   "/builder": {
-    title: "Builder | statusline.sh",
+    title: "Build a Claude Code Statusline | statusline.sh",
     description:
-      "Build and preview a custom Claude Code statusline, then save, publish, or install it from the browser.",
+      "Create a custom Claude Code statusline with drag-and-drop elements, live preview, ANSI styling, and cross-platform install commands.",
     canonicalPath: "/builder",
   },
   "/community": {
-    title: "Community Statuslines | statusline.sh",
+    title: "Claude Code Statusline Examples | statusline.sh Community",
     description:
-      "Browse Claude Code statusline designs published by the community, then preview or fork one into your own builder.",
+      "Browse community-made Claude Code statusline examples, preview them, and fork any design into your own builder.",
     canonicalPath: "/community",
     jsonLd: [
       buildBreadcrumbJsonLd([
@@ -104,13 +104,13 @@ export const STATIC_ROUTE_META: Record<string, RouteMeta> = {
   "/privacy": {
     title: "Privacy Policy | statusline.sh",
     description:
-      "Privacy policy for statusline.sh, including what is stored locally and what is stored when you save or publish a design.",
+      "Privacy policy for statusline.sh, the open-source Claude Code statusline builder.",
     canonicalPath: "/privacy",
   },
   "/terms": {
     title: "Terms of Service | statusline.sh",
     description:
-      "Terms of service for using statusline.sh to design, save, publish, fork, and install Claude Code statuslines.",
+      "Terms of service for statusline.sh, the open-source Claude Code statusline builder.",
     canonicalPath: "/terms",
   },
 };

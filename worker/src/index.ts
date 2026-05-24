@@ -12,10 +12,12 @@ import {
   forkBump,
   insertInstallRecord,
   listCommunitySitemapEntries,
+  getCommunitySeoBySlug,
   reapInstallRecords,
   decodeCursor,
 } from "./designs";
 import { handleInstaller } from "./handlers/installer";
+import { renderCommunityOgSvg } from "./og";
 import { renderRobotsTxt, renderSitemapXml } from "./seo";
 
 export interface RateLimitBinding {
@@ -52,11 +54,14 @@ export interface Env {
 // Note: the router escapes regex metacharacters in the literal pattern before
 // substituting `:param`, so a plain `.sh` / `.ps1` in the pattern is matched
 // literally — no need to write `\\.`.
-route("GET", "/community", (req, env, _ctx, params) =>
-  handleListCommunity(req, env as Env, params),
+route("GET", "/community", (req, env, ctx, params) =>
+  handleListCommunity(req, env as Env, ctx, params),
 );
 route("GET", "/robots.txt", () => handleRobotsTxt());
 route("GET", "/sitemap.xml", (_req, env) => handleSitemapXml(env as Env));
+route("GET", "/og/community/:slug.svg", (_req, env, _ctx, params) =>
+  handleCommunityOgSvg(env as Env, params),
+);
 route("GET", "/community/:slug", (req, env, _ctx, params) =>
   handleGetCommunityBySlug(req, env as Env, params),
 );
@@ -149,15 +154,19 @@ export default {
 // Handlers
 // ===========================================================================
 
+// Edge-cache TTL for /community list responses. With 24 items/page and a
+// 60s window, the steady-state DB hit rate is at most ~1 query / minute /
+// (sort, cursor) tuple regardless of traffic — which is what protects D1
+// when a design goes viral. Trade-off: a freshly-published design can be
+// invisible on the Recent feed for up to 60s, which is acceptable.
+const LIST_CACHE_TTL_SECONDS = 60;
+
 async function handleListCommunity(
   req: Request,
   env: Env,
+  ctx: ExecutionContext,
   _params: Record<string, string>,
 ): Promise<Response> {
-  const ip = getClientIp(req) ?? "anon";
-  const rl = await checkRateLimit(env, "list", ip);
-  if (rl) return rl;
-
   const url = new URL(req.url);
   const sortRaw = url.searchParams.get("sort");
   const sort: "recent" | "popular" =
@@ -169,12 +178,68 @@ async function handleListCommunity(
   );
   const cursor = url.searchParams.get("cursor");
 
+  // Validate cursor BEFORE the cache lookup so a malformed cursor still 400s
+  // instead of being treated as a unique cache key (and a 400 we never want
+  // to cache).
   if (cursor && decodeCursor(cursor) === null) {
     return jsonResponse({ error: "invalid cursor" }, 400);
   }
 
+  // Cache key is built from canonical params only — origin and arbitrary
+  // headers are stripped so two requests with the same query share an entry.
+  const cacheKey = buildListCacheKey(sort, limit, cursor);
+  const edgeCache = getEdgeCache();
+
+  if (edgeCache) {
+    const hit = await edgeCache.match(cacheKey);
+    if (hit) {
+      // Clone via the Response constructor so we can stamp x-cache without
+      // mutating the cached entry (Cache API returns immutable Responses).
+      const headers = new Headers(hit.headers);
+      headers.set("x-cache", "HIT");
+      return new Response(hit.body, { status: hit.status, headers });
+    }
+  }
+
+  // Cache miss — apply rate limit then hit D1.
+  const ip = getClientIp(req) ?? "anon";
+  const rl = await checkRateLimit(env, "list", ip);
+  if (rl) return rl;
+
   const result = await listCommunity(env, { sort, limit, cursor });
-  return jsonResponse(result, 200, { "cache-control": "public, s-maxage=60" });
+  const response = jsonResponse(result, 200, {
+    "cache-control": `public, s-maxage=${LIST_CACHE_TTL_SECONDS}`,
+    "x-cache": "MISS",
+  });
+
+  if (edgeCache) {
+    ctx.waitUntil(edgeCache.put(cacheKey, response.clone()));
+  }
+  return response;
+}
+
+function buildListCacheKey(
+  sort: "recent" | "popular",
+  limit: number,
+  cursor: string | null,
+): Request {
+  const u = new URL("https://list-cache.invalid/community");
+  u.searchParams.set("sort", sort);
+  u.searchParams.set("limit", String(limit));
+  if (cursor) u.searchParams.set("cursor", cursor);
+  return new Request(u.toString());
+}
+
+// `caches.default` is a Workers-specific API. In Bun's test runtime there is
+// no such global, so we feature-detect and silently no-op when absent —
+// caching is a perf optimisation, not a correctness requirement.
+function getEdgeCache(): Cache | null {
+  try {
+    const g = globalThis as { caches?: { default?: Cache } };
+    return g.caches?.default ?? null;
+  } catch {
+    return null;
+  }
 }
 
 function handleRobotsTxt(): Response {
@@ -192,6 +257,21 @@ async function handleSitemapXml(env: Env): Promise<Response> {
     headers: {
       "content-type": "application/xml; charset=utf-8",
       "cache-control": "public, s-maxage=3600",
+    },
+  });
+}
+
+async function handleCommunityOgSvg(
+  env: Env,
+  params: Record<string, string>,
+): Promise<Response> {
+  const row = await getCommunitySeoBySlug(env, params.slug!);
+  if (!row) return new Response("not found", { status: 404 });
+
+  return new Response(renderCommunityOgSvg(row), {
+    headers: {
+      "content-type": "image/svg+xml; charset=utf-8",
+      "cache-control": "public, max-age=3600, s-maxage=86400",
     },
   });
 }
@@ -400,4 +480,5 @@ export {
   handleInstallAnonymous,
   handleRobotsTxt,
   handleSitemapXml,
+  handleCommunityOgSvg,
 };
