@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import "./index.css";
+import { Analytics } from "@vercel/analytics/react";
 import { ElementPalette } from "./frontend/components/Palette/ElementPalette";
 import { StatuslineCanvas } from "./frontend/components/Canvas/StatuslineCanvas";
 import { DndProvider } from "./frontend/hooks/useDnd";
@@ -65,6 +66,7 @@ export function App() {
       </Route>
 
       <Footer />
+      <Analytics />
     </Router>
   );
 }
