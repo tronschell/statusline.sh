@@ -5,7 +5,7 @@ import type {
   Element,
   ElementRef,
   SegmentStyle,
-} from "../shared/types";
+} from "../types";
 
 export type CwdTransform = "basename" | "tilde" | "raw";
 export type ComputeExpr =

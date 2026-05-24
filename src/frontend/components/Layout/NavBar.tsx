@@ -2,6 +2,8 @@ import { CaretRight } from "@phosphor-icons/react";
 import { Link, usePath } from "../../router";
 import { BrandArt } from "../Brand/BrandArt";
 
+const DOCS_URL = "https://github.com/tronschell/statusline.sh/blob/main/README.md";
+
 /**
  * Sticky top navigation. ASCII-art brand mark on the left, center links,
  * primary CTA on the right. Dark-mode minimalist per the design spec.
@@ -27,9 +29,9 @@ export function NavBar() {
           >
             Community
           </NavLink>
-          <NavLink href="/" active={false}>
+          <ExternalNavLink href={DOCS_URL}>
             Docs
-          </NavLink>
+          </ExternalNavLink>
         </nav>
 
         <Link
@@ -68,6 +70,25 @@ function NavLink({ href, active, children }: NavLinkProps) {
     >
       {children}
     </Link>
+  );
+}
+
+function ExternalNavLink({
+  href,
+  children,
+}: {
+  href: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <a
+      href={href}
+      target="_blank"
+      rel="noopener noreferrer"
+      className="text-[#8A8A86] no-underline transition-colors hover:text-[#E8E8E6]"
+    >
+      {children}
+    </a>
   );
 }
 

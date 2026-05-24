@@ -1,4 +1,4 @@
-import type { Element } from "../../../../shared/types";
+import type { Element } from "@statusline/shared/types";
 import { type FieldsProps, inputClass, labelClass } from "./common";
 
 type SeparatorElement = Extract<Element, { type: "separator" }>;

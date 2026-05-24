@@ -1,7 +1,7 @@
 import { useMemo } from "react";
-import { renderToAnsi } from "../../../compiler/interpret";
-import { DEFAULT_MOCK_STDIN } from "../../../shared/mockStdin";
-import type { ClaudeStdin, Design } from "../../../shared/types";
+import { renderToAnsi } from "@statusline/shared/compiler/interpret";
+import { DEFAULT_MOCK_STDIN } from "@statusline/shared/mockStdin";
+import type { ClaudeStdin, Design } from "@statusline/shared/types";
 import { TerminalFrame } from "../Layout/TerminalFrame";
 import { AnsiToHtml } from "./AnsiToHtml";
 

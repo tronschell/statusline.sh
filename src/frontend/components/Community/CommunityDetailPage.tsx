@@ -1,8 +1,10 @@
 import { useEffect, useMemo, useState } from "react";
-import type { CommunityCardSummary } from "../../../shared/types";
+import type { CommunityCardSummary } from "@statusline/shared/types";
 import { useOsDetect, type DetectedOs } from "../../hooks/useOsDetect";
 import { api } from "../../lib/api";
 import { navigate } from "../../lib/navigate";
+import { useDesignStore } from "../../store/designStore";
+import { TurnstileWidget } from "../../lib/turnstile";
 import { StaticPreview } from "../Preview/StaticPreview";
 
 function relativeTime(ts: number): string {
@@ -43,6 +45,7 @@ export function CommunityDetailPage({ slug: slugProp }: CommunityDetailPageProps
   const [loading, setLoading] = useState(true);
   const [forking, setForking] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [forkToken, setForkToken] = useState<string | null>(null);
   const detectedOs = useOsDetect();
   const os = osForInstaller(detectedOs);
 
@@ -84,16 +87,17 @@ export function CommunityDetailPage({ slug: slugProp }: CommunityDetailPageProps
     }
   };
 
-  const onFork = async () => {
+  const onFork = () => {
     if (!data) return;
     setForking(true);
-    try {
-      const { id } = await api.fork(data.id);
-      navigate(`/builder?fork=${id}`);
-    } catch (e) {
-      setError(e instanceof Error ? e.message : String(e));
-      setForking(false);
+    useDesignStore.getState().importDesign({
+      ...data.design,
+      name: `${data.name} (fork)`,
+    });
+    if (forkToken) {
+      void api.forkBump(data.slug, forkToken).catch(() => {});
     }
+    navigate("/builder");
   };
 
   return (
@@ -177,12 +181,17 @@ export function CommunityDetailPage({ slug: slugProp }: CommunityDetailPageProps
                 </button>
               </div>
 
-              <div className="mt-4">
+              <div className="mt-4 flex flex-col gap-3">
+                <TurnstileWidget
+                  size="invisible"
+                  onToken={setForkToken}
+                  onError={() => setForkToken(null)}
+                />
                 <button
                   type="button"
                   onClick={onFork}
                   disabled={forking}
-                  className="px-4 py-2 rounded-[6px] text-[13px] border border-white/[0.12] hover:border-white/[0.24] hover:bg-white/[0.03] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="w-fit px-4 py-2 rounded-[6px] text-[13px] border border-white/[0.12] hover:border-white/[0.24] hover:bg-white/[0.03] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   {forking ? "Forking…" : "Customize first → Fork to Builder"}
                 </button>

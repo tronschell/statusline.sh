@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import "./index.css";
 import { ElementPalette } from "./frontend/components/Palette/ElementPalette";
 import { StatuslineCanvas } from "./frontend/components/Canvas/StatuslineCanvas";
@@ -10,6 +10,7 @@ import TopBar from "./frontend/components/Layout/TopBar";
 import { NavBar } from "./frontend/components/Layout/NavBar";
 import { Footer } from "./frontend/components/Layout/Footer";
 import { AppShell } from "./frontend/components/Layout/AppShell";
+import { Seo } from "./frontend/components/Seo";
 import { PrivacyPage } from "./frontend/components/Legal/PrivacyPage";
 import { TermsPage } from "./frontend/components/Legal/TermsPage";
 import InstallDrawer from "./frontend/components/Install/InstallDrawer";
@@ -19,7 +20,6 @@ import { CommunityDetailPage } from "./frontend/components/Community/CommunityDe
 import { useShareState } from "./frontend/hooks/useShareState";
 import { useUndoRedo } from "./frontend/hooks/useUndoRedo";
 import { useDesignStore } from "./frontend/store/designStore";
-import { api } from "./frontend/lib/api";
 import { Route, Router, useParams } from "./frontend/router";
 // T12 owns LandingPage; T9 ships a placeholder so the build is green from day
 // one. The import is static — if T12 has shipped the real file, this resolves
@@ -29,6 +29,8 @@ import { LandingPage } from "./frontend/components/Landing/LandingPage";
 export function App() {
   return (
     <Router>
+      <Seo />
+
       {/* Global chrome: NavBar is sticky and shows on every route. */}
       <NavBar />
 
@@ -75,7 +77,7 @@ function CommunityDetailRoute() {
 function BuilderRoute() {
   useUndoRedo();
   const designName = useDesignStore((s) => s.design.name);
-  const { designId, slug, setDesignId, setSlug } = useShareState();
+  const { slug, setSlug } = useShareState();
 
   const [installOpen, setInstallOpen] = useState(false);
   const [publishOpen, setPublishOpen] = useState(false);
@@ -89,38 +91,14 @@ function BuilderRoute() {
     if (selectedId) setInspectorCollapsed(false);
   }, [selectedId]);
 
-  const onSaveShare = useCallback(
-    (id: string) => {
-      // A fresh save lands a new row server-side, so any cached slug is stale.
-      setDesignId(id);
-      setSlug(null);
-      setInstallOpen(true);
-    },
-    [setDesignId, setSlug],
-  );
-
-  // Used when the user opens Publish before saving — we save then re-open Publish.
-  const onRequestSaveFromPublish = useCallback(async () => {
-    try {
-      const design = useDesignStore.getState().design;
-      const { id } = await api.createDesign(design);
-      setDesignId(id);
-      setSlug(null);
-      setPublishOpen(true);
-    } catch (err) {
-      console.error("[App] save-from-publish failed:", err);
-    }
-  }, [setDesignId, setSlug]);
-
   return (
     <BuilderPage>
       <DndProvider>
         <AppShell
           topBar={
             <TopBar
-              designId={designId}
               slug={slug}
-              onSaveShare={onSaveShare}
+              onOpenInstall={() => setInstallOpen(true)}
               onOpenPublish={() => setPublishOpen(true)}
             />
           }
@@ -142,17 +120,15 @@ function BuilderRoute() {
       </DndProvider>
 
       <InstallDrawer
-        designId={designId}
+        designId={null}
         isOpen={installOpen}
         onClose={() => setInstallOpen(false)}
       />
 
       <PublishDialog
-        designId={designId}
         designName={designName}
         isOpen={publishOpen}
         onClose={() => setPublishOpen(false)}
-        onRequestSave={() => void onRequestSaveFromPublish()}
         onPublished={(s) => setSlug(s)}
       />
     </BuilderPage>

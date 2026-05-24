@@ -1,5 +1,5 @@
 import { memo } from "react";
-import { escapeHtml, parseAnsi, segmentToStyle } from "../../../shared/ansi";
+import { escapeHtml, parseAnsi, segmentToStyle } from "@statusline/shared/ansi";
 
 export interface AnsiToHtmlProps {
   ansi: string;

@@ -1,9 +1,9 @@
-import { wrapWithStyle } from "../shared/ansi";
-import { getField } from "../shared/mockStdin";
-import type { ClaudeStdin } from "../shared/types";
+import { wrapWithStyle } from "../ansi";
+import { getField } from "../mockStdin";
+import type { ClaudeStdin } from "../types";
 import { compileToOps, type RenderOp } from "./ir";
 import { renderBar } from "./progressBar";
-import type { Design } from "../shared/types";
+import type { Design } from "../types";
 
 function basename(p: string): string {
   if (!p) return "";

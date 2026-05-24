@@ -1,12 +1,25 @@
-import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
-import { serve } from "bun";
+import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import { spawnSync } from "node:child_process";
-import { mkdtempSync, readFileSync, statSync } from "node:fs";
+import {
+  mkdirSync,
+  mkdtempSync,
+  readdirSync,
+  readFileSync,
+  rmSync,
+  statSync,
+  writeFileSync,
+} from "node:fs";
 import { tmpdir, platform } from "node:os";
 import { join } from "node:path";
-import { resetDbForTests, setDbPathForTests } from "../src/server/db";
-import { routes } from "../src/server/routes";
-import type { Design } from "../src/shared/types";
+// Import the pure template + compiler pieces directly rather than the handler
+// (`renderInstaller`), because the handler module transitively imports
+// `worker/src/designs.ts`, which references D1 globals from
+// `@cloudflare/workers-types`. The root tsconfig doesn't include those types,
+// so dragging the handler in would surface bogus typecheck errors. The
+// composition below is byte-equivalent to `renderInstaller(req, design, "sh")`.
+import { bashInstallerTemplate } from "../worker/src/install/bashTemplate";
+import { compileToBash } from "@statusline/shared/compiler/bash";
+import type { Design } from "@statusline/shared/types";
 
 const FIXTURE: Design = {
   version: 1,
@@ -26,31 +39,6 @@ const FIXTURE: Design = {
   ],
 };
 
-let server: ReturnType<typeof serve>;
-let base: string;
-
-beforeAll(() => {
-  setDbPathForTests(":memory:");
-  server = serve({
-    port: 0,
-    routes,
-    development: false,
-    fetch() {
-      return new Response("nf", { status: 404 });
-    },
-  });
-  base = `http://localhost:${server.port}`;
-});
-
-afterAll(() => {
-  server.stop(true);
-  resetDbForTests();
-});
-
-beforeEach(() => {
-  setDbPathForTests(":memory:");
-});
-
 const HAS_BASH = (() => {
   try {
     return spawnSync("bash", ["--version"], { encoding: "utf8" }).status === 0;
@@ -59,41 +47,45 @@ const HAS_BASH = (() => {
   }
 })();
 
-async function postDesign(d: Design): Promise<string> {
-  const res = await fetch(`${base}/api/designs`, {
-    method: "POST",
-    headers: { "content-type": "application/json" },
-    body: JSON.stringify(d),
-  });
-  if (!res.ok) throw new Error(`POST failed: ${res.status}`);
-  const { id } = (await res.json()) as { id: string };
-  return id;
+function renderBashInstaller(design: Design): string {
+  // Direct-handler path — no Worker spin-up, no D1. The installer template is
+  // pure (compile + interpolate), so feeding it a Design produces the same
+  // bytes the Worker would serve from /i/:id.sh.
+  return bashInstallerTemplate(compileToBash(design));
 }
+
+let tempHome: string;
+beforeEach(() => {
+  tempHome = mkdtempSync(join(tmpdir(), "sl-home-"));
+});
+afterEach(() => {
+  try {
+    rmSync(tempHome, { recursive: true, force: true });
+  } catch {
+    // best-effort cleanup
+  }
+});
 
 describe("E2E install flow (bash)", () => {
   test.skipIf(!HAS_BASH)("end-to-end: design → install → statusline executes", async () => {
-    const id = await postDesign(FIXTURE);
+    const installer = renderBashInstaller(FIXTURE);
+    expect(installer.length).toBeGreaterThan(100);
+    expect(installer).toContain("#!/usr/bin/env bash");
 
-    // Fetch the install script
-    const installRes = await fetch(`${base}/i/${id}.sh`);
-    expect(installRes.status).toBe(200);
-    const installer = await installRes.text();
-
-    // Prepare a clean temp HOME
-    const tempHome = mkdtempSync(join(tmpdir(), "sl-home-"));
     const installerPath = join(tempHome, "installer.sh");
-    await Bun.write(installerPath, installer);
+    writeFileSync(installerPath, installer);
 
     // Pre-populate settings.json with an existing key to verify preservation
     const claudeDir = join(tempHome, ".claude");
-    await Bun.write(
+    mkdirSync(claudeDir, { recursive: true });
+    writeFileSync(
       join(claudeDir, "settings.json"),
       JSON.stringify({ model: "claude-opus-4-7", existing: "preserved" }),
     );
 
     // Run the installer against the temp HOME
     const result = spawnSync("bash", [installerPath], {
-      env: { ...process.env, CLAUDE_CONFIG_DIR: join(tempHome, ".claude") },
+      env: { ...process.env, CLAUDE_CONFIG_DIR: claudeDir },
       encoding: "utf8",
     });
     if (result.status !== 0 || result.stderr) {
@@ -125,7 +117,6 @@ describe("E2E install flow (bash)", () => {
     expect(settings.statusLine.command).toContain("statusline.sh");
 
     // A timestamped backup of settings exists
-    const { readdirSync } = await import("node:fs");
     const backups = readdirSync(claudeDir).filter((f) =>
       f.startsWith("settings.json.bak."),
     );
@@ -139,7 +130,7 @@ describe("E2E install flow (bash)", () => {
     });
     const slResult = spawnSync("bash", [statuslinePath], {
       input: mockStdin,
-      env: { ...process.env, CLAUDE_CONFIG_DIR: join(tempHome, ".claude") },
+      env: { ...process.env, CLAUDE_CONFIG_DIR: claudeDir },
       encoding: "utf8",
     });
     expect(slResult.status).toBe(0);
@@ -151,22 +142,23 @@ describe("E2E install flow (bash)", () => {
   });
 
   test.skipIf(!HAS_BASH)("installer creates settings.json from nothing if missing", async () => {
-    const id = await postDesign(FIXTURE);
-    const installer = await (await fetch(`${base}/i/${id}.sh`)).text();
+    const installer = renderBashInstaller(FIXTURE);
 
-    const tempHome = mkdtempSync(join(tmpdir(), "sl-home-empty-"));
     const installerPath = join(tempHome, "installer.sh");
-    await Bun.write(installerPath, installer);
+    writeFileSync(installerPath, installer);
 
+    const claudeDir = join(tempHome, ".claude");
     const result = spawnSync("bash", [installerPath], {
-      env: { ...process.env, CLAUDE_CONFIG_DIR: join(tempHome, ".claude") },
+      env: { ...process.env, CLAUDE_CONFIG_DIR: claudeDir },
       encoding: "utf8",
     });
     expect(result.status).toBe(0);
 
     const settings = JSON.parse(
-      readFileSync(join(tempHome, ".claude", "settings.json"), "utf8"),
+      readFileSync(join(claudeDir, "settings.json"), "utf8"),
     );
     expect(settings.statusLine).toBeDefined();
+    expect(settings.statusLine.type).toBe("command");
+    expect(settings.statusLine.command).toContain("statusline.sh");
   });
 });

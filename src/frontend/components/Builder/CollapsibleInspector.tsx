@@ -38,7 +38,10 @@ export function CollapsibleInspector({
 
   return (
     <div className="flex h-full flex-col">
-      <div className="-mt-1 mb-2 flex justify-end">
+      <div className="-mt-1 mb-2 flex items-end justify-between gap-2">
+        <span className="px-1 pb-0.5 text-xs uppercase tracking-wider text-[var(--color-text-muted)] leading-none">
+          Inspector
+        </span>
         <button
           type="button"
           onClick={onToggle}

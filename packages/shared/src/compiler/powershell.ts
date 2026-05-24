@@ -1,5 +1,5 @@
-import { styleToSgr } from "../shared/ansi";
-import type { AnsiStyle, Design } from "../shared/types";
+import { styleToSgr } from "../ansi";
+import type { AnsiStyle, Design } from "../types";
 import { compileToOps, type RenderOp } from "./ir";
 
 const PS_HEADER = `# Statusline script (PowerShell)

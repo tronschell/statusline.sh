@@ -3,13 +3,13 @@ import { spawnSync } from "node:child_process";
 import { mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { compileToOps } from "../src/compiler/ir";
-import { renderToAnsi } from "../src/compiler/interpret";
-import { compileToBash } from "../src/compiler/bash";
-import { compileToPS } from "../src/compiler/powershell";
-import { stripAnsi } from "../src/shared/ansi";
-import { DEFAULT_MOCK_STDIN, MOCK_PRESETS } from "../src/shared/mockStdin";
-import type { Design } from "../src/shared/types";
+import { compileToOps } from "@statusline/shared/compiler/ir";
+import { renderToAnsi } from "@statusline/shared/compiler/interpret";
+import { compileToBash } from "@statusline/shared/compiler/bash";
+import { compileToPS } from "@statusline/shared/compiler/powershell";
+import { stripAnsi } from "@statusline/shared/ansi";
+import { DEFAULT_MOCK_STDIN, MOCK_PRESETS } from "@statusline/shared/mockStdin";
+import type { Design } from "@statusline/shared/types";
 
 const SIMPLE: Design = {
   version: 1,

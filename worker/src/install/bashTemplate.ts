@@ -1,4 +1,4 @@
-import { BRAND_ART_STATUSLINE_SH } from "../../shared/brandArt";
+import { BRAND_ART_STATUSLINE_SH } from "@statusline/shared/brandArt";
 
 export function bashInstallerTemplate(compiledStatuslineScript: string): string {
   const safe = compiledStatuslineScript.replace(/STATUSLINE_EOF/g, "STATUSLINE_EOF_X");

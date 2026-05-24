@@ -45,21 +45,58 @@ Claude Code lets you customise the status line at the bottom of the CLI by point
 
 ## Quickstart
 
+The app is split across two deploy targets: a static React SPA (hosted on Vercel) and a Cloudflare Worker backed by D1 (handles `/api` and `/i/:id` routes). For local development both processes run side-by-side.
+
 ```bash
 bun install
-bun dev          # http://localhost:3001
-bun run seed     # seed the community gallery with a few starter designs
-bun test         # full suite (~1.7s)
+
+# Terminal 1 — Worker on http://localhost:8787 (D1 via miniflare)
+bun --cwd worker dev
+
+# Terminal 2 — SPA build (rebuild on demand)
+bun run build    # → ./dist  (serve with any static file server)
+
+bun test                              # root suite
+bun --cwd worker test                 # worker suite
 ```
 
-Production build:
+> **TODO (dev SPA):** the legacy `bun dev` HMR server was bound to the now-deleted Bun backend. Until a static dev server is wired up, run `bun run build` and serve `./dist` with any static file host (e.g. `bunx serve ./dist`). Hot-module reload is currently unavailable for the SPA.
+
+The SPA reads `NEXT_PUBLIC_WORKER_URL` (build-time) to know where to send API calls and `NEXT_PUBLIC_TURNSTILE_SITE_KEY` for the publish flow. For local dev, set both via a `.env` (e.g. `NEXT_PUBLIC_WORKER_URL=http://localhost:8787`).
+
+> **Requirements:** [Bun](https://bun.sh) ≥ 1.1 (frontend bundler + test runner) and [Wrangler](https://developers.cloudflare.com/workers/wrangler/) (Worker dev + deploy). No Node, npm, or Vite.
+
+### Deploying the Worker
+
+One-time setup:
 
 ```bash
-bun run build    # → ./dist
-bun start        # serves ./dist + API on $PORT (default 3000)
+cd worker
+wrangler login
+wrangler d1 create statusline-community            # copy database_id into wrangler.toml
+wrangler secret put TURNSTILE_SECRET_KEY           # publish protection
 ```
 
-> **Requirements:** [Bun](https://bun.sh) ≥ 1.1. No Node, npm, or Vite — Bun is the runtime, bundler, and test runner.
+Each deploy:
+
+```bash
+cd worker
+wrangler d1 migrations apply statusline-community --remote
+bun run seed > /tmp/seed.sql                       # generates INSERT SQL for starter designs
+wrangler d1 execute statusline-community --remote --file=/tmp/seed.sql
+wrangler deploy
+```
+
+### Deploying the SPA (Vercel)
+
+Set the following env vars in the Vercel project, then `bun run build` produces `./dist` which Vercel serves:
+
+| Variable | Purpose |
+|---|---|
+| `NEXT_PUBLIC_WORKER_URL` | Origin of the deployed Worker, e.g. `https://statusline-api.example.workers.dev` |
+| `NEXT_PUBLIC_TURNSTILE_SITE_KEY` | Public site key for the Cloudflare Turnstile widget shown in the publish dialog |
+
+Both values are inlined into the JS bundle at build time.
 
 ---
 
@@ -77,7 +114,7 @@ bun start        # serves ./dist + API on $PORT (default 3000)
 
 ### One IR, three backends
 
-The compiler is the spine of the project. `src/compiler/ir.ts` lowers a `Design` to a `RenderOp[]`. Three consumers then produce **byte-equivalent output** (after stripping ANSI) for the same input:
+The compiler is the spine of the project. `packages/shared/src/compiler/ir.ts` lowers a `Design` to a `RenderOp[]`. Three consumers then produce **byte-equivalent output** (after stripping ANSI) for the same input:
 
 ```
             ┌─→  compiler/bash.ts          → bash script   (jq → python3 → python fallback)
@@ -107,7 +144,7 @@ End-to-end coverage lives in `test/e2e.test.ts`: it runs the real installer agai
 
 ### Database
 
-`bun:sqlite` singleton at `./data/statusline.db`:
+Community designs live in Cloudflare D1 (a SQLite-compatible serverless DB), accessed exclusively from the Worker. Schema (see `worker/migrations/`):
 
 ```sql
 designs(
@@ -127,26 +164,39 @@ designs(
 ```
 
 Two compound indices back the cursor-paginated community listing:
-`(is_public, published_at DESC)` for Recent · `(is_public, forks DESC, views DESC)` for Popular. Cursors are opaque base64url JSON.
+`(is_public, published_at DESC)` for Recent · `(is_public, forks DESC, views DESC)` for Popular. Cursors are opaque base64url JSON. Drafts are not persisted server-side — they live in `localStorage` via Zustand until the user explicitly publishes.
 
 ### Project layout
 
 ```
-src/
-  index.ts                 Bun HTTP server — mounts API routes + serves the SPA
-  index.html, frontend.tsx, App.tsx, index.css
+packages/shared/src/        Types, schema, ANSI helpers, templates, mock stdin
+                            + compiler/{ir,bash,powershell,interpret}.ts (shared between SPA + Worker)
 
-  shared/                  Types, schema, ANSI helpers, templates, mock stdin
-  compiler/                ir.ts + bash / powershell / interpret backends
-  server/                  db, designs (CRUD + publish/fork), routes, install templates
+src/                        Frontend SPA (deployed to Vercel)
+  index.html, frontend.tsx, App.tsx, index.css
+  shared/animatedMocks.ts   Browser-only animation helpers
   frontend/
-    router.tsx             Hand-rolled router (no react-router)
-    store/                 designStore (Zustand) + uiStore
-    hooks/                 useDnd, useUndoRedo, useOsDetect, useAnimatedMock, useShareState
+    router.tsx              Hand-rolled router (no react-router)
+    store/                  designStore (Zustand) + uiStore
+    hooks/                  useDnd, useUndoRedo, useOsDetect, useAnimatedMock, useShareState
     components/
       Layout/   Landing/   Builder/   Palette/   Canvas/
-      Inspector/   Preview/   Install/   Community/   Modal/
-test/                      8 suites — shared, compiler, store, server, templates, builder-seed, e2e
+      Inspector/   Preview/   Install/   Community/   Modal/   ContextMenu/
+
+worker/                     Cloudflare Worker (deployed via Wrangler)
+  src/
+    index.ts                Worker entrypoint
+    router.ts               Hand-rolled router
+    designs.ts              D1-backed CRUD + publish/fork
+    cors.ts, ratelimit.ts,
+    turnstile.ts, sanitize.ts
+    handlers/installer.ts   /i/:id.{sh,ps1}
+    install/{bashTemplate,psTemplate}.ts
+  migrations/               D1 SQL migrations
+  scripts/seed.ts           Emits INSERT SQL for starter community designs
+  test/                     unstable_dev integration tests (87 cases)
+
+test/                       Root suite — shared, compiler, store, templates, builder-seed, e2e
 ```
 
 ---
@@ -175,7 +225,8 @@ GET    /i/:id.ps1                                    → text/plain           (P
 ## Testing
 
 ```bash
-bun test                              # full suite, ~1.7s
+bun test                              # root suite (frontend + shared + e2e)
+bun --cwd worker test                 # Worker suite (D1 + API + installer)
 bun test test/compiler.test.ts        # IR + 3 backends, including live bash exec
 bun test -t "preserves settings.json" # single test by name pattern
 ```
@@ -186,16 +237,17 @@ bun test -t "preserves settings.json" # single test by name pattern
 | `compiler.test.ts` | IR lowering, three-backend parity, live bash execution |
 | `store.test.ts` | Zustand store, history, uiStore |
 | `templates.test.ts` | All curated templates compile + tween helpers |
-| `server.test.ts` | API routes + community lifecycle |
 | `builder-seed.test.ts` | `?template=` / `?fork=` URL parsing |
-| `e2e.test.ts` | Design → API → installer → on-disk verification |
+| `e2e.test.ts` | Design → Worker API → installer → on-disk verification |
+| `worker/test/*` | API routes, community lifecycle, CORS, Turnstile, rate-limit, installer |
 
 ---
 
 ## Tech stack
 
-**Runtime:** Bun 1.1+ (server, bundler, test runner, native `sqlite`)
-**UI:** React 19 · Tailwind CSS v4 · Zustand · dnd-kit · Phosphor Icons
+**SPA:** Bun 1.1+ (bundler, test runner) · React 19 · Tailwind CSS v4 · Zustand · dnd-kit · Phosphor Icons — deployed to Vercel as a static bundle.
+**Backend:** Cloudflare Workers · D1 (SQLite) · Turnstile (publish protection) · Analytics Engine — deployed via Wrangler.
+**Shared:** `packages/shared` workspace publishes the design schema, compiler IR + three backends, ANSI helpers, mock stdin, and brand art to both targets.
 **No:** Node, npm, Vite, react-router, Express, Zod — by design.
 
 ---
@@ -204,10 +256,10 @@ bun test -t "preserves settings.json" # single test by name pattern
 
 Adding a new element type touches **seven** places. Miss one and the live preview will silently diverge from the installed script:
 
-1. `src/shared/types.ts` — add to the `Element` discriminated union
-2. `src/shared/schema.ts` — runtime validation
-3. `src/compiler/ir.ts` — `elementToOps` switch case
-4. `src/compiler/{bash,powershell,interpret}.ts` — handle any new `RenderOp` kinds
+1. `packages/shared/src/types.ts` — add to the `Element` discriminated union
+2. `packages/shared/src/schema.ts` — runtime validation
+3. `packages/shared/src/compiler/ir.ts` — `elementToOps` switch case
+4. `packages/shared/src/compiler/{bash,powershell,interpret}.ts` — handle any new `RenderOp` kinds
 5. `src/frontend/store/designStore.ts` — `addElement` default factory
 6. `src/frontend/components/Palette/` + `Inspector/fields/<Type>Fields.tsx` — palette entry and editor
 7. `test/compiler.test.ts` — parity coverage

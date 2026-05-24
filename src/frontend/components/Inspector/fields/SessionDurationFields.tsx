@@ -1,4 +1,4 @@
-import type { Element } from "../../../../shared/types";
+import type { Element } from "@statusline/shared/types";
 import { type FieldsProps, labelClass } from "./common";
 
 type SessionDurationElement = Extract<Element, { type: "sessionDuration" }>;

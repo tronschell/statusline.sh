@@ -1,6 +1,6 @@
 import { useMemo } from "react";
-import type { AnsiColor, AnsiStyle } from "../../../shared/types";
-import { ANSI16_HEX, ansi256ToRgb } from "../../../shared/ansi";
+import type { AnsiColor, AnsiStyle } from "@statusline/shared/types";
+import { ANSI16_HEX, ansi256ToRgb } from "@statusline/shared/ansi";
 import ColorPicker from "./ColorPicker";
 import Collapsible from "./Collapsible";
 

@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import { useUiStore } from "../../store/uiStore";
-import { MOCK_PRESETS } from "../../../shared/mockStdin";
+import { MOCK_PRESETS } from "@statusline/shared/mockStdin";
 
 export function MockStdinEditor() {
   const mockStdinJson = useUiStore((s) => s.mockStdinJson);

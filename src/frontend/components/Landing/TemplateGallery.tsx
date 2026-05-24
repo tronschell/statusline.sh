@@ -1,5 +1,5 @@
 import { useEffect, useRef } from "react";
-import { TEMPLATES } from "../../../shared/templates";
+import { TEMPLATES } from "@statusline/shared/templates";
 import { TemplateCard } from "./TemplateCard";
 
 /**

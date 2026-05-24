@@ -26,28 +26,13 @@ describe("parseBuilderQuery", () => {
     });
   });
 
-  test("parses ?fork=<id>", () => {
-    expect(parseBuilderQuery("?fork=abc123")).toEqual({
-      forkId: "abc123",
-    });
-  });
-
-  test("parses both template and fork together", () => {
-    expect(parseBuilderQuery("?template=minimal&fork=abc123")).toEqual({
-      templateId: "minimal",
-      forkId: "abc123",
-    });
-  });
-
   test("ignores unrelated keys but keeps relevant ones", () => {
     expect(parseBuilderQuery("?garbage=1&template=powerline&extra=2")).toEqual({
       templateId: "powerline",
     });
   });
 
-  test("URL-decodes values", () => {
-    expect(parseBuilderQuery("?fork=abc%2Fdef")).toEqual({
-      forkId: "abc/def",
-    });
+  test("ignores ?fork= (no longer parsed)", () => {
+    expect(parseBuilderQuery("?fork=abc123")).toEqual({});
   });
 });

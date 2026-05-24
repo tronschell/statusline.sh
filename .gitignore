@@ -75,3 +75,13 @@ CLAUDE.local.md
 .tmp/
 tmp/
 scratch/
+
+# Cloudflare Worker
+.wrangler/
+worker/.wrangler/
+.dev.vars
+worker/.dev.vars
+
+# Vercel
+.vercel/
+.vercel

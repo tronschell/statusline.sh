@@ -1,4 +1,4 @@
-import type { Element } from "../../../../shared/types";
+import type { Element } from "@statusline/shared/types";
 
 export interface FieldsProps<T extends Element = Element> {
   element: T;

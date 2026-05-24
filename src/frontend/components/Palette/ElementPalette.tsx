@@ -22,7 +22,7 @@ import {
   CalendarBlank,
   type IconProps,
 } from "@phosphor-icons/react";
-import type { ElementType } from "../../../shared/types";
+import type { ElementType } from "@statusline/shared/types";
 import { PaletteItem } from "./PaletteItem";
 
 export interface PaletteEntry {

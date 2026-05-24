@@ -1,14 +1,14 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { CaretRight, Pause, Play } from "@phosphor-icons/react";
-import { renderToAnsi } from "../../../compiler/interpret";
-import { DEFAULT_MOCK_STDIN } from "../../../shared/mockStdin";
-import { getTemplate } from "../../../shared/templates";
+import { renderToAnsi } from "@statusline/shared/compiler/interpret";
+import { DEFAULT_MOCK_STDIN } from "@statusline/shared/mockStdin";
+import { getTemplate } from "@statusline/shared/templates";
 import type {
   AnsiStyle,
   Design,
   Element,
   TemplateMeta,
-} from "../../../shared/types";
+} from "@statusline/shared/types";
 import { goToBuilder } from "../../lib/navigate";
 import { useAnimatedMock } from "../../hooks/useAnimatedMock";
 import { AnsiToHtml } from "../Preview/AnsiToHtml";

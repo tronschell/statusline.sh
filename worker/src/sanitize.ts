@@ -16,7 +16,7 @@
  *    "n!gger" / "n.i.g.g.e.r" / fullwidth-glyph "ｎｉｇｇｅｒ" all hit.
  *
  * SQL injection is NOT handled here — it's already covered upstream by the
- * parameterised query usage in src/server/designs.ts (no SQL is ever built
+ * parameterised query usage in worker/src/designs.ts (no SQL is ever built
  * by string concatenation on these values).
  *
  * Limitations: a static denylist will always have false positives

@@ -1,8 +1,7 @@
 import type { ComponentType } from "react";
 import { useDraggable } from "@dnd-kit/core";
-import { CSS } from "@dnd-kit/utilities";
 import type { IconProps } from "@phosphor-icons/react";
-import type { ElementType } from "../../../shared/types";
+import type { ElementType } from "@statusline/shared/types";
 import { paletteDragId } from "../../hooks/useDnd";
 
 export interface PaletteItemProps {
@@ -13,12 +12,14 @@ export interface PaletteItemProps {
 }
 
 export function PaletteItem({ type, label, description, Icon }: PaletteItemProps) {
-  const { attributes, listeners, setNodeRef, transform, isDragging } =
+  const { attributes, listeners, setNodeRef, isDragging } =
     useDraggable({ id: paletteDragId(type) });
 
+  // DragOverlay in DndProvider renders the cursor-following visual, so the
+  // source button must stay put. Applying CSS.Translate here would translate
+  // the entire pane sideways (the bug fix this avoids).
   const style = {
-    transform: CSS.Translate.toString(transform),
-    opacity: isDragging ? 0.5 : 1,
+    opacity: isDragging ? 0.4 : 1,
   } as const;
 
   return (

@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { validateDesign, safeValidateDesign, ValidationError } from "../src/shared/schema";
+import { validateDesign, safeValidateDesign, ValidationError } from "@statusline/shared/schema";
 import {
   parseAnsi,
   styleToSgr,
@@ -7,9 +7,9 @@ import {
   colorToCss,
   ansi256ToRgb,
   ESC,
-} from "../src/shared/ansi";
-import { DEFAULT_MOCK_STDIN, getField } from "../src/shared/mockStdin";
-import type { Design } from "../src/shared/types";
+} from "@statusline/shared/ansi";
+import { DEFAULT_MOCK_STDIN, getField } from "@statusline/shared/mockStdin";
+import type { Design } from "@statusline/shared/types";
 
 const FIXTURE: Design = {
   version: 1,

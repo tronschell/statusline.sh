@@ -1,4 +1,4 @@
-import { BRAND_ART_STATUSLINE_SH, BRAND_NAME } from "../../../shared/brandArt";
+import { BRAND_ART_STATUSLINE_SH, BRAND_NAME } from "@statusline/shared/brandArt";
 
 export type BrandArtSize = "xs" | "sm" | "md" | "lg";
 

@@ -1,15 +1,14 @@
 import { useEffect, useState } from "react";
 import { Copy, Check } from "@phosphor-icons/react";
 import { api } from "../../lib/api";
+import { TurnstileWidget } from "../../lib/turnstile";
+import { useDesignStore } from "../../store/designStore";
 import Modal from "../Modal/Modal";
 
 export interface PublishDialogProps {
-  designId: string | null;
   designName: string;
   isOpen: boolean;
   onClose(): void;
-  /** Trigger the Save & Share flow when designId is null. */
-  onRequestSave?(): void;
   /** Called after a successful publish with the assigned slug. */
   onPublished?(slug: string): void;
 }
@@ -22,13 +21,12 @@ const inputClass =
 const labelClass = "text-xs uppercase tracking-wider text-[#8A8A86]";
 
 export default function PublishDialog({
-  designId,
   designName,
   isOpen,
   onClose,
-  onRequestSave,
   onPublished,
 }: PublishDialogProps) {
+  const design = useDesignStore((s) => s.design);
   const [name, setName] = useState(designName);
   const [author, setAuthor] = useState("");
   const [description, setDescription] = useState("");
@@ -36,6 +34,7 @@ export default function PublishDialog({
   const [error, setError] = useState<string | null>(null);
   const [publishedSlug, setPublishedSlug] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
+  const [token, setToken] = useState<string | null>(null);
 
   // Reset form state whenever the dialog opens, and pre-fill name.
   useEffect(() => {
@@ -45,19 +44,22 @@ export default function PublishDialog({
       setBusy(false);
       setPublishedSlug(null);
       setCopied(false);
+      setToken(null);
     }
   }, [isOpen, designName]);
 
   async function onPublish() {
-    if (!designId) return;
     if (busy) return;
+    if (!token) return;
     setBusy(true);
     setError(null);
     try {
-      const res = await api.publish(designId, {
+      const res = await api.publish({
+        design,
+        name: name.trim() || designName,
         author_name: author.trim(),
         description: description.trim(),
-        name: name.trim() || designName,
+        turnstile_token: token,
       });
       setPublishedSlug(res.slug);
       onPublished?.(res.slug);
@@ -131,31 +133,6 @@ export default function PublishDialog({
             </button>
           </div>
         </div>
-      ) : designId === null ? (
-        <div className="flex flex-col gap-5">
-          <p className="text-sm text-[#E8E8E6]">
-            Save the design first to publish it.
-          </p>
-          <div className="flex justify-end gap-2">
-            <button
-              type="button"
-              onClick={onClose}
-              className="rounded-[4px] border border-white/[0.06] bg-[#1C1C1F] px-4 py-2 text-xs uppercase tracking-wider text-[#E8E8E6] transition-transform hover:scale-[0.98]"
-            >
-              Cancel
-            </button>
-            <button
-              type="button"
-              onClick={() => {
-                onClose();
-                onRequestSave?.();
-              }}
-              className="rounded-[4px] border border-white/[0.06] bg-[#E8E8E6] px-4 py-2 text-xs uppercase tracking-wider text-[#0E0E10] transition-transform hover:scale-[0.98]"
-            >
-              Save & Share
-            </button>
-          </div>
-        </div>
       ) : (
         <form
           className="flex flex-col gap-5"
@@ -218,6 +195,13 @@ export default function PublishDialog({
             />
           </div>
 
+          <div className="rounded-[4px] border border-yellow-500/20 bg-yellow-500/[0.04] px-3 py-2 text-xs text-yellow-200/90">
+            <strong className="font-medium">Heads up:</strong> Published designs can't be edited or removed.
+            Make sure you're happy with this design before publishing.
+          </div>
+
+          <TurnstileWidget onToken={setToken} onError={() => setToken(null)} />
+
           {error && (
             <p className="text-xs text-[#E8A08A]" role="alert">
               {error}
@@ -234,7 +218,7 @@ export default function PublishDialog({
             </button>
             <button
               type="submit"
-              disabled={busy || !author.trim() || !name.trim()}
+              disabled={busy || !author.trim() || !name.trim() || !token}
               className="rounded-[4px] border border-white/[0.06] bg-[#E8E8E6] px-4 py-2 text-xs uppercase tracking-wider text-[#0E0E10] transition-transform hover:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50"
             >
               {busy ? "Publishing..." : "Publish"}

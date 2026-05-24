@@ -1,4 +1,4 @@
-import { BRAND_ART_LINES } from "../../shared/brandArt";
+import { BRAND_ART_LINES } from "@statusline/shared/brandArt";
 
 export function psInstallerTemplate(compiledStatuslineScript: string): string {
   // The here-string terminator `'@` must NEVER appear in the embedded script.

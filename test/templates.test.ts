@@ -1,10 +1,10 @@
 import { describe, expect, test } from "bun:test";
-import { TEMPLATES, getTemplate } from "../src/shared/templates";
-import { validateDesign } from "../src/shared/schema";
-import { renderToAnsi } from "../src/compiler/interpret";
-import { DEFAULT_MOCK_STDIN } from "../src/shared/mockStdin";
+import { TEMPLATES, getTemplate } from "@statusline/shared/templates";
+import { validateDesign } from "@statusline/shared/schema";
+import { renderToAnsi } from "@statusline/shared/compiler/interpret";
+import { DEFAULT_MOCK_STDIN } from "@statusline/shared/mockStdin";
 import { tweenMock } from "../src/shared/animatedMocks";
-import { stripAnsi } from "../src/shared/ansi";
+import { stripAnsi } from "@statusline/shared/ansi";
 
 describe("templates: catalogue", () => {
   test("ships exactly 8 templates with unique ids", () => {

@@ -7,8 +7,8 @@ import {
   useState,
 } from "react";
 import { Eyedropper } from "@phosphor-icons/react";
-import type { AnsiColor } from "../../../shared/types";
-import { ANSI16_HEX, ansi256ToRgb } from "../../../shared/ansi";
+import type { AnsiColor } from "@statusline/shared/types";
+import { ANSI16_HEX, ansi256ToRgb } from "@statusline/shared/ansi";
 
 export interface ColorPickerProps {
   value: AnsiColor | undefined;

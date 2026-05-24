@@ -1,7 +1,7 @@
 import { create } from "zustand";
 import { persist, createJSONStorage } from "zustand/middleware";
 import type { StateStorage } from "zustand/middleware";
-import { DEFAULT_MOCK_STDIN } from "../../shared/mockStdin";
+import { DEFAULT_MOCK_STDIN } from "@statusline/shared/mockStdin";
 
 function safeStorage(): StateStorage {
   if (typeof localStorage !== "undefined") return localStorage;

@@ -5,7 +5,7 @@ import type {
   ConditionExpr,
   Element,
   ElementType,
-} from "../../../shared/types";
+} from "@statusline/shared/types";
 import { useDesignStore } from "../../store/designStore";
 import StyleEditor from "./StyleEditor";
 import Collapsible from "./Collapsible";

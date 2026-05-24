@@ -1,4 +1,4 @@
-import type { ClaudeStdin } from "./types";
+import type { ClaudeStdin } from "@statusline/shared/types";
 
 /**
  * Pure tween over a baseline ClaudeStdin payload.

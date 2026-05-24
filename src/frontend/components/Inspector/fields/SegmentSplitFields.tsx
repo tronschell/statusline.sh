@@ -4,7 +4,7 @@ import type {
   Element,
   ElementRef,
   SegmentStyle,
-} from "../../../../shared/types";
+} from "@statusline/shared/types";
 import { useDesignStore } from "../../../store/designStore";
 import StyleEditor from "../StyleEditor";
 import {

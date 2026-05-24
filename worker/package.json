@@ -1,0 +1,21 @@
+{
+  "name": "statusline-community-worker",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "wrangler dev --local",
+    "deploy": "wrangler deploy",
+    "test": "bun test",
+    "seed": "bun run scripts/seed.ts"
+  },
+  "dependencies": {
+    "@statusline/shared": "workspace:*",
+    "nanoid": "^5.0.0"
+  },
+  "devDependencies": {
+    "wrangler": "^3.0.0",
+    "@cloudflare/workers-types": "^4.0.0",
+    "typescript": "^5.0.0"
+  }
+}

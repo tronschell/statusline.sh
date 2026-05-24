@@ -1,0 +1,20 @@
+{
+  "name": "@statusline/shared",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./types": "./src/types.ts",
+    "./schema": "./src/schema.ts",
+    "./ansi": "./src/ansi.ts",
+    "./brandArt": "./src/brandArt.ts",
+    "./templates": "./src/templates.ts",
+    "./mockStdin": "./src/mockStdin.ts",
+    "./compiler/ir": "./src/compiler/ir.ts",
+    "./compiler/bash": "./src/compiler/bash.ts",
+    "./compiler/powershell": "./src/compiler/powershell.ts",
+    "./compiler/interpret": "./src/compiler/interpret.ts",
+    "./compiler/progressBar": "./src/compiler/progressBar.ts"
+  }
+}

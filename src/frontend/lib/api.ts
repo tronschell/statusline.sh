@@ -1,24 +1,27 @@
-import type { CommunityCardSummary, Design } from "../../shared/types";
+import type { Design } from "@statusline/shared/types";
+import { WORKER_URL } from "./config";
 
-async function jsonRequest<T>(input: string, init?: RequestInit): Promise<T> {
-  const res = await fetch(input, init);
+async function jsonRequest<T>(path: string, init?: RequestInit): Promise<T> {
+  const url = path.startsWith("http") ? path : `${WORKER_URL}${path}`;
+  const res = await fetch(url, init);
   if (!res.ok) {
     const body = await res.text().catch(() => "");
-    throw new Error(`${res.status} ${res.statusText}: ${body || input}`);
+    throw new Error(`${res.status} ${res.statusText}: ${body || path}`);
   }
   return (await res.json()) as T;
 }
 
-export interface DesignWithMeta extends Design {
-  id?: string;
-  is_public?: boolean;
-  slug?: string | null;
-  author_name?: string | null;
-  description?: string | null;
-  forks?: number;
-  views?: number;
-  forked_from?: string | null;
-  published_at?: number | null;
+export interface CommunityCardSummary {
+  id: string;
+  design: Design;
+  slug: string;
+  name: string;
+  author_name: string;
+  description: string;
+  forked_from: string | null;
+  published_at: number;
+  views: number;
+  forks: number;
 }
 
 export interface CommunityListResponse {
@@ -26,71 +29,55 @@ export interface CommunityListResponse {
   nextCursor: string | null;
 }
 
+export interface PublishBody {
+  design: Design;
+  name: string;
+  author_name: string;
+  description: string;
+  turnstile_token: string;
+}
+
 export const api = {
-  async createDesign(design: Design): Promise<{ id: string }> {
-    return jsonRequest("/api/designs", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(design),
-    });
-  },
-
-  async getDesign(id: string): Promise<DesignWithMeta> {
-    return jsonRequest(`/api/designs/${encodeURIComponent(id)}`);
-  },
-
-  async updateDesign(id: string, design: Design): Promise<{ ok: true }> {
-    return jsonRequest(`/api/designs/${encodeURIComponent(id)}`, {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(design),
-    });
-  },
-
-  async listCommunity(opts: {
-    sort?: "recent" | "popular";
-    limit?: number;
-    cursor?: string | null;
-  } = {}): Promise<CommunityListResponse> {
+  async listCommunity(opts: { sort?: "recent" | "popular"; limit?: number; cursor?: string | null } = {}): Promise<CommunityListResponse> {
     const sp = new URLSearchParams();
     if (opts.sort) sp.set("sort", opts.sort);
     if (opts.limit) sp.set("limit", String(opts.limit));
     if (opts.cursor) sp.set("cursor", opts.cursor);
     const qs = sp.toString();
-    return jsonRequest(`/api/community${qs ? `?${qs}` : ""}`);
+    return jsonRequest(`/community${qs ? `?${qs}` : ""}`);
   },
 
   async getCommunityBySlug(slug: string): Promise<CommunityCardSummary> {
-    return jsonRequest(`/api/community/${encodeURIComponent(slug)}`);
+    return jsonRequest(`/community/${encodeURIComponent(slug)}`);
   },
 
-  async publish(
-    id: string,
-    body: { author_name: string; description: string; name: string },
-  ): Promise<{ ok: true; slug: string }> {
-    return jsonRequest(`/api/designs/${encodeURIComponent(id)}/publish`, {
+  async publish(body: PublishBody): Promise<{ id: string; slug: string }> {
+    return jsonRequest(`/designs`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(body),
     });
   },
 
-  async unpublish(id: string): Promise<{ ok: true }> {
-    return jsonRequest(`/api/designs/${encodeURIComponent(id)}/unpublish`, {
+  async forkBump(slug: string, turnstileToken: string): Promise<{ ok: true }> {
+    return jsonRequest(`/community/${encodeURIComponent(slug)}/fork`, {
       method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ turnstile_token: turnstileToken }),
     });
   },
 
-  async fork(id: string): Promise<{ id: string }> {
-    return jsonRequest(`/api/designs/${encodeURIComponent(id)}/fork`, {
+  async installAnonymous(design: Design, turnstileToken: string): Promise<{ id: string }> {
+    return jsonRequest(`/install`, {
       method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ design, turnstile_token: turnstileToken }),
     });
   },
 
   installUrl(id: string, os: "mac" | "linux" | "windows", selfHeal: boolean): string {
     const ext = os === "windows" ? "ps1" : "sh";
-    const origin = typeof window !== "undefined" ? window.location.origin : "";
-    return `${origin}/i/${id}.${ext}${selfHeal ? "?selfheal=1" : ""}`;
+    return `${WORKER_URL}/i/${id}.${ext}${selfHeal ? "?selfheal=1" : ""}`;
   },
 
   oneLiner(id: string, os: "mac" | "linux" | "windows", selfHeal: boolean): string {

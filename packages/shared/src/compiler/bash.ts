@@ -1,5 +1,5 @@
-import { styleToSgr, SGR_RESET } from "../shared/ansi";
-import type { AnsiStyle, Design } from "../shared/types";
+import { styleToSgr, SGR_RESET } from "../ansi";
+import type { AnsiStyle, Design } from "../types";
 import { compileToOps, type RenderOp } from "./ir";
 
 const BASH_HEADER = `#!/usr/bin/env bash

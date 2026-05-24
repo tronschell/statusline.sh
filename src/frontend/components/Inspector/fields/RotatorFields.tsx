@@ -1,5 +1,5 @@
 import { Plus, Trash } from "@phosphor-icons/react";
-import type { Element } from "../../../../shared/types";
+import type { Element } from "@statusline/shared/types";
 import {
   type FieldsProps,
   captionClass,

@@ -1,5 +1,5 @@
 import { CaretRight } from "@phosphor-icons/react";
-import type { TemplateMeta } from "../../../shared/types";
+import type { TemplateMeta } from "@statusline/shared/types";
 import { Link } from "../../router";
 import { StaticPreview } from "../Preview/StaticPreview";
 

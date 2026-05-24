@@ -7,14 +7,12 @@ import {
   Globe,
 } from "@phosphor-icons/react";
 import { useDesignStore } from "../../store/designStore";
-import { api } from "../../lib/api";
-import { safeValidateDesign } from "../../../shared/schema";
+import { safeValidateDesign } from "@statusline/shared/schema";
 import { ClaudeCodeLogo } from "../ClaudeCodeLogo";
 
 export interface TopBarProps {
-  designId: string | null;
   slug: string | null;
-  onSaveShare(id: string): void;
+  onOpenInstall(): void;
   onOpenPublish(): void;
 }
 
@@ -34,9 +32,8 @@ function sanitizeFileName(name: string): string {
 }
 
 export default function TopBar({
-  designId,
   slug,
-  onSaveShare,
+  onOpenInstall,
   onOpenPublish,
 }: TopBarProps) {
   const design = useDesignStore((s) => s.design);
@@ -48,23 +45,7 @@ export default function TopBar({
   const future = useDesignStore((s) => s.future);
 
   const fileInputRef = useRef<HTMLInputElement | null>(null);
-  const [saving, setSaving] = useState(false);
   const [importError, setImportError] = useState<string | null>(null);
-  const [saveError, setSaveError] = useState<string | null>(null);
-
-  async function onSave() {
-    if (saving) return;
-    setSaving(true);
-    setSaveError(null);
-    try {
-      const { id } = await api.createDesign(design);
-      onSaveShare(id);
-    } catch (e) {
-      setSaveError((e as Error).message || "Failed to save");
-    } finally {
-      setSaving(false);
-    }
-  }
 
   function onExport() {
     const blob = new Blob([JSON.stringify(design, null, 2)], {
@@ -104,11 +85,7 @@ export default function TopBar({
     }
   }
 
-  const status: string = designId
-    ? slug
-      ? `Published as ${shortIdLabel(designId)}`
-      : `Saved as ${shortIdLabel(designId)}`
-    : "Unsaved";
+  const status: string = slug ? `Published as ${shortIdLabel(slug)}` : "Auto-saved";
 
   return (
     <div className="sticky top-0 z-30 -mx-8 mb-6 border-b border-white/[0.06] bg-[#0E0E10]/85 px-8 py-3 backdrop-blur-sm">
@@ -178,20 +155,15 @@ export default function TopBar({
 
           <button
             type="button"
-            onClick={() => void onSave()}
-            disabled={saving}
+            onClick={onOpenInstall}
             className={btnPrimary}
             aria-label="Install in Claude Code"
           >
-            {saving ? (
-              "Saving..."
-            ) : (
-              <>
-                Install in
-                <ClaudeCodeLogo size={12} className="ml-0.5" />
-                Claude Code
-              </>
-            )}
+            <>
+              Install in
+              <ClaudeCodeLogo size={12} className="ml-0.5" />
+              Claude Code
+            </>
           </button>
 
           <button
@@ -205,9 +177,9 @@ export default function TopBar({
           </button>
         </div>
       </div>
-      {(importError || saveError) && (
+      {importError && (
         <p className="mt-2 text-xs text-[#E8A08A]" role="alert">
-          {importError || saveError}
+          {importError}
         </p>
       )}
     </div>

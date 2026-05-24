@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import type { CommunityCardSummary } from "../../../shared/types";
+import type { CommunityCardSummary } from "@statusline/shared/types";
 import { api } from "../../lib/api";
 import { CommunityDesignCard } from "./CommunityDesignCard";
 

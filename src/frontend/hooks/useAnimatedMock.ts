@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { tweenMock } from "../../shared/animatedMocks";
-import type { ClaudeStdin } from "../../shared/types";
+import type { ClaudeStdin } from "@statusline/shared/types";
 
 export interface UseAnimatedMockOptions {
   baseline: ClaudeStdin;

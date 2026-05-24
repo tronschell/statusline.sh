@@ -7,7 +7,7 @@ import type {
   Design,
   Element,
   ElementType,
-} from "../../shared/types";
+} from "@statusline/shared/types";
 
 function safeStorage(): StateStorage {
   if (typeof localStorage !== "undefined") return localStorage;

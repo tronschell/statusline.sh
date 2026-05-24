@@ -2,8 +2,8 @@
  * Single source of truth for the "statusline.sh" brand ASCII art.
  *
  * Used by:
- *   - server/install/bashTemplate.ts (success/warn/error banner)
- *   - server/install/psTemplate.ts   (same, three colored states)
+ *   - worker/src/install/bashTemplate.ts (success/warn/error banner)
+ *   - worker/src/install/psTemplate.ts   (same, three colored states)
  *   - frontend/components/Brand/BrandArt.tsx (rendered in NavBar, hero, modals)
  *
  * Figlet "Standard" font, 5 rows, ~63 cols wide.

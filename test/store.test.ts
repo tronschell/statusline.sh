@@ -1,7 +1,7 @@
 import { describe, expect, test, beforeEach } from "bun:test";
 import { useDesignStore } from "../src/frontend/store/designStore";
 import { useUiStore } from "../src/frontend/store/uiStore";
-import type { Design, Element } from "../src/shared/types";
+import type { Design, Element } from "@statusline/shared/types";
 
 function resetStore() {
   useDesignStore.getState().reset();

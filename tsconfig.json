@@ -23,7 +23,9 @@
     "noImplicitOverride": true,
 
     "paths": {
-      "@/*": ["./src/*"]
+      "@/*": ["./src/*"],
+      "@statusline/shared": ["./packages/shared/src/index.ts"],
+      "@statusline/shared/*": ["./packages/shared/src/*.ts", "./packages/shared/src/*"]
     },
 
     // Some stricter flags (disabled by default)
@@ -32,5 +34,5 @@
     "noPropertyAccessFromIndexSignature": false
   },
 
-  "exclude": ["dist", "node_modules"]
+  "exclude": ["dist", "node_modules", "worker", "packages"]
 }

@@ -1,4 +1,4 @@
-import type { AnsiStyle, Element } from "../../../../shared/types";
+import type { AnsiStyle, Element } from "@statusline/shared/types";
 import StyleEditor from "../StyleEditor";
 import { type FieldsProps, inputClass, labelClass } from "./common";
 
