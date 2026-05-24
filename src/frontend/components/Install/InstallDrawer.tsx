@@ -5,6 +5,7 @@ import { useOsDetect, type DetectedOs } from "../../hooks/useOsDetect";
 import { useUiStore } from "../../store/uiStore";
 import Modal from "../Modal/Modal";
 import { BrandArt } from "../Brand/BrandArt";
+import { ClaudeCodeLogo } from "../ClaudeCodeLogo";
 import macosIcon from "./icons/macos.webp";
 import linuxIcon from "./icons/linux.webp";
 import windowsIcon from "./icons/windows.webp";
@@ -201,7 +202,11 @@ export default function InstallDrawer({
               </li>
               <li className="flex gap-2">
                 <span className="text-[#8A8A86]">·</span>
-                <span>Restart Claude Code to see it.</span>
+                <span className="inline-flex flex-wrap items-center gap-x-1.5">
+                  Restart
+                  <ClaudeCodeLogo size={12} title="Claude Code" />
+                  Claude Code to see it.
+                </span>
               </li>
             </ul>
           </section>
