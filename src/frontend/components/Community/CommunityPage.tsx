@@ -5,21 +5,6 @@ import { CommunityDesignCard } from "./CommunityDesignCard";
 
 type Sort = "recent" | "popular";
 
-/**
- * Maps each card index to a 12-col bento span. Larger feature tiles every
- * fourth slot, smaller tiles in between, so the gallery reads asymmetrically.
- */
-function spanFor(index: number): string {
-  const m = index % 6;
-  // Mix of 6/3/3 + 4/4/4 + 6/3/3 ... rows
-  if (m === 0) return "col-span-12 md:col-span-6";
-  if (m === 1) return "col-span-12 md:col-span-3";
-  if (m === 2) return "col-span-12 md:col-span-3";
-  if (m === 3) return "col-span-12 md:col-span-4";
-  if (m === 4) return "col-span-12 md:col-span-4";
-  return "col-span-12 md:col-span-4";
-}
-
 export function CommunityPage() {
   const [sort, setSort] = useState<Sort>("recent");
   const [items, setItems] = useState<CommunityCardSummary[]>([]);
@@ -70,52 +55,62 @@ export function CommunityPage() {
 
   return (
     <div className="min-h-screen w-full bg-[#0E0E10] text-[#E8E8E6]">
-      <div className="max-w-[1400px] mx-auto px-8 py-10">
-        <header className="mb-10 flex flex-col gap-4">
-          <div className="flex items-baseline gap-6 flex-wrap">
-            <h1
-              className="text-5xl font-light tracking-tight"
-              style={{ fontFamily: "ui-serif, Georgia, 'Times New Roman', serif" }}
-            >
-              Community
-            </h1>
-            <div className="text-[13px] text-[#8A8A86]">
-              {loading ? "Loading…" : `${items.length} design${items.length === 1 ? "" : "s"}`}
+      <div className="mx-auto max-w-[1400px] px-8 pt-16 pb-24 md:pt-24">
+        <header className="mb-12 flex flex-col gap-6 md:mb-16 md:flex-row md:items-end md:justify-between">
+          <div>
+            <div className="text-[12px] uppercase tracking-[0.16em] text-[#8A8A86]">
+              Browse
             </div>
+            <h1
+              className="mt-3 font-serif text-5xl md:text-6xl leading-[1.05] tracking-tight"
+              style={{
+                fontFamily:
+                  "var(--font-serif, 'Instrument Serif', Georgia, serif)",
+              }}
+            >
+              Community.
+            </h1>
+            <p className="mt-4 max-w-[52ch] text-[15px] leading-relaxed text-[#8A8A86]">
+              Designs published by the community. Open any of them to see the
+              live preview, or fork into your own builder.
+            </p>
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex items-center justify-between gap-6 md:flex-col md:items-end">
+            <div className="text-[13px] text-[#8A8A86]">
+              {loading
+                ? "Loading…"
+                : `${items.length} design${items.length === 1 ? "" : "s"}`}
+            </div>
             <SortToggle value={sort} onChange={setSort} />
           </div>
         </header>
 
         {error ? (
-          <div className="border border-[#E89B9E]/30 bg-[#3A1F21]/30 text-[#E89B9E] rounded-[10px] px-4 py-3 mb-6 text-[13px]">
+          <div className="mb-8 rounded-[10px] border border-[#E89B9E]/30 bg-[#3A1F21]/30 px-4 py-3 text-[13px] text-[#E89B9E]">
             {error}
           </div>
         ) : null}
 
         {!loading && items.length === 0 ? (
-          <div className="border border-white/[0.06] rounded-[10px] py-24 text-center text-[#8A8A86]">
+          <div className="rounded-[10px] border border-white/[0.06] py-24 text-center text-[#8A8A86]">
             No designs yet. Be the first to publish.
           </div>
         ) : (
-          <div className="grid grid-cols-12 gap-6">
-            {items.map((item, i) => (
-              <div key={item.id} className={spanFor(i)}>
-                <CommunityDesignCard summary={item} />
-              </div>
+          <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
+            {items.map((item) => (
+              <CommunityDesignCard key={item.id} summary={item} />
             ))}
           </div>
         )}
 
         {nextCursor ? (
-          <div className="mt-10 flex justify-center">
+          <div className="mt-12 flex justify-center">
             <button
               type="button"
               onClick={loadMore}
               disabled={loadingMore}
-              className="px-4 py-2 rounded-[6px] text-[13px] border border-white/[0.08] hover:border-white/[0.18] hover:bg-white/[0.02] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              className="rounded-[6px] border border-white/[0.08] px-4 py-2 text-[13px] text-[#E8E8E6] transition-colors hover:border-white/[0.18] hover:bg-white/[0.02] disabled:cursor-not-allowed disabled:opacity-50"
             >
               {loadingMore ? "Loading…" : "Load more"}
             </button>
@@ -132,28 +127,40 @@ interface SortToggleProps {
 }
 
 function SortToggle({ value, onChange }: SortToggleProps) {
-  const base =
-    "px-3 py-1.5 rounded-[6px] text-[13px] border transition-colors";
-  const on = "border-white/[0.18] bg-white/[0.04] text-[#E8E8E6]";
-  const off =
-    "border-white/[0.06] text-[#8A8A86] hover:text-[#E8E8E6] hover:border-white/[0.12]";
   return (
-    <div className="flex items-center gap-2">
-      <button
-        type="button"
-        onClick={() => onChange("recent")}
-        className={`${base} ${value === "recent" ? on : off}`}
-      >
+    <div className="inline-flex items-center rounded-[8px] border border-white/[0.06] bg-[#161618] p-1">
+      <SortButton active={value === "recent"} onClick={() => onChange("recent")}>
         Recent
-      </button>
-      <button
-        type="button"
-        onClick={() => onChange("popular")}
-        className={`${base} ${value === "popular" ? on : off}`}
-      >
+      </SortButton>
+      <SortButton active={value === "popular"} onClick={() => onChange("popular")}>
         Popular
-      </button>
+      </SortButton>
     </div>
+  );
+}
+
+function SortButton({
+  active,
+  onClick,
+  children,
+}: {
+  active: boolean;
+  onClick: () => void;
+  children: React.ReactNode;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={
+        "rounded-[6px] px-3 py-1.5 text-[12px] uppercase tracking-[0.1em] transition-colors " +
+        (active
+          ? "bg-[#1C1C1F] text-[#E8E8E6]"
+          : "text-[#8A8A86] hover:text-[#E8E8E6]")
+      }
+    >
+      {children}
+    </button>
   );
 }
 
