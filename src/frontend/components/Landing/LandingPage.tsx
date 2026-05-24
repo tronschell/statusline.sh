@@ -1,25 +1,20 @@
-import { CaretRight, GithubLogoIcon, GitForkIcon } from "@phosphor-icons/react";
+import { CaretRight } from "@phosphor-icons/react";
 import { Link } from "../../router";
 import { HeroStatusline } from "./HeroStatusline";
 import { TemplateGallery } from "./TemplateGallery";
 import { ClaudeCodeLogo } from "../ClaudeCodeLogo";
 import { BrandArt } from "../Brand/BrandArt";
 
-const GITHUB_URL = "https://github.com/tronschell/statusline.sh";
-
 /**
  * Landing page for the Claude Code Statusline Builder.
  *
  * Sections (top → bottom):
  *  1. Hero: editorial H1 + sub-headline + <HeroStatusline /> marquee.
- *  2. "How it works" 3-column step list.
- *  3. Templates: H2 + <TemplateGallery />.
- *  4. Footer CTA: large dark surface with "Build yours." headline and a
- *     primary button to /builder.
+ *  2. Templates: H2 + <TemplateGallery />.
+ *  3. "How it works" 3-column step list.
  *
- * NOTE for T9 / future readers: this component is exported so the root router
- * (in src/App.tsx) can mount it at "/". If "/" is still routed to the builder
- * by the time this lands, swap that route to render <LandingPage /> instead.
+ * The open-source / GitHub callout and final CTA both live in the global
+ * <Footer />, so they're intentionally absent here.
  */
 export function LandingPage() {
   return (
@@ -70,6 +65,25 @@ export function LandingPage() {
           </div>
         </section>
 
+        {/* Templates */}
+        <section className="py-24 md:py-32 border-t border-white/[0.06]">
+          <div className="flex items-end justify-between gap-6 mb-12">
+            <h2
+              className="font-serif text-3xl md:text-4xl text-[#E8E8E6] tracking-tight"
+              style={{
+                fontFamily:
+                  "var(--font-serif, 'Instrument Serif', Georgia, serif)",
+              }}
+            >
+              Templates.
+            </h2>
+            <p className="text-[14px] text-[#8A8A86] max-w-[40ch] text-right">
+              Eight starting points. Fork any of them in the builder.
+            </p>
+          </div>
+          <TemplateGallery />
+        </section>
+
         {/* How it works */}
         <section className="py-24 md:py-32 border-t border-white/[0.06]">
           <h2
@@ -97,114 +111,6 @@ export function LandingPage() {
               title="Install"
               body="Paste one command into your terminal. Works on macOS, Linux, and Windows."
             />
-          </div>
-        </section>
-
-        {/* Proud to be open source */}
-        <section className="py-24 md:py-32 border-t border-white/[0.06]">
-          <div className="relative overflow-hidden rounded-[14px] border border-white/[0.06] bg-[#161618] px-8 md:px-16 py-16 md:py-20">
-            <div className="grid grid-cols-1 gap-10 md:grid-cols-[1fr_auto] md:items-center">
-              <div>
-                <div className="inline-flex items-center gap-2 rounded-full border border-white/[0.06] bg-[#0E0E10] px-3 py-1.5 text-[11px] uppercase tracking-[0.14em] text-[#8A8A86]">
-                  <GithubLogoIcon size={12} weight="fill" />
-                  Open source · MIT
-                </div>
-                <h2
-                  className="mt-5 font-serif text-3xl md:text-5xl text-[#E8E8E6] tracking-tight leading-[1.05] max-w-[18ch]"
-                  style={{
-                    fontFamily:
-                      "var(--font-serif, 'Instrument Serif', Georgia, serif)",
-                  }}
-                >
-                  Proud to be open source.
-                </h2>
-                <p className="mt-5 max-w-[58ch] text-[16px] leading-relaxed text-[#8A8A86]">
-                  Every line of the builder, the compiler, and the installer
-                  lives in a public repository. Read it, fork it, file an
-                  issue, send a PR.
-                </p>
-                <div className="mt-8 flex flex-wrap items-center gap-3">
-                  <a
-                    href={GITHUB_URL}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="inline-flex items-center gap-2 rounded-[4px] bg-[#E8E8E6] px-5 py-3 text-[14px] font-medium text-[#0E0E10] no-underline transition-transform duration-150 ease-out hover:scale-[0.98] active:scale-[0.96]"
-                  >
-                    <GithubLogoIcon size={16} weight="fill" />
-                    View on GitHub
-                  </a>
-                  <a
-                    href={`${GITHUB_URL}/fork`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="inline-flex items-center gap-2 rounded-[4px] border border-white/[0.06] bg-[#1C1C1F] px-5 py-3 text-[14px] text-[#E8E8E6] no-underline transition-colors hover:border-white/[0.12] hover:bg-[#222226]"
-                  >
-                    <GitForkIcon size={14} weight="bold" />
-                    Fork the repo
-                  </a>
-                </div>
-              </div>
-
-              <a
-                href={GITHUB_URL}
-                target="_blank"
-                rel="noopener noreferrer"
-                aria-label="statusline.sh on GitHub"
-                className="group flex h-32 w-32 items-center justify-center rounded-[18px] border border-white/[0.06] bg-[#0E0E10] text-[#E8E8E6] no-underline transition-all hover:scale-[1.02] hover:border-white/[0.16] md:h-40 md:w-40"
-              >
-                <GithubLogoIcon
-                  size={88}
-                  weight="fill"
-                  className="opacity-90 transition-opacity group-hover:opacity-100"
-                />
-              </a>
-            </div>
-          </div>
-        </section>
-
-        {/* Templates */}
-        <section className="py-24 md:py-32 border-t border-white/[0.06]">
-          <div className="flex items-end justify-between gap-6 mb-12">
-            <h2
-              className="font-serif text-3xl md:text-4xl text-[#E8E8E6] tracking-tight"
-              style={{
-                fontFamily:
-                  "var(--font-serif, 'Instrument Serif', Georgia, serif)",
-              }}
-            >
-              Templates.
-            </h2>
-            <p className="text-[14px] text-[#8A8A86] max-w-[40ch] text-right">
-              Eight starting points. Fork any of them in the builder.
-            </p>
-          </div>
-          <TemplateGallery />
-        </section>
-
-        {/* Footer CTA */}
-        <section className="py-24 md:py-32">
-          <div className="rounded-[14px] border border-white/[0.06] bg-[#161618] px-8 md:px-16 py-20 md:py-24 text-center">
-            <h2
-              className="font-serif text-4xl md:text-5xl text-[#E8E8E6] tracking-tight"
-              style={{
-                fontFamily:
-                  "var(--font-serif, 'Instrument Serif', Georgia, serif)",
-              }}
-            >
-              Build yours.
-            </h2>
-            <p className="mt-5 text-[16px] text-[#8A8A86] max-w-[44ch] mx-auto leading-relaxed">
-              From a blank canvas, or by forking one of the templates above.
-            </p>
-            <div className="mt-10 flex justify-center">
-              <Link
-                href="/builder"
-                className="inline-flex items-center gap-1.5 rounded-[4px] bg-[#E8E8E6] px-6 py-3.5 text-[15px] font-medium text-[#0E0E10] no-underline transition-transform duration-150 ease-out hover:scale-[0.98] active:scale-[0.96]"
-              >
-                Start from scratch
-                <CaretRight size={14} weight="bold" />
-              </Link>
-            </div>
           </div>
         </section>
       </main>
