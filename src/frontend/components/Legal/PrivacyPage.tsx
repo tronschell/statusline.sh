@@ -2,9 +2,10 @@ import { LegalLayout, LegalSection } from "./LegalLayout";
 
 /**
  * /privacy — tailored to what the app actually collects and stores. There is
- * no auth, no analytics, no cookies. Designs are stored server-side only when
- * the user explicitly saves or publishes; otherwise everything lives in the
- * browser via localStorage / sessionStorage.
+ * no auth and no tracking cookies. Aggregate page views are measured via
+ * Google Analytics. Designs are stored server-side only when the user
+ * explicitly saves or publishes; otherwise everything lives in the browser
+ * via localStorage / sessionStorage.
  */
 export function PrivacyPage() {
   return (
@@ -15,10 +16,12 @@ export function PrivacyPage() {
     >
       <LegalSection title="The short version">
         <p>
-          We don't ask for an account. We don't run analytics. We don't set
-          tracking cookies. The only data tied to you on our servers is what
-          you choose to upload — the designs you save and the optional name
-          and description you attach when publishing to the community.
+          We don't ask for an account. We don't set tracking cookies. We use
+          Google Analytics to measure aggregate page views so we can see what
+          parts of the site people use. The only data tied to you on our
+          servers is what you choose to upload — the designs you save and the
+          optional name and description you attach when publishing to the
+          community.
         </p>
       </LegalSection>
 
@@ -64,12 +67,26 @@ export function PrivacyPage() {
         </p>
       </LegalSection>
 
-      <LegalSection title="Cookies and tracking">
+      <LegalSection title="Cookies and analytics">
         <p>
-          We don't set tracking cookies. We don't run Google Analytics,
-          Plausible, PostHog, Segment, or any other third-party analytics.
-          We don't load third-party advertising. The site uses Google Fonts
-          via CDN — that's the only third-party request the page makes.
+          We run Google Analytics (GA4, measurement ID{" "}
+          <code>G-JDKLE4R2EV</code>) to count page views and understand which
+          parts of the site are used. Google may set its own cookies and
+          process your IP address as described in the{" "}
+          <a
+            href="https://policies.google.com/privacy"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-[#8FB8DA] underline-offset-2 hover:underline"
+          >
+            Google privacy policy
+          </a>
+          . We don't run any other third-party analytics (Plausible, PostHog,
+          Segment, etc.) and we don't load third-party advertising. The site
+          also uses Google Fonts via CDN. To opt out of analytics, install
+          any standard tracker blocker (uBlock Origin, Privacy Badger, etc.)
+          or enable your browser's "Do Not Track" / "Global Privacy Control"
+          setting.
         </p>
       </LegalSection>
 

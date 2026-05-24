@@ -55,6 +55,15 @@ export function Router({ children }: RouterProps) {
     return () => window.removeEventListener("popstate", h);
   }, []);
 
+  useEffect(() => {
+    const w = window as unknown as { gtag?: (...args: unknown[]) => void };
+    w.gtag?.("event", "page_view", {
+      page_path: path,
+      page_location: window.location.href,
+      page_title: document.title,
+    });
+  }, [path]);
+
   const value = useMemo<RouterContextValue>(() => {
     const { pathname } = splitPath(path);
     return { path, pathname };

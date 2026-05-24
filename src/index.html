@@ -36,6 +36,14 @@
     <link rel="icon" type="image/svg+xml" href="./logo.svg" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <!-- Google tag (gtag.js) — manual page_view; the Router fires it on every SPA nav. -->
+    <script async src="https://www.googletagmanager.com/gtag/js?id=G-JDKLE4R2EV"></script>
+    <script>
+      window.dataLayer = window.dataLayer || [];
+      function gtag(){dataLayer.push(arguments);}
+      gtag('js', new Date());
+      gtag('config', 'G-JDKLE4R2EV', { send_page_view: false });
+    </script>
     <script>
       // Dev-only safety net: the production build inlines every
       // `process.env.NEXT_PUBLIC_*` reference as a string literal via Bun.build's
