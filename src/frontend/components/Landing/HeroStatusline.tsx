@@ -254,19 +254,22 @@ export function HeroStatusline() {
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
     >
-      <TerminalFrame className="w-full">
-        <div className="relative h-[1.5em] overflow-hidden whitespace-nowrap">
-          {slotRenders.map(({ id, sig, ansi }) => (
-            <span
-              key={`${id}-${sig}-${shuffleNonce}`}
-              className="slot-swipe inline-block align-baseline"
-              style={{ animationDuration: `${MORPH_FADE_MS}ms` }}
-            >
-              <AnsiToHtml ansi={ansi} />
-            </span>
-          ))}
-        </div>
-      </TerminalFrame>
+      <div className="relative isolate">
+        <HeroGlow />
+        <TerminalFrame className="w-full">
+          <div className="relative h-[1.5em] overflow-hidden whitespace-nowrap">
+            {slotRenders.map(({ id, sig, ansi }) => (
+              <span
+                key={`${id}-${sig}-${shuffleNonce}`}
+                className="slot-swipe inline-block align-baseline"
+                style={{ animationDuration: `${MORPH_FADE_MS}ms` }}
+              >
+                <AnsiToHtml ansi={ansi} />
+              </span>
+            ))}
+          </div>
+        </TerminalFrame>
+      </div>
 
       <div className="mt-4 flex items-center justify-between gap-4">
         <div className="flex items-center gap-3 text-[12px] text-[#8A8A86]">
@@ -329,6 +332,28 @@ export function HeroStatusline() {
           will-change: transform, opacity, filter;
         }
       `}</style>
+    </div>
+  );
+}
+
+/**
+ * Soft animated glow that sits behind the terminal frame. Four colored
+ * blobs sweep slowly from left to right on independent timelines; each one
+ * also morphs its border-radius to drift between organic shapes. The
+ * radial mask + SVG fractal-noise overlay together feather the edges and
+ * dither away dark-mode gradient banding.
+ */
+function HeroGlow() {
+  return (
+    <div
+      aria-hidden
+      className="hero-glow absolute -inset-x-24 -inset-y-20 -z-10 pointer-events-none overflow-hidden"
+    >
+      <span className="hero-glow-blob hero-glow-blob--a" />
+      <span className="hero-glow-blob hero-glow-blob--b" />
+      <span className="hero-glow-blob hero-glow-blob--c" />
+      <span className="hero-glow-blob hero-glow-blob--d" />
+      <span className="hero-glow-noise" />
     </div>
   );
 }

@@ -121,6 +121,148 @@
     opacity: 1;
     transform: translateY(0);
   }
+
+  /* Blinking period for the typewriter headline. */
+  .period-blink {
+    animation: period-blink 1s step-end infinite;
+  }
+
+  /*
+   * Soft animated glow that sits behind the hero terminal. Four colored
+   * blobs drift on independent timelines, each heavily blurred. The
+   * .hero-glow-noise overlay is an SVG fractalNoise blended with overlay
+   * mode — it adds high-frequency dithering that breaks up the banding
+   * 8-bit dark-mode radial gradients tend to show.
+   *
+   * The radial mask on .hero-glow feathers the whole layer (blobs + noise)
+   * smoothly to transparent at the edges — no hard rectangular boundary.
+   */
+  .hero-glow {
+    /*
+     * Ellipse 50%/50% sizes the gradient so its boundary touches all four
+     * edge mid-points of the box, meaning the edges are at gradient 100%
+     * (== transparent). The black-to-transparent fade lands well before
+     * the edges so the noise+blobs dissolve smoothly into the canvas.
+     */
+    -webkit-mask-image: radial-gradient(ellipse 50% 50% at 50% 50%, black 15%, transparent 78%);
+    mask-image: radial-gradient(ellipse 50% 50% at 50% 50%, black 15%, transparent 78%);
+  }
+  /*
+   * Each blob sweeps left → right on its own clock (linear) while a
+   * second animation morphs its border-radius between organic shapes
+   * (ease-in-out). The two animations don't share properties, so they
+   * compose: a slowly drifting amorphous blob of color.
+   */
+  /*
+   * Each blob has its own aspect ratio and its own morph cycle. The
+   * border-radius keyframes use very asymmetric 8-value forms (low/high
+   * pairs like 15%/85%) across 5 stops, so each corner pinches and bulges
+   * independently — the blob never settles into a clean ellipse. Heavy
+   * blur softens the corner transitions back into something organic.
+   */
+  .hero-glow-blob {
+    position: absolute;
+    left: 0;
+    border-radius: 50%;
+    filter: blur(60px);
+    will-change: transform, border-radius;
+    pointer-events: none;
+  }
+  .hero-glow-blob--a {
+    top: 0%;
+    width: 65%;
+    height: 110%;
+    background: radial-gradient(circle, oklch(72% 0.15 25 / 0.85), transparent 70%);
+    animation:
+      hero-glow-sweep 32s linear infinite,
+      hero-glow-morph-a 17s ease-in-out infinite;
+  }
+  .hero-glow-blob--b {
+    top: 20%;
+    width: 55%;
+    height: 130%;
+    background: radial-gradient(circle, oklch(72% 0.12 250 / 0.85), transparent 70%);
+    animation:
+      hero-glow-sweep 38s linear -9.5s infinite,
+      hero-glow-morph-b 21s ease-in-out -4s infinite;
+  }
+  .hero-glow-blob--c {
+    top: 35%;
+    width: 70%;
+    height: 100%;
+    background: radial-gradient(circle, oklch(74% 0.12 150 / 0.80), transparent 70%);
+    animation:
+      hero-glow-sweep 34s linear -17s infinite,
+      hero-glow-morph-c 19s ease-in-out -7s infinite;
+  }
+  .hero-glow-blob--d {
+    top: 10%;
+    width: 50%;
+    height: 125%;
+    background: radial-gradient(circle, oklch(80% 0.13 85 / 0.75), transparent 70%);
+    animation:
+      hero-glow-sweep 40s linear -30s infinite,
+      hero-glow-morph-d 23s ease-in-out -13s infinite;
+  }
+  .hero-glow-noise {
+    position: absolute;
+    inset: 0;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 200 200'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.55'/%3E%3C/svg%3E");
+    background-size: 200px 200px;
+    mix-blend-mode: overlay;
+    opacity: 0.35;
+    pointer-events: none;
+  }
+}
+
+@keyframes period-blink {
+  0%, 50% { opacity: 1; }
+  50.01%, 100% { opacity: 0; }
+}
+/*
+ * Sweep: blob is 55% of parent width and `left: 0`. translateX(-110%)
+ * positions it fully off the left edge (its own width × 1.1 to the left),
+ * translateX(190%) positions it fully off the right edge. So one cycle
+ * crosses the visible region completely.
+ */
+@keyframes hero-glow-sweep {
+  from { transform: translate3d(-110%, 0, 0); }
+  to   { transform: translate3d(190%, 0, 0); }
+}
+/*
+ * Border-radius morphs — 5 stops per cycle with very asymmetric corner
+ * pairs (down to 15/85). Each corner has independent horizontal and
+ * vertical radii (the `/` syntax), so adjacent corners pull in different
+ * directions and the silhouette gets pinches, bulges, and points instead
+ * of staying ellipse-shaped.
+ */
+@keyframes hero-glow-morph-a {
+  0%   { border-radius: 70% 30% 50% 50% / 40% 60% 30% 70%; }
+  25%  { border-radius: 30% 70% 40% 60% / 60% 30% 70% 40%; }
+  50%  { border-radius: 50% 50% 80% 20% / 30% 70% 50% 50%; }
+  75%  { border-radius: 60% 40% 30% 70% / 70% 30% 60% 40%; }
+  100% { border-radius: 70% 30% 50% 50% / 40% 60% 30% 70%; }
+}
+@keyframes hero-glow-morph-b {
+  0%   { border-radius: 40% 60% 70% 30% / 50% 50% 30% 70%; }
+  25%  { border-radius: 75% 25% 50% 50% / 30% 70% 40% 60%; }
+  50%  { border-radius: 30% 70% 40% 60% / 60% 40% 80% 20%; }
+  75%  { border-radius: 50% 50% 25% 75% / 70% 30% 50% 50%; }
+  100% { border-radius: 40% 60% 70% 30% / 50% 50% 30% 70%; }
+}
+@keyframes hero-glow-morph-c {
+  0%   { border-radius: 60% 40% 30% 70% / 70% 30% 60% 40%; }
+  25%  { border-radius: 25% 75% 50% 50% / 50% 50% 30% 70%; }
+  50%  { border-radius: 70% 30% 60% 40% / 30% 70% 80% 20%; }
+  75%  { border-radius: 40% 60% 80% 20% / 60% 40% 30% 70%; }
+  100% { border-radius: 60% 40% 30% 70% / 70% 30% 60% 40%; }
+}
+@keyframes hero-glow-morph-d {
+  0%   { border-radius: 50% 50% 75% 25% / 30% 70% 40% 60%; }
+  25%  { border-radius: 80% 20% 30% 70% / 50% 50% 70% 30%; }
+  50%  { border-radius: 30% 70% 60% 40% / 80% 20% 30% 70%; }
+  75%  { border-radius: 70% 30% 50% 50% / 40% 60% 60% 40%; }
+  100% { border-radius: 50% 50% 75% 25% / 30% 70% 40% 60%; }
 }
 
 @media (prefers-reduced-motion) {

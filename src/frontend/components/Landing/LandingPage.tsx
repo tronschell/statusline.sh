@@ -1,9 +1,9 @@
+import { useEffect, useState } from "react";
 import { CaretRight } from "@phosphor-icons/react";
 import { Link } from "../../router";
 import { HeroStatusline } from "./HeroStatusline";
 import { TemplateGallery } from "./TemplateGallery";
 import { ClaudeCodeLogo } from "../ClaudeCodeLogo";
-import { BrandArt } from "../Brand/BrandArt";
 
 /**
  * Landing page for the Claude Code Statusline Builder.
@@ -24,20 +24,8 @@ export function LandingPage() {
       <main className="max-w-6xl mx-auto px-6">
         {/* Hero */}
         <section className="pt-24 md:pt-32 pb-24 md:pb-32">
-          <div className="mb-6 inline-flex items-center gap-2 rounded-full border border-white/[0.06] bg-[#161618] px-3 py-1.5 text-[11px] uppercase tracking-[0.14em] text-[#8A8A86]">
-            <ClaudeCodeLogo size={12} />
-            Optimized for Claude Code
-          </div>
-          <BrandArt size="md" className="text-[#E8E8E6] mb-8" />
-          <h1
-            className="font-serif text-5xl md:text-6xl text-[#E8E8E6] leading-[1.05] tracking-tight max-w-[18ch]"
-            style={{
-              fontFamily:
-                "var(--font-serif, 'Instrument Serif', Georgia, serif)",
-            }}
-          >
-            Design your Claude Code statusline.
-          </h1>
+          <TypewriterHeadline />
+
           <p className="mt-6 text-[17px] md:text-[18px] text-[#8A8A86] max-w-[60ch] leading-relaxed">
             Drag-and-drop builder for the bar at the bottom of your Claude
             Code. Save it, share it, install it with one terminal command.
@@ -115,6 +103,76 @@ export function LandingPage() {
         </section>
       </main>
     </div>
+  );
+}
+
+const HEADLINE_PRE = "Design your";
+const HEADLINE_LINE1 = "Claude Code";
+const HEADLINE_LINE2 = "statusline";
+const HEADLINE_TOTAL =
+  HEADLINE_PRE.length + 1 + HEADLINE_LINE1.length + HEADLINE_LINE2.length;
+const TYPE_INTERVAL_MS = 55;
+
+function TypewriterHeadline() {
+  const [count, setCount] = useState(0);
+  const [spins, setSpins] = useState(0);
+  const done = count >= HEADLINE_TOTAL;
+
+  useEffect(() => {
+    if (done) return;
+    const id = window.setTimeout(
+      () => setCount((c) => c + 1),
+      TYPE_INTERVAL_MS,
+    );
+    return () => window.clearTimeout(id);
+  }, [count, done]);
+
+  const preTyped = HEADLINE_PRE.slice(0, Math.min(count, HEADLINE_PRE.length));
+  const showLogo = count > HEADLINE_PRE.length;
+  const line1Start = HEADLINE_PRE.length + 1;
+  const line1Typed = HEADLINE_LINE1.slice(
+    0,
+    Math.max(0, Math.min(count - line1Start, HEADLINE_LINE1.length)),
+  );
+  const line2Start = line1Start + HEADLINE_LINE1.length;
+  const showBreak = count >= line2Start;
+  const line2Typed = HEADLINE_LINE2.slice(0, Math.max(0, count - line2Start));
+
+  return (
+    <h1
+      className="font-serif text-5xl md:text-6xl text-[#E8E8E6] leading-[1.05] tracking-tight min-h-[2.2em]"
+      style={{
+        fontFamily: "var(--font-serif, 'Instrument Serif', Georgia, serif)",
+      }}
+    >
+      <span
+        aria-label={`${HEADLINE_PRE} ${HEADLINE_LINE1} ${HEADLINE_LINE2}.`}
+      >
+        {preTyped}
+        {showLogo && (
+          <button
+            type="button"
+            onClick={() => setSpins((s) => s + 1)}
+            aria-label="Spin the Claude Code logo"
+            className="inline-flex items-center align-middle mx-2 cursor-pointer rounded-full focus:outline-none focus-visible:ring-2 focus-visible:ring-white/30"
+          >
+            <span
+              className="inline-flex"
+              style={{
+                transform: `rotate(${spins * 360}deg)`,
+                transition: "transform 800ms ease-in-out",
+              }}
+            >
+              <ClaudeCodeLogo size={44} />
+            </span>
+          </button>
+        )}
+        {line1Typed}
+        {showBreak && <br />}
+        {line2Typed}
+        {done && <span className="period-blink">.</span>}
+      </span>
+    </h1>
   );
 }
 
