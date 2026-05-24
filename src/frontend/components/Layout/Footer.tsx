@@ -1,6 +1,7 @@
 import { GithubLogoIcon } from "@phosphor-icons/react";
 import { Link, usePath } from "../../router";
 import { BrandArt } from "../Brand/BrandArt";
+import { ClaudeCodeLogo } from "../ClaudeCodeLogo";
 
 const GITHUB_URL = "https://github.com/tronschell/statusline.sh";
 
@@ -58,7 +59,28 @@ export function Footer() {
 
         <div className="mt-16 flex flex-col items-start justify-between gap-3 border-t border-white/[0.06] pt-8 text-[12px] text-[#8A8A86] md:flex-row md:items-center">
           <div>© {year} statusline.sh. Released under the MIT license.</div>
-          <div>Built for the Claude Code community.</div>
+          <div className="inline-flex flex-wrap items-center gap-x-1.5 gap-y-1">
+            <span>Built with</span>
+            <a
+              href="https://docs.claude.com/en/docs/claude-code"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-1.5 text-[#E8E8E6] no-underline transition-colors hover:text-white"
+            >
+              <ClaudeCodeLogo size={12} title="Claude Code" />
+              Claude Code
+            </a>
+            <span>by</span>
+            <a
+              href="https://www.linkedin.com/in/tron-schell-aa0856181/"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-[#E8E8E6] no-underline transition-colors hover:text-white"
+            >
+              Tron Schell
+            </a>
+            <span>.</span>
+          </div>
         </div>
       </div>
     </footer>
