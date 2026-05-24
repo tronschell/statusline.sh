@@ -1,6 +1,7 @@
 export const SITE_NAME = "statusline.sh";
 export const SITE_URL = "https://statusline.sh";
 export const DEFAULT_OG_IMAGE = "/og-default.svg";
+export const STATUSLINE_GUIDE_PATH = "/how-to-make-a-claude-code-statusline";
 
 export interface RouteMeta {
   title: string;
@@ -52,6 +53,15 @@ export function buildSoftwareApplicationJsonLd(): JsonLdObject {
     applicationCategory: "DeveloperApplication",
     operatingSystem: "macOS, Linux, Windows",
     url: canonicalUrl("/"),
+    description:
+      "A visual builder for Claude Code statuslines, status lines, and terminal status bars.",
+    isAccessibleForFree: true,
+    featureList: [
+      "Visual Claude Code statusline builder",
+      "Live terminal preview",
+      "Bash and PowerShell installers",
+      "Community statusline examples",
+    ],
     offers: {
       "@type": "Offer",
       price: "0",
@@ -71,6 +81,87 @@ export function buildBreadcrumbJsonLd(
       position: index + 1,
       name: item.name,
       item: canonicalUrl(item.path),
+    })),
+  };
+}
+
+const GUIDE_FAQS = [
+  {
+    question: "Is it called a statusline or a status bar?",
+    answer:
+      "Claude Code documentation uses statusline. People often describe the same area as a status line or status bar because it sits at the bottom of the terminal.",
+  },
+  {
+    question: "Do I need to edit settings.json manually?",
+    answer:
+      "No. The builder creates an installer that structurally merges the statusLine setting into your Claude settings while preserving other top-level keys.",
+  },
+  {
+    question: "Does this work on Windows?",
+    answer:
+      "Yes. The builder can generate a PowerShell installer for Windows and a bash installer for macOS or Linux.",
+  },
+  {
+    question: "Can I customize colors and segments?",
+    answer:
+      "Yes. You can add, remove, reorder, and style statusline elements visually, including ANSI colors and conditional elements.",
+  },
+  {
+    question: "Can I share my Claude Code statusline?",
+    answer:
+      "Yes. You can publish a design to the community gallery and other users can preview or fork it into their own builder.",
+  },
+];
+
+export function buildGuideHowToJsonLd(): JsonLdObject {
+  return {
+    "@context": "https://schema.org",
+    "@type": "HowTo",
+    name: "How to make a Claude Code status line",
+    description:
+      "Create, customize, preview, and install a Claude Code statusline or terminal status bar.",
+    totalTime: "PT5M",
+    tool: [
+      { "@type": "HowToTool", name: "Claude Code" },
+      { "@type": "HowToTool", name: SITE_NAME },
+    ],
+    step: [
+      {
+        "@type": "HowToStep",
+        name: "Open the builder",
+        text: "Open the statusline.sh builder and choose whether to start from scratch or use a template.",
+        url: canonicalUrl("/builder"),
+      },
+      {
+        "@type": "HowToStep",
+        name: "Add statusline elements",
+        text: "Add Claude Code session fields such as model, directory, git branch, context usage, cost, and session duration.",
+      },
+      {
+        "@type": "HowToStep",
+        name: "Preview the terminal output",
+        text: "Use the live preview to check ANSI styling and layout before changing local Claude settings.",
+      },
+      {
+        "@type": "HowToStep",
+        name: "Install the generated script",
+        text: "Run the generated bash or PowerShell installer to merge the statusline command into settings.json.",
+      },
+    ],
+  };
+}
+
+export function buildGuideFaqJsonLd(): JsonLdObject {
+  return {
+    "@context": "https://schema.org",
+    "@type": "FAQPage",
+    mainEntity: GUIDE_FAQS.map((item) => ({
+      "@type": "Question",
+      name: item.question,
+      acceptedAnswer: {
+        "@type": "Answer",
+        text: item.answer,
+      },
     })),
   };
 }
@@ -99,6 +190,20 @@ export const STATIC_ROUTE_META: Record<string, RouteMeta> = {
         { name: "Home", path: "/" },
         { name: "Community", path: "/community" },
       ]),
+    ],
+  },
+  [STATUSLINE_GUIDE_PATH]: {
+    title: "How to Make a Claude Code Status Line | statusline.sh",
+    description:
+      "Learn how to build, customize, preview, and install a Claude Code statusline or status bar with statusline.sh.",
+    canonicalPath: STATUSLINE_GUIDE_PATH,
+    jsonLd: [
+      buildBreadcrumbJsonLd([
+        { name: "Home", path: "/" },
+        { name: "Claude Code Statusline Guide", path: STATUSLINE_GUIDE_PATH },
+      ]),
+      buildGuideHowToJsonLd(),
+      buildGuideFaqJsonLd(),
     ],
   },
   "/privacy": {

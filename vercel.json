@@ -9,6 +9,10 @@
   "rewrites": [
     { "source": "/community", "destination": "/community.html" },
     { "source": "/builder", "destination": "/builder.html" },
+    {
+      "source": "/how-to-make-a-claude-code-statusline",
+      "destination": "/how-to-make-a-claude-code-statusline.html"
+    },
     { "source": "/privacy", "destination": "/privacy.html" },
     { "source": "/terms", "destination": "/terms.html" },
     { "source": "/((?!_next|assets|.*\\..*).*)", "destination": "/index.html" }

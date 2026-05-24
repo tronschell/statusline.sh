@@ -17,6 +17,7 @@ import InstallDrawer from "./frontend/components/Install/InstallDrawer";
 import PublishDialog from "./frontend/components/Community/PublishDialog";
 import { CommunityPage } from "./frontend/components/Community/CommunityPage";
 import { CommunityDetailPage } from "./frontend/components/Community/CommunityDetailPage";
+import { ClaudeCodeStatuslineGuidePage } from "./frontend/components/Guides/ClaudeCodeStatuslineGuidePage";
 import { useShareState } from "./frontend/hooks/useShareState";
 import { useUndoRedo } from "./frontend/hooks/useUndoRedo";
 import { useDesignStore } from "./frontend/store/designStore";
@@ -49,6 +50,10 @@ export function App() {
 
       <Route path="/community/:slug">
         <CommunityDetailRoute />
+      </Route>
+
+      <Route path="/how-to-make-a-claude-code-statusline">
+        <ClaudeCodeStatuslineGuidePage />
       </Route>
 
       <Route path="/privacy">

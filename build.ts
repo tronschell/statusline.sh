@@ -6,6 +6,7 @@ import {
   SITE_NAME,
   SITE_URL,
   STATIC_ROUTE_META,
+  STATUSLINE_GUIDE_PATH,
   absoluteUrl,
   canonicalUrl,
   type RouteMeta,
@@ -23,11 +24,18 @@ export const STATIC_SITEMAP_ROUTES: StaticSitemapRoute[] = [
   { path: "/", priority: "1.0", changefreq: "weekly" },
   { path: "/builder", priority: "0.9", changefreq: "weekly" },
   { path: "/community", priority: "0.8", changefreq: "daily" },
+  { path: STATUSLINE_GUIDE_PATH, priority: "0.7", changefreq: "monthly" },
   { path: "/privacy", priority: "0.2", changefreq: "yearly" },
   { path: "/terms", priority: "0.2", changefreq: "yearly" },
 ];
 
-const STATIC_HTML_ROUTES = ["/builder", "/community", "/privacy", "/terms"];
+const STATIC_HTML_ROUTES = [
+  "/builder",
+  "/community",
+  STATUSLINE_GUIDE_PATH,
+  "/privacy",
+  "/terms",
+];
 
 export function renderRobotsTxt(
   siteUrl = SITE_URL,
@@ -207,11 +215,43 @@ export function renderStaticRouteHtmlShell(
     /<link\s+rel="canonical"\s+href="[\s\S]*?"\s*\/>/,
     `<link rel="canonical" href="${canonical}" />`,
   );
-  return replaceFirst(
+  html = replaceFirst(
     html,
     /<script\s+type="application\/ld\+json">[\s\S]*?<\/script>/,
     renderJsonLdScripts(meta),
   );
+  return injectStaticRootHtml(html, meta);
+}
+
+function injectStaticRootHtml(indexHtml: string, meta: RouteMeta): string {
+  const staticHtml = renderStaticRootHtml(meta);
+  if (!staticHtml) return indexHtml;
+  return indexHtml.replace(
+    /<div\s+id="root"><\/div>/,
+    `<div id="root">${staticHtml}</div>`,
+  );
+}
+
+function renderStaticRootHtml(meta: RouteMeta): string {
+  if (meta.canonicalPath !== STATUSLINE_GUIDE_PATH) return "";
+  return [
+    '<main style="background:#0E0E10;color:#E8E8E6;min-height:100vh;font-family:Geist,system-ui,sans-serif;padding:72px 24px;">',
+    '<article style="max-width:960px;margin:0 auto;">',
+    '<p style="color:#8A8A86;font-size:12px;letter-spacing:.14em;text-transform:uppercase;margin:0 0 24px;">Claude Code guide</p>',
+    '<h1 style="font-family:Instrument Serif,Georgia,serif;font-size:clamp(48px,8vw,88px);line-height:1.02;letter-spacing:-.035em;margin:0;">How to make a Claude Code status line.</h1>',
+    '<p style="color:#A8A8A4;font-size:18px;line-height:1.7;max-width:720px;margin:28px 0 0;">Claude Code calls the bottom bar a statusline. Many people search for it as a status line or status bar. statusline.sh helps you build, customize, preview, and install one visually.</p>',
+    '<section style="border-top:1px solid rgba(255,255,255,.08);margin-top:64px;padding-top:40px;">',
+    '<h2 style="font-family:Instrument Serif,Georgia,serif;font-size:40px;line-height:1.1;letter-spacing:-.03em;margin:0;">What is a Claude Code statusline?</h2>',
+    '<p style="color:#A8A8A4;font-size:15px;line-height:1.7;max-width:760px;">A Claude Code statusline is an executable command configured in settings.json. Claude Code sends it session JSON on stdin, and the command prints styled terminal text to stdout.</p>',
+    '</section>',
+    '<section style="border-top:1px solid rgba(255,255,255,.08);margin-top:48px;padding-top:40px;">',
+    '<h2 style="font-family:Instrument Serif,Georgia,serif;font-size:40px;line-height:1.1;letter-spacing:-.03em;margin:0;">Build it visually.</h2>',
+    '<p style="color:#A8A8A4;font-size:15px;line-height:1.7;max-width:760px;">Use the builder to add model, directory, git branch, context, cost, duration, separators, glyphs, and ANSI styling, then install with a generated bash or PowerShell command.</p>',
+    '<p style="margin-top:28px;"><a href="/builder" style="display:inline-block;background:#E8E8E6;color:#0E0E10;text-decoration:none;border-radius:6px;padding:12px 18px;font-size:14px;font-weight:500;">Open the builder</a></p>',
+    '</section>',
+    '</article>',
+    '</main>',
+  ].join("");
 }
 
 function renderJsonLdScripts(meta: RouteMeta): string {

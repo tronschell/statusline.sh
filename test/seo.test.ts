@@ -9,7 +9,10 @@ import {
 import {
   DEFAULT_OG_IMAGE,
   STATIC_ROUTE_META,
+  STATUSLINE_GUIDE_PATH,
   absoluteUrl,
+  buildGuideFaqJsonLd,
+  buildGuideHowToJsonLd,
   buildSoftwareApplicationJsonLd,
   canonicalUrl,
   metaForPath,
@@ -29,6 +32,9 @@ describe("static SEO assets", () => {
     expect(xml).toContain("<loc>https://statusline.sh</loc>");
     expect(xml).toContain("<loc>https://statusline.sh/builder</loc>");
     expect(xml).toContain("<loc>https://statusline.sh/community</loc>");
+    expect(xml).toContain(
+      "<loc>https://statusline.sh/how-to-make-a-claude-code-statusline</loc>",
+    );
     expect(xml).toContain("<changefreq>daily</changefreq>");
     expect(xml).toContain("<priority>0.8</priority>");
   });
@@ -73,6 +79,10 @@ describe("static SEO assets", () => {
       title: "Example Statusline | Community Statusline | statusline.sh",
       canonicalPath: "/community/example-statusline",
     });
+    expect(metaForPath(STATUSLINE_GUIDE_PATH)).toMatchObject({
+      title: "How to Make a Claude Code Status Line | statusline.sh",
+      canonicalPath: STATUSLINE_GUIDE_PATH,
+    });
   });
 
   test("builds SoftwareApplication JSON-LD", () => {
@@ -82,6 +92,18 @@ describe("static SEO assets", () => {
     expect(jsonLd.name).toBe("statusline.sh");
     expect(jsonLd.url).toBe("https://statusline.sh/");
     expect(jsonLd.offers).toMatchObject({ price: "0", priceCurrency: "USD" });
+    expect(jsonLd.featureList).toContain("Visual Claude Code statusline builder");
+  });
+
+  test("builds guide HowTo and FAQ JSON-LD", () => {
+    const howTo = buildGuideHowToJsonLd();
+    const faq = buildGuideFaqJsonLd();
+
+    expect(howTo["@type"]).toBe("HowTo");
+    expect(howTo.name).toBe("How to make a Claude Code status line");
+    expect(JSON.stringify(howTo)).toContain("Open the statusline.sh builder");
+    expect(faq["@type"]).toBe("FAQPage");
+    expect(JSON.stringify(faq)).toContain("statusline or a status bar");
   });
 
   test("renders route-specific HTML shell metadata", () => {
@@ -115,5 +137,35 @@ describe("static SEO assets", () => {
       '<link rel="canonical" href="https://statusline.sh/community" />',
     );
     expect(html).toContain('"@type":"BreadcrumbList"');
+  });
+
+  test("renders crawlable static body for the statusline guide", () => {
+    const html = renderStaticRouteHtmlShell(
+      [
+        "<html><head>",
+        '<meta name="description" content="Home" />',
+        '<meta name="robots" content="index,follow" />',
+        '<meta property="og:title" content="Home" />',
+        '<meta property="og:description" content="Home" />',
+        '<meta property="og:url" content="https://statusline.sh/" />',
+        '<meta property="og:image" content="https://statusline.sh/og-default.svg" />',
+        '<meta name="twitter:title" content="Home" />',
+        '<meta name="twitter:description" content="Home" />',
+        '<meta name="twitter:image" content="https://statusline.sh/og-default.svg" />',
+        '<link rel="canonical" href="https://statusline.sh/" />',
+        "<title>Home</title>",
+        '<script type="application/ld+json">{}</script>',
+        '</head><body><div id="root"></div></body></html>',
+      ].join("\n"),
+      STATIC_ROUTE_META[STATUSLINE_GUIDE_PATH]!,
+    );
+
+    expect(html).toContain(
+      "<title>How to Make a Claude Code Status Line | statusline.sh</title>",
+    );
+    expect(html).toContain("How to make a Claude Code status line.");
+    expect(html).toContain("Claude Code calls the bottom bar a statusline");
+    expect(html).toContain('"@type":"HowTo"');
+    expect(html).toContain('"@type":"FAQPage"');
   });
 });

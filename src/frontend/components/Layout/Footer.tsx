@@ -38,6 +38,9 @@ export function Footer() {
           <FooterColumn title="Product">
             <FooterLink href="/builder">Builder</FooterLink>
             <FooterLink href="/community">Community</FooterLink>
+            <FooterLink href="/how-to-make-a-claude-code-statusline">
+              Statusline guide
+            </FooterLink>
             <FooterLink href="/">Templates</FooterLink>
           </FooterColumn>
 
