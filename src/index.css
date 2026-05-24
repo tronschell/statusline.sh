@@ -1,0 +1,133 @@
+@import url('https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&family=Geist+Mono:wght@400;500&family=Instrument+Serif:ital@0;1&display=swap');
+@import "tailwindcss";
+
+@theme inline {
+  /* Surfaces */
+  --color-canvas: #0E0E10;
+  --color-surface: #161618;
+  --color-surface-2: #1C1C1F;
+  --color-border: rgba(255, 255, 255, 0.06);
+
+  /* Text */
+  --color-text: #E8E8E6;
+  --color-text-muted: #8A8A86;
+
+  /* Muted pastel accents */
+  --color-red-bg: #3A1F21;
+  --color-red-fg: #E89B9E;
+  --color-blue-bg: #1E2A36;
+  --color-blue-fg: #8FB8DA;
+  --color-green-bg: #1E2A22;
+  --color-green-fg: #9CC09F;
+  --color-yellow-bg: #2E2820;
+  --color-yellow-fg: #D8B870;
+
+  /* Typography */
+  --font-sans: 'Geist', 'Geist Sans', 'SF Pro Display', system-ui, sans-serif;
+  --font-mono: 'Geist Mono', 'SF Mono', 'JetBrains Mono', monospace;
+  --font-serif: 'Instrument Serif', 'Newsreader', ui-serif, Georgia, serif;
+}
+
+@layer base {
+  :root {
+    color-scheme: dark;
+    font-family: var(--font-sans);
+    color: var(--color-text);
+    background-color: var(--color-canvas);
+  }
+
+  body {
+    @apply min-h-screen min-w-[320px] m-0;
+    font-family: var(--font-sans);
+    background-color: var(--color-canvas);
+    color: var(--color-text);
+  }
+
+  code,
+  kbd,
+  pre,
+  samp {
+    font-family: var(--font-mono);
+  }
+}
+
+@layer utilities {
+  /* Editorial serif headline utility. */
+  .editorial {
+    font-family: var(--font-serif);
+    letter-spacing: -0.03em;
+    line-height: 1.1;
+  }
+
+  /*
+   * Hue rail for the color picker. The thumb is a small white pill that
+   * sits centered on the gradient track. Styled per-engine because <input
+   * type="range"> can't be styled with shared selectors.
+   */
+  .hue-slider {
+    -webkit-appearance: none;
+    appearance: none;
+    cursor: pointer;
+    outline: none;
+  }
+  .hue-slider::-webkit-slider-runnable-track {
+    height: 12px;
+    border-radius: 999px;
+  }
+  .hue-slider::-moz-range-track {
+    height: 12px;
+    border-radius: 999px;
+  }
+  .hue-slider::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 16px;
+    height: 16px;
+    border-radius: 999px;
+    background: #ffffff;
+    border: 2px solid rgba(0, 0, 0, 0.5);
+    box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.4);
+    margin-top: -2px;
+  }
+  .hue-slider::-moz-range-thumb {
+    width: 16px;
+    height: 16px;
+    border-radius: 999px;
+    background: #ffffff;
+    border: 2px solid rgba(0, 0, 0, 0.5);
+    box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.4);
+  }
+  .hue-slider:focus-visible::-webkit-slider-thumb {
+    box-shadow: 0 0 0 3px rgba(143, 184, 218, 0.5);
+  }
+  .hue-slider:focus-visible::-moz-range-thumb {
+    box-shadow: 0 0 0 3px rgba(143, 184, 218, 0.5);
+  }
+
+  /*
+   * Scroll-entry fade-up. Apply `.fade-up` to a block and toggle
+   * `data-visible="true"` (e.g. via IntersectionObserver) to animate it in.
+   */
+  .fade-up {
+    opacity: 0;
+    transform: translateY(12px);
+    transition:
+      opacity 600ms cubic-bezier(0.16, 1, 0.3, 1),
+      transform 600ms cubic-bezier(0.16, 1, 0.3, 1);
+    will-change: opacity, transform;
+  }
+
+  .fade-up[data-visible="true"] {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@media (prefers-reduced-motion) {
+  *,
+  ::before,
+  ::after {
+    animation: none !important;
+    transition: none !important;
+  }
+}
