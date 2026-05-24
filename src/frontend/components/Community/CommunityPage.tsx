@@ -1,57 +1,119 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import type { CommunityCardSummary } from "@statusline/shared/types";
 import { api } from "../../lib/api";
 import { CommunityDesignCard } from "./CommunityDesignCard";
 
 type Sort = "recent" | "popular";
 
+/**
+ * Module-scoped cache shared across mounts. The page can unmount when the
+ * user navigates into a design detail and remount on back-navigation — without
+ * this we'd re-issue the first-page fetch every time. The edge cache absorbs
+ * most of the cost, but it still incurs a Worker round-trip + render flicker.
+ *
+ * Cache lives for the lifetime of the SPA session. It's intentionally not
+ * persisted — the 60s edge cache is plenty fresh on first visit.
+ */
+interface CacheEntry {
+  items: CommunityCardSummary[];
+  nextCursor: string | null;
+}
+const pageCache = new Map<Sort, CacheEntry>();
+
+const PAGE_SIZE = 24;
+
 export function CommunityPage() {
   const [sort, setSort] = useState<Sort>("recent");
-  const [items, setItems] = useState<CommunityCardSummary[]>([]);
-  const [nextCursor, setNextCursor] = useState<string | null>(null);
+  const [items, setItems] = useState<CommunityCardSummary[]>(
+    () => pageCache.get("recent")?.items ?? [],
+  );
+  const [nextCursor, setNextCursor] = useState<string | null>(
+    () => pageCache.get("recent")?.nextCursor ?? null,
+  );
   const [loading, setLoading] = useState(false);
   const [loadingMore, setLoadingMore] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const load = useCallback(
-    async (s: Sort) => {
-      setLoading(true);
+  // Coalesce concurrent loadMore calls. Without this, a fast scroll can fire
+  // the observer multiple times before the in-flight request settles.
+  const fetchingRef = useRef(false);
+  const sentinelRef = useRef<HTMLDivElement | null>(null);
+
+  const load = useCallback(async (s: Sort) => {
+    const cached = pageCache.get(s);
+    if (cached) {
+      setItems(cached.items);
+      setNextCursor(cached.nextCursor);
+      setLoading(false);
       setError(null);
-      try {
-        const res = await api.listCommunity({ sort: s, limit: 24 });
-        setItems(res.items);
-        setNextCursor(res.nextCursor);
-      } catch (e) {
-        setError(e instanceof Error ? e.message : String(e));
-      } finally {
-        setLoading(false);
-      }
-    },
-    [],
-  );
+      return;
+    }
+    setLoading(true);
+    setError(null);
+    try {
+      const res = await api.listCommunity({ sort: s, limit: PAGE_SIZE });
+      pageCache.set(s, { items: res.items, nextCursor: res.nextCursor });
+      setItems(res.items);
+      setNextCursor(res.nextCursor);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e));
+    } finally {
+      setLoading(false);
+    }
+  }, []);
 
   useEffect(() => {
     void load(sort);
   }, [sort, load]);
 
-  const loadMore = async () => {
-    if (!nextCursor) return;
+  const loadMore = useCallback(async () => {
+    if (!nextCursor || fetchingRef.current) return;
+    fetchingRef.current = true;
     setLoadingMore(true);
     setError(null);
     try {
       const res = await api.listCommunity({
         sort,
-        limit: 24,
+        limit: PAGE_SIZE,
         cursor: nextCursor,
       });
-      setItems((prev) => [...prev, ...res.items]);
+      setItems((prev) => {
+        const merged = [...prev, ...res.items];
+        pageCache.set(sort, { items: merged, nextCursor: res.nextCursor });
+        return merged;
+      });
       setNextCursor(res.nextCursor);
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
     } finally {
       setLoadingMore(false);
+      fetchingRef.current = false;
     }
-  };
+  }, [nextCursor, sort]);
+
+  // IntersectionObserver auto-load. A sentinel `<div>` sits below the grid;
+  // when it scrolls into view we fire `loadMore`. The button below remains for
+  // a11y/keyboard users and as a no-JS-observer fallback.
+  useEffect(() => {
+    const el = sentinelRef.current;
+    if (!el || !nextCursor) return;
+    if (typeof IntersectionObserver === "undefined") return;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        for (const entry of entries) {
+          if (entry.isIntersecting) {
+            void loadMore();
+            break;
+          }
+        }
+      },
+      // Pre-load one viewport early so the user never sees a hard stop.
+      { rootMargin: "600px 0px" },
+    );
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [loadMore, nextCursor]);
 
   return (
     <div className="min-h-screen w-full bg-[#0E0E10] text-[#E8E8E6]">
@@ -105,16 +167,19 @@ export function CommunityPage() {
         )}
 
         {nextCursor ? (
-          <div className="mt-12 flex justify-center">
-            <button
-              type="button"
-              onClick={loadMore}
-              disabled={loadingMore}
-              className="rounded-[6px] border border-white/[0.08] px-4 py-2 text-[13px] text-[#E8E8E6] transition-colors hover:border-white/[0.18] hover:bg-white/[0.02] disabled:cursor-not-allowed disabled:opacity-50"
-            >
-              {loadingMore ? "Loading…" : "Load more"}
-            </button>
-          </div>
+          <>
+            <div ref={sentinelRef} aria-hidden="true" className="h-px w-full" />
+            <div className="mt-12 flex justify-center">
+              <button
+                type="button"
+                onClick={() => void loadMore()}
+                disabled={loadingMore}
+                className="rounded-[6px] border border-white/[0.08] px-4 py-2 text-[13px] text-[#E8E8E6] transition-colors hover:border-white/[0.18] hover:bg-white/[0.02] disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                {loadingMore ? "Loading…" : "Load more"}
+              </button>
+            </div>
+          </>
         ) : null}
       </div>
     </div>
