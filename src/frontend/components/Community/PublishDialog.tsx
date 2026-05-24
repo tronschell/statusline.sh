@@ -14,6 +14,8 @@ export interface PublishDialogProps {
   onPublished?(slug: string): void;
 }
 
+const NAME_MAX = 60;
+const AUTHOR_MAX = 40;
 const DESCRIPTION_MAX = 200;
 const inputClass =
   "w-full bg-[#1C1C1F] border border-white/[0.06] rounded-[4px] px-3 py-2 text-sm text-[#E8E8E6] focus:outline-none focus:border-[#8FB8DA]";
@@ -170,7 +172,8 @@ export default function PublishDialog({
               id="publish-name"
               type="text"
               value={name}
-              onChange={(e) => setName(e.target.value)}
+              onChange={(e) => setName(e.target.value.slice(0, NAME_MAX))}
+              maxLength={NAME_MAX}
               className={inputClass}
               required
             />
@@ -184,7 +187,8 @@ export default function PublishDialog({
               id="publish-author"
               type="text"
               value={author}
-              onChange={(e) => setAuthor(e.target.value)}
+              onChange={(e) => setAuthor(e.target.value.slice(0, AUTHOR_MAX))}
+              maxLength={AUTHOR_MAX}
               className={inputClass}
               placeholder="Your name or handle"
               required

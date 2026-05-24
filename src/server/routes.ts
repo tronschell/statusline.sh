@@ -15,6 +15,7 @@ import {
 } from "./designs";
 import { bashInstallerTemplate } from "./install/bashTemplate";
 import { psInstallerTemplate } from "./install/psTemplate";
+import { LIMITS, sanitizePublishField } from "./sanitize";
 
 function json(data: unknown, status = 200): Response {
   return new Response(JSON.stringify(data), {
@@ -124,10 +125,30 @@ export const routes = {
         ) {
           return badRequest("author_name, description, name required as strings");
         }
+
+        const name = sanitizePublishField(body.name, {
+          maxLength: LIMITS.name,
+        });
+        if (!name.ok) return badRequest(`name: ${name.reason}`, "name");
+
+        const author = sanitizePublishField(body.author_name, {
+          maxLength: LIMITS.author,
+        });
+        if (!author.ok)
+          return badRequest(`author_name: ${author.reason}`, "author_name");
+
+        const description = sanitizePublishField(body.description, {
+          maxLength: LIMITS.description,
+          multiline: true,
+          allowEmpty: true,
+        });
+        if (!description.ok)
+          return badRequest(`description: ${description.reason}`, "description");
+
         const res = publishDesign(req.params.id, {
-          author_name: body.author_name,
-          description: body.description,
-          name: body.name,
+          author_name: author.value,
+          description: description.value,
+          name: name.value,
         });
         if (!res) return notFound("design not found");
         return json(res);

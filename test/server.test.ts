@@ -227,6 +227,114 @@ describe("community lifecycle", () => {
   });
 });
 
+describe("publish sanitization", () => {
+  async function createAndPublish(payload: {
+    author_name: string;
+    description: string;
+    name: string;
+  }): Promise<Response> {
+    const post = await fetch(`${base}/api/designs`, {
+      method: "POST",
+      body: JSON.stringify(FIXTURE),
+    });
+    const { id } = (await post.json()) as { id: string };
+    return fetch(`${base}/api/designs/${id}/publish`, {
+      method: "POST",
+      body: JSON.stringify(payload),
+    });
+  }
+
+  test("rejects slur in author name (leet-obfuscated)", async () => {
+    // "n!gger" → after leet/punctuation normalisation → "nigger"
+    const res = await createAndPublish({
+      author_name: "n!gger",
+      description: "ok",
+      name: "Fine",
+    });
+    expect(res.status).toBe(400);
+    const body = (await res.json()) as { error: string };
+    expect(body.error.toLowerCase()).toContain("author_name");
+  });
+
+  test("rejects profanity in description even with punctuation spacing", async () => {
+    // "f.u.c.k" survives because punctuation strip leaves "fuck".
+    const res = await createAndPublish({
+      author_name: "Alice",
+      description: "this is f.u.c.k awesome",
+      name: "Fine",
+    });
+    expect(res.status).toBe(400);
+    const body = (await res.json()) as { error: string };
+    expect(body.error.toLowerCase()).toContain("description");
+  });
+
+  test("strips angle brackets and zero-width chars without rejecting", async () => {
+    // Stored value should have no `<script>` markup and no U+200B padding.
+    const payload = {
+      author_name: "Carol",
+      // ZWSP between letters + bracketed markup attempt.
+      description: "Hel​lo <script>alert(1)</script> world",
+      name: "Clean Name",
+    };
+    const post = await fetch(`${base}/api/designs`, {
+      method: "POST",
+      body: JSON.stringify(FIXTURE),
+    });
+    const { id } = (await post.json()) as { id: string };
+    const pub = await fetch(`${base}/api/designs/${id}/publish`, {
+      method: "POST",
+      body: JSON.stringify(payload),
+    });
+    expect(pub.status).toBe(200);
+    const { slug } = (await pub.json()) as { slug: string };
+    const detail = await fetch(`${base}/api/community/${slug}`);
+    const body = (await detail.json()) as {
+      description: string;
+      author_name: string;
+    };
+    expect(body.description).not.toContain("<");
+    expect(body.description).not.toContain(">");
+    expect(body.description).not.toContain("​");
+    expect(body.description).toContain("Hello");
+    expect(body.description).toContain("scriptalert(1)/script");
+  });
+
+  test("rejects empty name after trimming whitespace", async () => {
+    const res = await createAndPublish({
+      author_name: "Alice",
+      description: "ok",
+      name: "   \t  ",
+    });
+    expect(res.status).toBe(400);
+    const body = (await res.json()) as { error: string };
+    expect(body.error.toLowerCase()).toContain("name");
+  });
+
+  test("allows empty description", async () => {
+    const res = await createAndPublish({
+      author_name: "Alice",
+      description: "",
+      name: "Bare Name",
+    });
+    expect(res.status).toBe(200);
+  });
+
+  test("truncates over-long name to the field cap", async () => {
+    const longName = "x".repeat(200);
+    const res = await createAndPublish({
+      author_name: "Alice",
+      description: "ok",
+      name: longName,
+    });
+    expect(res.status).toBe(200);
+    const { slug } = (await res.json()) as { slug: string };
+    const detail = await fetch(`${base}/api/community/${slug}`);
+    const body = (await detail.json()) as { design: Design };
+    // Server cap is 60 chars on `name`.
+    expect(body.design.name.length).toBeLessThanOrEqual(60);
+  });
+});
+
 describe("installer endpoints", () => {
   test("GET /i/:id.sh returns runnable bash installer", async () => {
     const post = await fetch(`${base}/api/designs`, {
