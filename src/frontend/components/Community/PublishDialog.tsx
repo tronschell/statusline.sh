@@ -200,7 +200,18 @@ export default function PublishDialog({
             Make sure you're happy with this design before publishing.
           </div>
 
-          <TurnstileWidget onToken={setToken} onError={() => setToken(null)} />
+          <TurnstileWidget
+            onToken={(t) => {
+              setError(null);
+              setToken(t);
+            }}
+            onError={(code) => {
+              setToken(null);
+              setError(
+                `Cloudflare challenge failed (code ${code}). Disable script blockers or reload, then try again.`,
+              );
+            }}
+          />
 
           {error && (
             <p className="text-xs text-[#E8A08A]" role="alert">

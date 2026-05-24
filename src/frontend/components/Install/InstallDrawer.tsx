@@ -1,5 +1,9 @@
 import { useEffect, useMemo, useState } from "react";
-import { Copy, Check, ArrowSquareOut, CaretDown } from "@phosphor-icons/react";
+import { Copy, Check, ArrowSquareOut, CaretDown, DownloadSimple } from "@phosphor-icons/react";
+import { compileToBash } from "@statusline/shared/compiler/bash";
+import { compileToPS } from "@statusline/shared/compiler/powershell";
+import { bashInstallerTemplate } from "@statusline/shared/install/bashTemplate";
+import { psInstallerTemplate } from "@statusline/shared/install/psTemplate";
 import { api } from "../../lib/api";
 import { TurnstileWidget } from "../../lib/turnstile";
 import { useDesignStore } from "../../store/designStore";
@@ -55,6 +59,7 @@ export default function InstallDrawer({
   const [minting, setMinting] = useState(false);
   const [mintError, setMintError] = useState<string | null>(null);
   const [token, setToken] = useState<string | null>(null);
+  const [turnstileError, setTurnstileError] = useState<string | null>(null);
 
   const selfHeal = useUiStore((s) => s.selfHealOptIn);
   const setSelfHeal = useUiStore((s) => s.setSelfHealOptIn);
@@ -143,6 +148,30 @@ export default function InstallDrawer({
     }
   }
 
+  // Turnstile-free fallback: compile the installer locally in the browser and
+  // trigger a download. Used when the Cloudflare Turnstile widget can't reach
+  // challenges.cloudflare.com (ad blocker, DNS filter, network block) and the
+  // user therefore can't mint an anonymous install id via /install.
+  function downloadInstaller(targetOs: InstallOs) {
+    const isWindows = targetOs === "windows";
+    const body = isWindows
+      ? psInstallerTemplate(compileToPS(design))
+      : bashInstallerTemplate(compileToBash(design));
+    const mime = isWindows
+      ? "text/plain;charset=utf-8"
+      : "text/x-shellscript;charset=utf-8";
+    const filename = isWindows ? "statusline-install.ps1" : "statusline-install.sh";
+    const blob = new Blob([body], { type: mime });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+  }
+
   return (
     <Modal
       isOpen={isOpen}
@@ -161,7 +190,65 @@ export default function InstallDrawer({
             <p className="text-sm text-[#8A8A86]">
               Complete the challenge below to generate your install command.
             </p>
-            <TurnstileWidget onToken={setToken} onError={() => setToken(null)} />
+            <TurnstileWidget
+              key={turnstileError ?? "ok"}
+              onToken={(t) => {
+                setTurnstileError(null);
+                setToken(t);
+              }}
+              onError={(code) => {
+                setToken(null);
+                setTurnstileError(code);
+              }}
+            />
+            {turnstileError ? (
+              <div
+                className="flex flex-col gap-3 rounded-[4px] border border-[#E8A08A]/30 bg-[#E8A08A]/[0.06] px-3 py-3 text-xs text-[#E8A08A]"
+                role="alert"
+              >
+                <div>
+                  <p>
+                    Turnstile couldn't connect (code{" "}
+                    <code className="font-mono">{turnstileError}</code>).
+                  </p>
+                  <p className="mt-1 text-[#E8A08A]/80">
+                    Most likely an ad blocker, DNS filter (NextDNS / Pi-hole),
+                    or browser extension is blocking{" "}
+                    <code className="font-mono">challenges.cloudflare.com</code>.
+                    Allowlist it and reload — or use the fallback below.
+                  </p>
+                </div>
+                <div className="flex flex-col gap-1.5">
+                  <p className="text-[#E8E8E6]">
+                    Fallback — no challenge required:
+                  </p>
+                  <div className="flex gap-2">
+                    <button
+                      type="button"
+                      onClick={() =>
+                        downloadInstaller(detectedToInstall(detected))
+                      }
+                      className="flex items-center gap-1.5 rounded-[4px] border border-white/[0.12] bg-[#1C1C1F] px-3 py-1.5 text-xs text-[#E8E8E6] transition-transform hover:scale-[0.98]"
+                    >
+                      <DownloadSimple size={12} weight="bold" />
+                      Download .sh
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => downloadInstaller("windows")}
+                      className="flex items-center gap-1.5 rounded-[4px] border border-white/[0.12] bg-[#1C1C1F] px-3 py-1.5 text-xs text-[#E8E8E6] transition-transform hover:scale-[0.98]"
+                    >
+                      <DownloadSimple size={12} weight="bold" />
+                      Download .ps1
+                    </button>
+                  </div>
+                  <p className="text-[#8A8A86]">
+                    Then run <code className="font-mono">bash ~/Downloads/statusline-install.sh</code>
+                    {" "}(or the equivalent for PowerShell).
+                  </p>
+                </div>
+              </div>
+            ) : null}
             {minting ? (
               <p className="text-xs text-[#8A8A86]">Preparing your install…</p>
             ) : null}

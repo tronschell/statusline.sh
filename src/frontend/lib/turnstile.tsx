@@ -10,7 +10,11 @@ declare global {
       render(el: HTMLElement, opts: {
         sitekey: string;
         callback?: (token: string) => void;
-        "error-callback"?: () => void;
+        // Per Turnstile docs the error-callback receives a string error code
+        // (e.g. "110200" for hostname-not-allowed). Returning `false` lets
+        // Cloudflare render its own inline error; returning anything else
+        // suppresses it so we can render our own.
+        "error-callback"?: (code: string) => void | boolean;
         "expired-callback"?: () => void;
         size?: "normal" | "compact" | "invisible";
         theme?: "light" | "dark" | "auto";
@@ -23,7 +27,9 @@ declare global {
 
 export interface TurnstileWidgetProps {
   onToken(token: string): void;
-  onError?(): void;
+  // Receives the Cloudflare error code (or "load" / "render" for our wrapper
+  // failures) so callers can surface something useful instead of going silent.
+  onError?(code: string): void;
   size?: "normal" | "compact" | "invisible";
   theme?: "light" | "dark" | "auto";
 }
@@ -69,17 +75,23 @@ export function TurnstileWidget({ onToken, onError, size = "normal", theme = "da
     loadTurnstileScript()
       .then(() => {
         if (cancelled || !ref.current || !window.turnstile) return;
-        const id = window.turnstile.render(ref.current, {
-          sitekey: TURNSTILE_SITE_KEY,
-          callback: onToken,
-          "error-callback": onError,
-          size,
-          theme,
-        });
-        widgetIdRef.current = id;
+        try {
+          const id = window.turnstile.render(ref.current, {
+            sitekey: TURNSTILE_SITE_KEY,
+            callback: onToken,
+            "error-callback": (code) => {
+              onError?.(code || "unknown");
+            },
+            size,
+            theme,
+          });
+          widgetIdRef.current = id;
+        } catch (e) {
+          onError?.(e instanceof Error ? `render: ${e.message}` : "render");
+        }
       })
       .catch(() => {
-        if (!cancelled) onError?.();
+        if (!cancelled) onError?.("load");
       });
 
     return () => {
