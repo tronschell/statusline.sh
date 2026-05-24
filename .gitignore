@@ -1,42 +1,77 @@
-# dependencies (bun install)
-node_modules
+# --- Dependencies ---
+node_modules/
 
-# output
-out
-dist
+# --- Build output ---
+dist/
+out/
+build/
 *.tgz
-
-# code coverage
-coverage
-*.lcov
-
-# logs
-logs
-_.log
-report.[0-9]_.[0-9]_.[0-9]_.[0-9]_.json
-
-# dotenv environment variable files
-.env
-.env.development.local
-.env.test.local
-.env.production.local
-.env.local
-
-# caches
-.eslintcache
-.cache
 *.tsbuildinfo
 
-# IntelliJ based IDEs
-.idea
+# --- Caches ---
+.cache/
+.eslintcache
+.parcel-cache/
+.turbo/
+.vite/
 
-# Finder (MacOS) folder config
-.DS_Store
+# --- Test / coverage ---
+coverage/
+*.lcov
 
-# SQLite database (regenerated locally via `bun run seed`)
+# --- Logs ---
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+bun-debug.log*
+report.[0-9]*.[0-9]*.[0-9]*.[0-9]*.json
+
+# --- Environment ---
+.env
+.env.*
+!.env.example
+
+# --- Local data (regenerated via `bun run seed`) ---
 data/*.db
 data/*.db-shm
 data/*.db-wal
+data/*.sqlite
+data/*.sqlite3
 
-# Claude Code local settings
+# --- OS files ---
+.DS_Store
+.AppleDouble
+.LSOverride
+Thumbs.db
+Thumbs.db:encryptable
+ehthumbs.db
+ehthumbs_vista.db
+Desktop.ini
+$RECYCLE.BIN/
+
+# --- Editors / IDEs ---
+.idea/
+.vscode/
+!.vscode/extensions.json
+!.vscode/settings.shared.json
+*.swp
+*.swo
+*~
+.history/
+.project
+.classpath
+
+# --- Local Claude Code settings (per-user, never share) ---
 .claude/
+CLAUDE.local.md
+
+# --- Misc local files ---
+*.bak
+*.backup
+*.orig
+*.rej
+.tmp/
+tmp/
+scratch/
