@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 620 180" width="620" height="180" role="img" aria-label="statusline.sh">
+  <rect width="620" height="180" fill="#000000"/>
+  <rect x="0.5" y="0.5" width="619" height="179" fill="none" stroke="#1A1A1D"/>
+  <g font-family="ui-monospace, 'SF Mono', SFMono-Regular, Menlo, Consolas, 'Liberation Mono', monospace" font-size="14" font-weight="700" xml:space="preserve">
+    <text x="32" y="48" fill="#E8E8E6">      _        _             _ _                  _</text>
+    <text x="32" y="66" fill="#E8E8E6">  ___| |_ __ _| |_ _   _ ___| (_)_ __   ___   ___| |__</text>
+    <text x="32" y="84" fill="#E8E8E6"> / __| __/ _` | __| | | / __| | | '_ \ / _ \ / __| '_ \</text>
+    <text x="32" y="102" fill="#E8E8E6"> \__ \ || (_| | |_| |_| \__ \ | | | | |  __/_\__ \ | | |</text>
+    <text x="32" y="120" fill="#E8E8E6"> |___/\__\__,_|\__|\__,_|___/_|_|_| |_|\___(_)___/_| |_|</text>
+  </g>
+  <rect x="32" y="138" width="48" height="2" fill="#9CC09F"/>
+  <text x="88" y="148" font-family="ui-monospace, 'SF Mono', SFMono-Regular, Menlo, Consolas, monospace" font-size="11" fill="#7A7A7E" xml:space="preserve">a visual builder for Claude Code statuslines</text>
+</svg>

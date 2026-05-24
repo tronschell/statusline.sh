@@ -1,17 +1,19 @@
 <div align="center">
 
-# statusline.sh
+<img src=".github/banner.svg" alt="statusline.sh" width="620" />
 
 **A visual builder for [Claude Code](https://docs.claude.com/en/docs/claude-code) statuslines.**
 Design the bar at the bottom of your terminal in the browser, then paste one command to install it.
 
 [Quickstart](#quickstart) · [Features](#features) · [Architecture](#architecture) · [API](#api) · [Contributing](#contributing)
 
-![Bun](https://img.shields.io/badge/runtime-Bun-black?style=flat-square)
-![React 19](https://img.shields.io/badge/React-19-149ECA?style=flat-square)
-![Tailwind v4](https://img.shields.io/badge/Tailwind-v4-38BDF8?style=flat-square)
-![Cloudflare Workers](https://img.shields.io/badge/Cloudflare-Workers%20%2B%20D1-F38020?style=flat-square)
-![License](https://img.shields.io/badge/license-MIT-green?style=flat-square)
+![Bun](https://img.shields.io/badge/Bun-1.1+-000000?style=flat-square&logo=bun&logoColor=white)
+![React 19](https://img.shields.io/badge/React-19-149ECA?style=flat-square&logo=react&logoColor=white)
+![TypeScript](https://img.shields.io/badge/TypeScript-strict-3178C6?style=flat-square&logo=typescript&logoColor=white)
+![Tailwind v4](https://img.shields.io/badge/Tailwind-v4-38BDF8?style=flat-square&logo=tailwindcss&logoColor=white)
+![Cloudflare Workers](https://img.shields.io/badge/Cloudflare-Workers%20%2B%20D1-F38020?style=flat-square&logo=cloudflare&logoColor=white)
+![Vercel](https://img.shields.io/badge/Vercel-SPA-000000?style=flat-square&logo=vercel&logoColor=white)
+![License](https://img.shields.io/badge/license-MIT-9CC09F?style=flat-square&logo=opensourceinitiative&logoColor=white)
 
 </div>
 
