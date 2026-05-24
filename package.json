@@ -18,6 +18,7 @@
     "@dnd-kit/utilities": "^3.2.2",
     "@phosphor-icons/react": "^2.1.10",
     "@statusline/shared": "workspace:*",
+    "@vercel/analytics": "^2.0.1",
     "bun-plugin-tailwind": "^0.1.2",
     "nanoid": "^5.1.11",
     "react": "^19",
