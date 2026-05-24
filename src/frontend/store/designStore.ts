@@ -60,6 +60,26 @@ function defaultsFor(type: ElementType, id: string): Element {
         filledChar: "█",
         emptyChar: "░",
       };
+    case "rateLimit5hPct":
+      return { ...base, type };
+    case "rateLimit5hBar":
+      return {
+        ...base,
+        type,
+        width: 10,
+        filledChar: "█",
+        emptyChar: "░",
+      };
+    case "rateLimit7dPct":
+      return { ...base, type };
+    case "rateLimit7dBar":
+      return {
+        ...base,
+        type,
+        width: 10,
+        filledChar: "█",
+        emptyChar: "░",
+      };
     case "cost":
       return { ...base, type, precision: 2 };
     case "sessionDuration":

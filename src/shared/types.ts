@@ -53,6 +53,20 @@ export type Element =
       filledChar: string;
       emptyChar: string;
     })
+  | (BaseElement & { type: "rateLimit5hPct" })
+  | (BaseElement & {
+      type: "rateLimit5hBar";
+      width: number;
+      filledChar: string;
+      emptyChar: string;
+    })
+  | (BaseElement & { type: "rateLimit7dPct" })
+  | (BaseElement & {
+      type: "rateLimit7dBar";
+      width: number;
+      filledChar: string;
+      emptyChar: string;
+    })
   | (BaseElement & { type: "cost"; precision: number })
   | (BaseElement & { type: "sessionDuration"; format: "hms" | "human" })
   | (BaseElement & { type: "glyph"; char: string })
@@ -110,6 +124,10 @@ export interface ClaudeStdin {
     total_input_tokens?: number;
     total_output_tokens?: number;
     context_window_size?: number;
+  };
+  rate_limits?: {
+    five_hour?: { used_percentage?: number; resets_at?: number };
+    seven_day?: { used_percentage?: number; resets_at?: number };
   };
   output_style?: { name?: string };
   [k: string]: unknown;

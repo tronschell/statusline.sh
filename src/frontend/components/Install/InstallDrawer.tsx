@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { Copy, Check, ArrowSquareOut } from "@phosphor-icons/react";
+import { Copy, Check, ArrowSquareOut, CaretDown } from "@phosphor-icons/react";
 import { api } from "../../lib/api";
 import { useOsDetect, type DetectedOs } from "../../hooks/useOsDetect";
 import { useUiStore } from "../../store/uiStore";
@@ -38,6 +38,9 @@ export default function InstallDrawer({
   const [os, setOs] = useState<InstallOs>(() => detectedToInstall(detected));
   const [userPicked, setUserPicked] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [scriptOpen, setScriptOpen] = useState(false);
+  const [scriptContent, setScriptContent] = useState<string | null>(null);
+  const [scriptError, setScriptError] = useState<string | null>(null);
 
   const selfHeal = useUiStore((s) => s.selfHealOptIn);
   const setSelfHeal = useUiStore((s) => s.setSelfHealOptIn);
@@ -52,14 +55,37 @@ export default function InstallDrawer({
     if (isOpen) setCopied(false);
   }, [isOpen]);
 
-  const oneLiner = useMemo(() => {
-    if (!designId) return "";
-    return api.oneLiner(designId, os, selfHeal);
-  }, [designId, os, selfHeal]);
-
   const directUrl = useMemo(() => {
     if (!designId) return "";
     return api.installUrl(designId, os, selfHeal);
+  }, [designId, os, selfHeal]);
+
+  // Invalidate the inspected script whenever the target URL changes.
+  useEffect(() => {
+    setScriptContent(null);
+    setScriptError(null);
+  }, [directUrl]);
+
+  // Lazy-fetch the script body only when the user opens the inspector.
+  useEffect(() => {
+    if (!scriptOpen || !directUrl || scriptContent !== null) return;
+    let cancelled = false;
+    fetch(directUrl)
+      .then((r) => (r.ok ? r.text() : Promise.reject(new Error(`HTTP ${r.status}`))))
+      .then((t) => {
+        if (!cancelled) setScriptContent(t);
+      })
+      .catch((e: unknown) => {
+        if (!cancelled) setScriptError(e instanceof Error ? e.message : String(e));
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [scriptOpen, directUrl, scriptContent]);
+
+  const oneLiner = useMemo(() => {
+    if (!designId) return "";
+    return api.oneLiner(designId, os, selfHeal);
   }, [designId, os, selfHeal]);
 
   const ext = os === "windows" ? "ps1" : "sh";
@@ -129,28 +155,51 @@ export default function InstallDrawer({
             })}
           </div>
 
-          <div className="flex items-start gap-2">
-            <code className="flex-1 font-mono bg-[#0E0E10] border border-white/[0.06] rounded-[6px] px-3 py-2 text-sm overflow-x-auto select-all whitespace-pre">
-              {oneLiner}
-            </code>
+          <div className="flex flex-col gap-1.5">
+            <div className="flex items-start gap-2">
+              <code className="flex-1 font-mono bg-[#0E0E10] border border-white/[0.06] rounded-[6px] px-3 py-2 text-sm overflow-x-auto select-all whitespace-pre">
+                {oneLiner}
+              </code>
+              <button
+                type="button"
+                onClick={onCopy}
+                aria-label="Copy install command"
+                className="flex items-center gap-1.5 rounded-[4px] border border-white/[0.06] bg-[#1C1C1F] px-3 py-2 text-xs uppercase tracking-wider text-[#E8E8E6] transition-transform hover:scale-[0.98]"
+              >
+                {copied ? (
+                  <>
+                    <Check size={12} weight="bold" />
+                    Copied
+                  </>
+                ) : (
+                  <>
+                    <Copy size={12} weight="bold" />
+                    Copy
+                  </>
+                )}
+              </button>
+            </div>
+
             <button
               type="button"
-              onClick={onCopy}
-              aria-label="Copy install command"
-              className="flex items-center gap-1.5 rounded-[4px] border border-white/[0.06] bg-[#1C1C1F] px-3 py-2 text-xs uppercase tracking-wider text-[#E8E8E6] transition-transform hover:scale-[0.98]"
+              onClick={() => setScriptOpen((o) => !o)}
+              aria-expanded={scriptOpen}
+              className="flex w-fit items-center gap-1.5 text-[11px] text-[#8A8A86] transition-colors hover:text-[#E8E8E6]"
             >
-              {copied ? (
-                <>
-                  <Check size={12} weight="bold" />
-                  Copied
-                </>
-              ) : (
-                <>
-                  <Copy size={12} weight="bold" />
-                  Copy
-                </>
-              )}
+              <CaretDown
+                size={9}
+                weight="bold"
+                className={`shrink-0 transition-transform ${scriptOpen ? "rotate-0" : "-rotate-90"}`}
+              />
+              {scriptOpen ? "Hide script" : "Inspect exactly what runs"}
             </button>
+            {scriptOpen && (
+              <pre className="max-h-48 overflow-auto whitespace-pre rounded-[6px] border border-white/[0.06] bg-[#0E0E10] px-3 py-2 font-mono text-[11px] leading-relaxed text-[#8A8A86]">
+                {scriptError
+                  ? `Failed to load: ${scriptError}`
+                  : (scriptContent ?? "Loading…")}
+              </pre>
+            )}
           </div>
 
           <div className="flex flex-col gap-2">

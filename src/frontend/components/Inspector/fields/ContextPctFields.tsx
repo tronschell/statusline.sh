@@ -1,8 +1,11 @@
 import type { Element } from "../../../../shared/types";
 import { type FieldsProps } from "./common";
 
-type ContextPctElement = Extract<Element, { type: "contextPct" }>;
+type PctElement = Extract<
+  Element,
+  { type: "contextPct" | "rateLimit5hPct" | "rateLimit7dPct" }
+>;
 
-export default function ContextPctFields(_: FieldsProps<ContextPctElement>) {
+export default function ContextPctFields(_: FieldsProps<PctElement>) {
   return null;
 }

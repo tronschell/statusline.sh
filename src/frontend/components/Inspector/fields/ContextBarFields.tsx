@@ -1,12 +1,15 @@
 import type { Element } from "../../../../shared/types";
 import { type FieldsProps, inputClass, labelClass } from "./common";
 
-type ContextBarElement = Extract<Element, { type: "contextBar" }>;
+type BarElement = Extract<
+  Element,
+  { type: "contextBar" | "rateLimit5hBar" | "rateLimit7dBar" }
+>;
 
 export default function ContextBarFields({
   element,
   onPatch,
-}: FieldsProps<ContextBarElement>) {
+}: FieldsProps<BarElement>) {
   const setWidth = (n: number) => {
     const clamped = Math.max(1, Math.min(40, Math.round(n)));
     onPatch({ width: clamped } as Partial<Element>);

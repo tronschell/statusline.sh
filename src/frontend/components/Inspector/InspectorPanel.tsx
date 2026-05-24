@@ -36,6 +36,10 @@ const TYPE_LABEL: Record<ElementType, string> = {
   linesRemoved: "Lines removed",
   contextPct: "Context %",
   contextBar: "Context bar",
+  rateLimit5hPct: "5-hour limit %",
+  rateLimit5hBar: "5-hour limit bar",
+  rateLimit7dPct: "7-day limit %",
+  rateLimit7dBar: "7-day limit bar",
   cost: "Cost",
   sessionDuration: "Session duration",
   glyph: "Glyph",
@@ -54,6 +58,10 @@ const TYPE_DESCRIPTION: Record<ElementType, string> = {
   linesRemoved: "Total lines removed this session.",
   contextPct: "Context window usage percentage.",
   contextBar: "Visual meter of context usage.",
+  rateLimit5hPct: "Claude.ai 5-hour rate limit usage percentage.",
+  rateLimit5hBar: "Visual meter of 5-hour rate limit usage.",
+  rateLimit7dPct: "Claude.ai 7-day rate limit usage percentage.",
+  rateLimit7dBar: "Visual meter of 7-day rate limit usage.",
   cost: "Session cost in USD.",
   sessionDuration: "Time since session start.",
   glyph: "Decorative Unicode glyph or emoji.",
@@ -249,8 +257,12 @@ function renderTypeBody(
     case "linesRemoved":
       return <LinesRemovedFields element={element} onPatch={onPatch} />;
     case "contextPct":
+    case "rateLimit5hPct":
+    case "rateLimit7dPct":
       return <ContextPctFields element={element} onPatch={onPatch} />;
     case "contextBar":
+    case "rateLimit5hBar":
+    case "rateLimit7dBar":
       return <ContextBarFields element={element} onPatch={onPatch} />;
     case "cost":
       return <CostFields element={element} onPatch={onPatch} />;

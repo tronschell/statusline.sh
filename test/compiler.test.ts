@@ -85,6 +85,25 @@ describe("compileToOps", () => {
     expect(ops[0]!.op).toBe("cond");
   });
 
+  test("rate limit elements emit field/progressBar ops with rate_limits paths", () => {
+    const d: Design = {
+      version: 1,
+      name: "RL",
+      elements: [
+        { id: "1", type: "rateLimit5hPct", style: {} },
+        { id: "2", type: "rateLimit5hBar", width: 8, filledChar: "#", emptyChar: ".", style: {} },
+        { id: "3", type: "rateLimit7dPct", style: {} },
+        { id: "4", type: "rateLimit7dBar", width: 8, filledChar: "#", emptyChar: ".", style: {} },
+      ],
+    };
+    const ops = compileToOps(d);
+    expect(ops).toHaveLength(4);
+    expect(ops[0]).toMatchObject({ op: "field", path: "rate_limits.five_hour.used_percentage" });
+    expect(ops[1]).toMatchObject({ op: "progressBar", pctPath: "rate_limits.five_hour.used_percentage" });
+    expect(ops[2]).toMatchObject({ op: "field", path: "rate_limits.seven_day.used_percentage" });
+    expect(ops[3]).toMatchObject({ op: "progressBar", pctPath: "rate_limits.seven_day.used_percentage" });
+  });
+
   test("prefix/suffix wrap inner ops with literals", () => {
     const d: Design = {
       version: 1,
@@ -117,6 +136,29 @@ describe("interpret renderToAnsi", () => {
     };
     const ansi = renderToAnsi(d, { context_window: { used_percentage: 50 } });
     expect(stripAnsi(ansi)).toBe("#####.....");
+  });
+
+  test("rate limit elements read from rate_limits paths", () => {
+    const d: Design = {
+      version: 1,
+      name: "RL",
+      elements: [
+        { id: "p5", type: "rateLimit5hPct", style: {}, suffix: "%" },
+        { id: "s1", type: "separator", text: " ", style: {} },
+        { id: "b5", type: "rateLimit5hBar", width: 10, filledChar: "#", emptyChar: ".", style: {} },
+        { id: "s2", type: "separator", text: " ", style: {} },
+        { id: "p7", type: "rateLimit7dPct", style: {}, suffix: "%" },
+        { id: "s3", type: "separator", text: " ", style: {} },
+        { id: "b7", type: "rateLimit7dBar", width: 10, filledChar: "#", emptyChar: ".", style: {} },
+      ],
+    };
+    const ansi = renderToAnsi(d, {
+      rate_limits: {
+        five_hour: { used_percentage: 40 },
+        seven_day: { used_percentage: 70 },
+      },
+    });
+    expect(stripAnsi(ansi)).toBe("40% ####...... 70% #######...");
   });
 
   test("segmentSplit on feature/auth-refactor styles two segments", () => {
@@ -317,6 +359,32 @@ describe.skipIf(!HAS_BASH)("bash backend executes correctly", () => {
     expect(r.status).toBe(0);
     const expected = stripAnsi(renderToAnsi(COMPLEX, DEFAULT_MOCK_STDIN));
     expect(stripAnsi(r.stdout)).toBe(expected);
+  });
+
+  test("rate limit pct + bar parity with bash backend", () => {
+    const d: Design = {
+      version: 1,
+      name: "RL",
+      elements: [
+        { id: "p5", type: "rateLimit5hPct", style: {}, suffix: "%" },
+        { id: "s1", type: "separator", text: " ", style: {} },
+        { id: "b5", type: "rateLimit5hBar", width: 8, filledChar: "#", emptyChar: ".", style: {} },
+        { id: "s2", type: "separator", text: " ", style: {} },
+        { id: "p7", type: "rateLimit7dPct", style: {}, suffix: "%" },
+        { id: "s3", type: "separator", text: " ", style: {} },
+        { id: "b7", type: "rateLimit7dBar", width: 8, filledChar: "#", emptyChar: ".", style: {} },
+      ],
+    };
+    const script = compileToBash(d);
+    const dir = mkdtempSync(join(tmpdir(), "sl-"));
+    const path = join(dir, "sl.sh");
+    writeFileSync(path, script);
+    const r = spawnSync("bash", [path], {
+      input: JSON.stringify(DEFAULT_MOCK_STDIN),
+      encoding: "utf8",
+    });
+    expect(r.status).toBe(0);
+    expect(stripAnsi(r.stdout)).toBe(stripAnsi(renderToAnsi(d, DEFAULT_MOCK_STDIN)));
   });
 
   test("rotator cycle parity with pinned clock", () => {

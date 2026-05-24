@@ -127,6 +127,32 @@ function elementToOps(el: Element): RenderOp[] {
         style,
       });
       break;
+    case "rateLimit5hPct":
+      inner.push({ op: "field", path: "rate_limits.five_hour.used_percentage", style });
+      break;
+    case "rateLimit5hBar":
+      inner.push({
+        op: "progressBar",
+        pctPath: "rate_limits.five_hour.used_percentage",
+        width: el.width,
+        filled: el.filledChar,
+        empty: el.emptyChar,
+        style,
+      });
+      break;
+    case "rateLimit7dPct":
+      inner.push({ op: "field", path: "rate_limits.seven_day.used_percentage", style });
+      break;
+    case "rateLimit7dBar":
+      inner.push({
+        op: "progressBar",
+        pctPath: "rate_limits.seven_day.used_percentage",
+        width: el.width,
+        filled: el.filledChar,
+        empty: el.emptyChar,
+        style,
+      });
+      break;
     case "cost":
       inner.push({
         op: "compute",

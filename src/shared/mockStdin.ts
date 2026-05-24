@@ -25,6 +25,10 @@ export const DEFAULT_MOCK_STDIN: ClaudeStdin = {
     total_output_tokens: 12800,
     context_window_size: 200000,
   },
+  rate_limits: {
+    five_hour: { used_percentage: 32, resets_at: 1748120400 },
+    seven_day: { used_percentage: 18, resets_at: 1748725200 },
+  },
   output_style: { name: "default" },
 };
 
@@ -45,6 +49,10 @@ export const MOCK_PRESETS: Record<string, ClaudeStdin> = {
       total_output_tokens: 320,
       context_window_size: 200000,
     },
+    rate_limits: {
+      five_hour: { used_percentage: 3, resets_at: 1748120400 },
+      seven_day: { used_percentage: 8, resets_at: 1748725200 },
+    },
   },
   deep: {
     ...DEFAULT_MOCK_STDIN,
@@ -61,6 +69,10 @@ export const MOCK_PRESETS: Record<string, ClaudeStdin> = {
       total_input_tokens: 178800,
       total_output_tokens: 22400,
       context_window_size: 200000,
+    },
+    rate_limits: {
+      five_hour: { used_percentage: 76, resets_at: 1748120400 },
+      seven_day: { used_percentage: 64, resets_at: 1748725200 },
     },
   },
   mainBranch: {

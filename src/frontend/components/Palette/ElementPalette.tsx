@@ -17,6 +17,9 @@ import {
   Shuffle,
   CaretDown,
   CaretRight,
+  Gauge,
+  Hourglass,
+  CalendarBlank,
   type IconProps,
 } from "@phosphor-icons/react";
 import type { ElementType } from "../../../shared/types";
@@ -62,6 +65,37 @@ const PALETTE_GROUPS: ReadonlyArray<PaletteGroup> = [
     entries: [
       { type: "contextPct", label: "Percentage", description: "Context window %", Icon: Percent },
       { type: "contextBar", label: "Progress bar", description: "Filled / empty bar", Icon: ChartBar },
+    ],
+  },
+  {
+    id: "rateLimits",
+    label: "Rate limits",
+    Icon: Gauge,
+    entries: [
+      {
+        type: "rateLimit5hPct",
+        label: "5-hour %",
+        description: "Claude.ai 5-hour usage",
+        Icon: Hourglass,
+      },
+      {
+        type: "rateLimit5hBar",
+        label: "5-hour bar",
+        description: "5-hour usage meter",
+        Icon: Gauge,
+      },
+      {
+        type: "rateLimit7dPct",
+        label: "7-day %",
+        description: "Claude.ai 7-day usage",
+        Icon: CalendarBlank,
+      },
+      {
+        type: "rateLimit7dBar",
+        label: "7-day bar",
+        description: "7-day usage meter",
+        Icon: ChartBar,
+      },
     ],
   },
   {
@@ -135,6 +169,7 @@ const DEFAULT_OPEN: ReadonlyArray<string> = [
   "identity",
   "git",
   "context",
+  "rateLimits",
   "session",
   "alive",
 ];

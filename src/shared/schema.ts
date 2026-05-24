@@ -30,6 +30,10 @@ const ELEMENT_TYPES: ReadonlyArray<ElementType> = [
   "linesRemoved",
   "contextPct",
   "contextBar",
+  "rateLimit5hPct",
+  "rateLimit5hBar",
+  "rateLimit7dPct",
+  "rateLimit7dBar",
   "cost",
   "sessionDuration",
   "glyph",
@@ -206,7 +210,9 @@ function vElement(v: unknown, path: string): Element {
       return { ...base, type: "linesRemoved" };
     case "contextPct":
       return { ...base, type: "contextPct" };
-    case "contextBar": {
+    case "contextBar":
+    case "rateLimit5hBar":
+    case "rateLimit7dBar": {
       if (typeof v.width !== "number" || v.width < 1)
         throw new ValidationError(path + ".width", "expected positive number");
       if (typeof v.filledChar !== "string" || v.filledChar.length === 0)
@@ -215,12 +221,16 @@ function vElement(v: unknown, path: string): Element {
         throw new ValidationError(path + ".emptyChar", "expected non-empty string");
       return {
         ...base,
-        type: "contextBar",
+        type: t as "contextBar" | "rateLimit5hBar" | "rateLimit7dBar",
         width: v.width,
         filledChar: v.filledChar,
         emptyChar: v.emptyChar,
       };
     }
+    case "rateLimit5hPct":
+      return { ...base, type: "rateLimit5hPct" };
+    case "rateLimit7dPct":
+      return { ...base, type: "rateLimit7dPct" };
     case "cost": {
       const p = v.precision;
       if (typeof p !== "number" || p < 0 || p > 6)
