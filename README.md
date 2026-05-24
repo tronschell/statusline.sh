@@ -1,6 +1,6 @@
 <div align="center">
 
-<img src=".github/banner.svg" alt="statusline.sh" width="620" />
+# statusline.sh
 
 **A visual builder for [Claude Code](https://docs.claude.com/en/docs/claude-code) statuslines.**
 Design the bar at the bottom of your terminal in the browser, then paste one command to install it.
