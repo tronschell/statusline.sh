@@ -1,6 +1,31 @@
 @import url('https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&family=Geist+Mono:wght@400;500&family=Instrument+Serif:ital@0;1&display=swap');
 @import "tailwindcss";
 
+/*
+ * Geist Mono ships Latin but not the Block Elements range (U+2580–U+259F),
+ * so glyphs like ░ ▒ ▓ █ fall back per-glyph. On Windows that fallback often
+ * lands on a non-monospace font (Segoe UI Symbol / Cambria Math), making the
+ * empty cells of progress bars render visibly wider than the filled cells.
+ *
+ * Pin those glyphs to a platform-native monospace via local() so the advance
+ * width matches Geist Mono. unicode-range gates this @font-face to the block
+ * range only — every other glyph keeps using Geist Mono itself.
+ */
+@font-face {
+  font-family: 'GeistMonoBlocks';
+  src:
+    local('Cascadia Mono'),
+    local('Cascadia Code'),
+    local('Consolas'),
+    local('Menlo'),
+    local('Monaco'),
+    local('SF Mono'),
+    local('JetBrains Mono'),
+    local('DejaVu Sans Mono');
+  unicode-range: U+2580-259F;
+  font-display: swap;
+}
+
 @theme inline {
   /* Surfaces */
   --color-canvas: #0E0E10;
@@ -24,7 +49,7 @@
 
   /* Typography */
   --font-sans: 'Geist', 'Geist Sans', 'SF Pro Display', system-ui, sans-serif;
-  --font-mono: 'Geist Mono', 'SF Mono', 'JetBrains Mono', monospace;
+  --font-mono: 'GeistMonoBlocks', 'Geist Mono', 'SF Mono', 'JetBrains Mono', monospace;
   --font-serif: 'Instrument Serif', 'Newsreader', ui-serif, Georgia, serif;
 }
 
