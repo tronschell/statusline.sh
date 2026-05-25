@@ -3,7 +3,6 @@ import {
   ArrowCounterClockwise,
   ArrowClockwise,
   UploadSimple,
-  DownloadSimple,
   Globe,
   Palette,
 } from "@phosphor-icons/react";
@@ -27,12 +26,6 @@ function shortIdLabel(id: string): string {
   return id.length > 8 ? id.slice(0, 8) : id;
 }
 
-function sanitizeFileName(name: string): string {
-  const trimmed = name.trim();
-  const cleaned = trimmed.replace(/[\\/:*?"<>|]+/g, "-").replace(/\s+/g, "-");
-  return cleaned.length ? cleaned : "statusline";
-}
-
 export default function TopBar({
   slug,
   onOpenInstall,
@@ -49,20 +42,6 @@ export default function TopBar({
 
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const [importError, setImportError] = useState<string | null>(null);
-
-  function onExport() {
-    const blob = new Blob([JSON.stringify(design, null, 2)], {
-      type: "application/json",
-    });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `${sanitizeFileName(design.name)}.json`;
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
-    URL.revokeObjectURL(url);
-  }
 
   function onImportClick() {
     setImportError(null);
@@ -155,15 +134,6 @@ export default function TopBar({
           >
             <UploadSimple size={12} weight="bold" />
             Import
-          </button>
-          <button
-            type="button"
-            onClick={onExport}
-            className={btnBase}
-            aria-label="Export design"
-          >
-            <DownloadSimple size={12} weight="bold" />
-            Export
           </button>
 
           <button

@@ -1,9 +1,15 @@
 import { useEffect, useState } from "react";
-import { Copy, Check } from "@phosphor-icons/react";
+import { Copy, Check, DownloadSimple } from "@phosphor-icons/react";
 import { api } from "../../lib/api";
 import { TurnstileWidget } from "../../lib/turnstile";
 import { useDesignStore } from "../../store/designStore";
 import Modal from "../Modal/Modal";
+
+function sanitizeFileName(name: string): string {
+  const trimmed = name.trim();
+  const cleaned = trimmed.replace(/[\\/:*?"<>|]+/g, "-").replace(/\s+/g, "-");
+  return cleaned.length ? cleaned : "statusline";
+}
 
 export interface PublishDialogProps {
   designName: string;
@@ -75,6 +81,22 @@ export default function PublishDialog({
     publishedSlug && typeof window !== "undefined"
       ? `${window.location.origin}${communityPath}`
       : communityPath;
+
+  function onExport() {
+    const exportName = name.trim() || designName;
+    const payload = { ...design, name: exportName };
+    const blob = new Blob([JSON.stringify(payload, null, 2)], {
+      type: "application/json",
+    });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `${sanitizeFileName(exportName)}.json`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+  }
 
   async function copyUrl() {
     if (!communityUrl) return;
@@ -219,21 +241,33 @@ export default function PublishDialog({
             </p>
           )}
 
-          <div className="flex justify-end gap-2">
+          <div className="flex items-center justify-between gap-2">
             <button
               type="button"
-              onClick={onClose}
-              className="rounded-[4px] border border-white/[0.06] bg-[#1C1C1F] px-4 py-2 text-xs uppercase tracking-wider text-[#E8E8E6] transition-transform hover:scale-[0.98]"
+              onClick={onExport}
+              className="flex items-center gap-1.5 rounded-[4px] border border-white/[0.06] bg-[#1C1C1F] px-3 py-2 text-xs uppercase tracking-wider text-[#E8E8E6] transition-transform hover:scale-[0.98]"
+              aria-label="Export design as JSON"
+              title="Download this design as a JSON file"
             >
-              Cancel
+              <DownloadSimple size={12} weight="bold" />
+              Export JSON
             </button>
-            <button
-              type="submit"
-              disabled={busy || !author.trim() || !name.trim() || !token}
-              className="rounded-[4px] border border-white/[0.06] bg-[#E8E8E6] px-4 py-2 text-xs uppercase tracking-wider text-[#0E0E10] transition-transform hover:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50"
-            >
-              {busy ? "Publishing..." : "Publish"}
-            </button>
+            <div className="flex gap-2">
+              <button
+                type="button"
+                onClick={onClose}
+                className="rounded-[4px] border border-white/[0.06] bg-[#1C1C1F] px-4 py-2 text-xs uppercase tracking-wider text-[#E8E8E6] transition-transform hover:scale-[0.98]"
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                disabled={busy || !author.trim() || !name.trim() || !token}
+                className="rounded-[4px] border border-white/[0.06] bg-[#E8E8E6] px-4 py-2 text-xs uppercase tracking-wider text-[#0E0E10] transition-transform hover:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                {busy ? "Publishing..." : "Publish"}
+              </button>
+            </div>
           </div>
         </form>
       )}
