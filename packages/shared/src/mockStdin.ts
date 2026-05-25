@@ -1,5 +1,12 @@
 import type { ClaudeStdin } from "./types";
 
+// Fixed baseline computed at module load so mock `resets_at` values are
+// always a sensible offset into the future for inspector previews, but
+// stay stable across calls within a session.
+const __NOW = Math.floor(Date.now() / 1000);
+const RESET_5H = __NOW + 3700;        // ~1h 1m
+const RESET_7D = __NOW + 100000;      // ~27h 46m
+
 export const DEFAULT_MOCK_STDIN: ClaudeStdin = {
   model: { id: "claude-opus-4-7", display_name: "Opus 4.7" },
   cwd: "/Users/dev/projects/statusline-maker",
@@ -26,10 +33,17 @@ export const DEFAULT_MOCK_STDIN: ClaudeStdin = {
     context_window_size: 200000,
   },
   rate_limits: {
-    five_hour: { used_percentage: 32, resets_at: 1748120400 },
-    seven_day: { used_percentage: 18, resets_at: 1748725200 },
+    five_hour: { used_percentage: 32, resets_at: RESET_5H },
+    seven_day: { used_percentage: 18, resets_at: RESET_7D },
   },
-  output_style: { name: "default" },
+  output_style: { name: "explanatory" },
+  thinking: { enabled: true },
+  effort: { level: "high" },
+  fast_mode: false,
+  // Browser-preview terminal width. Consumed by the interpret backend's
+  // flex-spacer math; bash/PS scripts ignore this and read the real
+  // terminal width at runtime via tput / [Console]::WindowWidth.
+  _terminalWidth: 120,
 };
 
 export const MOCK_PRESETS: Record<string, ClaudeStdin> = {
@@ -50,8 +64,8 @@ export const MOCK_PRESETS: Record<string, ClaudeStdin> = {
       context_window_size: 200000,
     },
     rate_limits: {
-      five_hour: { used_percentage: 3, resets_at: 1748120400 },
-      seven_day: { used_percentage: 8, resets_at: 1748725200 },
+      five_hour: { used_percentage: 3, resets_at: RESET_5H },
+      seven_day: { used_percentage: 8, resets_at: RESET_7D },
     },
   },
   deep: {
@@ -71,8 +85,24 @@ export const MOCK_PRESETS: Record<string, ClaudeStdin> = {
       context_window_size: 200000,
     },
     rate_limits: {
-      five_hour: { used_percentage: 76, resets_at: 1748120400 },
-      seven_day: { used_percentage: 64, resets_at: 1748725200 },
+      five_hour: { used_percentage: 76, resets_at: RESET_5H },
+      seven_day: { used_percentage: 64, resets_at: RESET_7D },
+    },
+  },
+  // High-token preset for absolute-mode threshold testing — drives the
+  // contextBar/contextPct into the red zone (>150K default threshold).
+  highTokens: {
+    ...DEFAULT_MOCK_STDIN,
+    context_window: {
+      used_percentage: 90,
+      remaining_percentage: 10,
+      total_input_tokens: 180000,
+      total_output_tokens: 24000,
+      context_window_size: 200000,
+    },
+    rate_limits: {
+      five_hour: { used_percentage: 61, resets_at: RESET_5H },
+      seven_day: { used_percentage: 89, resets_at: RESET_7D },
     },
   },
   mainBranch: {
@@ -85,6 +115,18 @@ export const MOCK_PRESETS: Record<string, ClaudeStdin> = {
       current_dir: "/Users/dev/scratch",
       project_dir: "/Users/dev/scratch",
     },
+  },
+  thinkingOff: {
+    ...DEFAULT_MOCK_STDIN,
+    thinking: { enabled: false },
+  },
+  fastMode: {
+    ...DEFAULT_MOCK_STDIN,
+    fast_mode: true,
+  },
+  defaultStyle: {
+    ...DEFAULT_MOCK_STDIN,
+    output_style: { name: "default" },
   },
 };
 

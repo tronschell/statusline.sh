@@ -36,6 +36,36 @@ export interface UiState {
 
 const DEFAULT_MOCK_JSON = JSON.stringify(DEFAULT_MOCK_STDIN, null, 2);
 
+/**
+ * Backfill top-level keys that were added to DEFAULT_MOCK_STDIN after the
+ * user's persisted mockStdinJson was first written (e.g. `thinking`,
+ * `effort`, `output_style`, `fast_mode` driving the new statusline
+ * elements). Without this, those elements render as empty in the mock
+ * terminal even though their fields exist in the current defaults. User
+ * edits to existing keys are preserved — we only add what's missing.
+ */
+function backfillMockJson(stored: string): string {
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(stored);
+  } catch {
+    return DEFAULT_MOCK_JSON;
+  }
+  if (typeof parsed !== "object" || parsed === null || Array.isArray(parsed)) {
+    return DEFAULT_MOCK_JSON;
+  }
+  const merged: Record<string, unknown> = { ...(parsed as Record<string, unknown>) };
+  let changed = false;
+  for (const [key, val] of Object.entries(DEFAULT_MOCK_STDIN)) {
+    if (!(key in merged)) {
+      merged[key] = val;
+      changed = true;
+    }
+  }
+  if (!changed) return stored;
+  return JSON.stringify(merged, null, 2);
+}
+
 export const useUiStore = create<UiState>()(
   persist(
     (set) => ({
@@ -56,7 +86,16 @@ export const useUiStore = create<UiState>()(
     }),
     {
       name: "statusline-ui-v1",
+      version: 2,
       storage: createJSONStorage(safeStorage),
+      migrate: (persisted, version) => {
+        if (typeof persisted !== "object" || persisted === null) return persisted;
+        const state = persisted as Partial<UiState>;
+        if (version < 2 && typeof state.mockStdinJson === "string") {
+          state.mockStdinJson = backfillMockJson(state.mockStdinJson);
+        }
+        return state as UiState;
+      },
     },
   ),
 );

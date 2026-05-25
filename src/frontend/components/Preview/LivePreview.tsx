@@ -1,4 +1,4 @@
-import { Fragment, useEffect, useMemo, useState } from "react";
+import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useDroppable } from "@dnd-kit/core";
 import { Copy, Trash } from "@phosphor-icons/react";
 import { useDesignStore } from "../../store/designStore";
@@ -11,6 +11,8 @@ import {
   SkeletonChip,
   previewDropId,
   useInsertionPreview,
+  useRegisterInsertionResolver,
+  type InsertionResolver,
 } from "../../hooks/useDnd";
 import { TerminalFrame } from "../Layout/TerminalFrame";
 import { AnsiToHtml } from "./AnsiToHtml";
@@ -31,6 +33,123 @@ function parseMock(json: string): ClaudeStdin {
 
 function singleElementDesign(d: Design, el: Element): Design {
   return { ...d, elements: [el] };
+}
+
+/**
+ * Pointer-aware insertion resolver for the mock-terminal surface. Mirrors the
+ * canvas algorithm: group rendered spans into visual lines by Y, find the line
+ * containing the pointer (or nearest), then closest-seam math in X. Returns
+ * the element index where a new chip should be spliced. `rowIndex` is null
+ * because the preview render path ignores it.
+ */
+function resolvePreviewInsertion(
+  rootEl: HTMLElement,
+  pieces: ReadonlyArray<{ id: string; ansi: string }>,
+  pointerX: number,
+  pointerY: number,
+): { index: number; rowIndex: number | null } | null {
+  const rootRect = rootEl.getBoundingClientRect();
+  const bleed = 6;
+  const inside =
+    pointerX >= rootRect.left - bleed &&
+    pointerX <= rootRect.right + bleed &&
+    pointerY >= rootRect.top - bleed &&
+    pointerY <= rootRect.bottom + bleed;
+  if (!inside) return null;
+
+  if (pieces.length === 0) return { index: 0, rowIndex: null };
+
+  // Build id → rect once. Spans missing from the DOM (empty ansi) are skipped.
+  const nodes = rootEl.querySelectorAll<HTMLElement>("[data-preview-id]");
+  const rectById = new Map<string, DOMRect>();
+  nodes.forEach((node) => {
+    const id = node.dataset["previewId"];
+    if (id) rectById.set(id, node.getBoundingClientRect());
+  });
+
+  type Sp = {
+    pieceIdx: number;
+    left: number;
+    right: number;
+    top: number;
+    bottom: number;
+  };
+  const spans: Sp[] = [];
+  pieces.forEach((p, i) => {
+    const r = rectById.get(p.id);
+    if (!r) return;
+    spans.push({
+      pieceIdx: i,
+      left: r.left,
+      right: r.right,
+      top: r.top,
+      bottom: r.bottom,
+    });
+  });
+
+  if (spans.length === 0) return { index: pieces.length, rowIndex: null };
+
+  // Visual-line grouping. Common case: one line. Multi-line covers terminals
+  // that wrap or contain a literal newline in the rendered output.
+  type Line = { spans: Sp[]; top: number; bottom: number };
+  const lines: Line[] = [];
+  let cur: Line | null = null;
+  for (const s of spans) {
+    if (!cur || s.top >= cur.bottom - 1) {
+      cur = { spans: [s], top: s.top, bottom: s.bottom };
+      lines.push(cur);
+    } else {
+      cur.spans.push(s);
+      cur.top = Math.min(cur.top, s.top);
+      cur.bottom = Math.max(cur.bottom, s.bottom);
+    }
+  }
+
+  let chosen: Line | null = null;
+  for (const line of lines) {
+    if (pointerY >= line.top && pointerY <= line.bottom) {
+      chosen = line;
+      break;
+    }
+  }
+  if (!chosen) {
+    let bestDist = Infinity;
+    for (const line of lines) {
+      const c = (line.top + line.bottom) / 2;
+      const d = Math.abs(pointerY - c);
+      if (d < bestDist) {
+        bestDist = d;
+        chosen = line;
+      }
+    }
+    if (!chosen) return { index: pieces.length, rowIndex: null };
+    const last = lines[lines.length - 1]!;
+    const lastHeight = Math.max(last.bottom - last.top, 16);
+    if (pointerY > last.bottom + Math.max(8, lastHeight * 0.5)) {
+      return { index: pieces.length, rowIndex: null };
+    }
+  }
+
+  const seams = chosen.spans.slice().sort((a, b) => a.left - b.left);
+  let bestSeam = 0;
+  let bestDist = Math.abs(pointerX - seams[0]!.left);
+  for (let k = 1; k < seams.length; k++) {
+    const seamX = (seams[k - 1]!.right + seams[k]!.left) / 2;
+    const d = Math.abs(pointerX - seamX);
+    if (d < bestDist) {
+      bestDist = d;
+      bestSeam = k;
+    }
+  }
+  const trailingX = seams[seams.length - 1]!.right;
+  const trailingDist = Math.abs(pointerX - trailingX);
+  if (trailingDist < bestDist) bestSeam = seams.length;
+
+  const insertAt =
+    bestSeam < seams.length
+      ? seams[bestSeam]!.pieceIdx
+      : seams[seams.length - 1]!.pieceIdx + 1;
+  return { index: insertAt, rowIndex: null };
 }
 
 interface PreviewSpanProps {
@@ -57,6 +176,7 @@ function PreviewSpan({
   return (
     <span
       ref={setNodeRef}
+      data-preview-id={id}
       role="button"
       tabIndex={0}
       onClick={(e) => {
@@ -94,7 +214,17 @@ export function LivePreview() {
   const removeElement = useDesignStore((s) => s.removeElement);
   const mockStdinJson = useUiStore((s) => s.mockStdinJson);
   const { pending } = useInsertionPreview();
-  const { setNodeRef: setRootRef } = useDroppable({ id: PREVIEW_ROOT_DROPPABLE });
+  const { setNodeRef: setDroppableRootRef } = useDroppable({
+    id: PREVIEW_ROOT_DROPPABLE,
+  });
+  const rootRef = useRef<HTMLDivElement | null>(null);
+  const setRootRef = useCallback(
+    (node: HTMLDivElement | null) => {
+      rootRef.current = node;
+      setDroppableRootRef(node);
+    },
+    [setDroppableRootRef],
+  );
 
   const [menu, setMenu] = useState<{
     elementId: string;
@@ -142,6 +272,16 @@ export function LivePreview() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [design, mockStdinJson, tick]);
 
+  const resolver = useCallback<InsertionResolver>(
+    (x, y) => {
+      const root = rootRef.current;
+      if (!root) return null;
+      return resolvePreviewInsertion(root, pieces, x, y);
+    },
+    [pieces],
+  );
+  useRegisterInsertionResolver(resolver);
+
   const empty = pieces.every((p) => p.ansi.length === 0) && !pending;
 
   return (
@@ -153,7 +293,7 @@ export function LivePreview() {
               Add elements to build your statusline.
             </span>
           ) : (
-            <span className="font-mono whitespace-pre">
+            <div className="font-mono whitespace-pre leading-tight">
               {pieces.map((p, i) => {
                 const showSkelHere = pending?.index === i;
                 if (p.ansi.length === 0) {
@@ -179,7 +319,7 @@ export function LivePreview() {
               {pending && pending.index >= pieces.length ? (
                 <SkeletonChip type={pending.type} />
               ) : null}
-            </span>
+            </div>
           )}
         </div>
       </TerminalFrame>

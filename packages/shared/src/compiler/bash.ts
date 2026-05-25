@@ -7,6 +7,25 @@ set -u
 INPUT="$(cat)"
 export INPUT_JSON="$INPUT"
 
+# Terminal width for flex-spacer math. Honors STATUSLINE_COLS env override
+# (used by parity tests); otherwise tries tput, finally falls back to 80.
+STATUSLINE_COLS=\${STATUSLINE_COLS:-$(tput cols 2>/dev/null || echo 80)}
+
+# Visible-character length: strip CSI SGR sequences then count chars.
+# Wide glyphs (emoji, CJK) count as 1 column — same simplification as the
+# interpret backend uses.
+__visible_len() {
+  printf '%s' "$1" | sed 's/\\x1b\\[[0-9;]*m//g' | awk '{ printf "%s", length($0) }'
+}
+
+__repeat_char() {
+  local ch="$1" n="$2" out=""
+  if [ "$n" -le 0 ]; then printf ''; return; fi
+  local i=0
+  while [ "$i" -lt "$n" ]; do out+="$ch"; i=$((i+1)); done
+  printf '%s' "$out"
+}
+
 __sgr() { printf '\\033[%sm' "$1"; }
 __reset() { printf '\\033[0m'; }
 
@@ -50,6 +69,23 @@ PYEOF
 fi
 
 __basename() { local s="$1"; printf '%s' "\${s##*/}"; }
+__compact() {
+  local s="$1"
+  if [ -z "$s" ]; then printf ''; return; fi
+  # Use awk so we don't depend on bash arrays. Split on '/', take the first
+  # char of every segment except the last; preserve a leading slash by
+  # emitting an empty initial element when the path starts with '/'.
+  printf '%s' "$s" | awk 'BEGIN{FS="/"} {
+    out=""
+    for (i=1; i<=NF; i++) {
+      if (i==NF) { piece = $i }
+      else if ($i == "") { piece = "" }
+      else { piece = substr($i, 1, 1) }
+      if (i==1) { out = piece } else { out = out "/" piece }
+    }
+    printf "%s", out
+  }'
+}
 __tildify() {
   local s="$1"
   local home="\${HOME%/}"
@@ -128,12 +164,82 @@ __emit() {
   printf '%s' "$text"
   if [ -n "$style" ]; then __reset; fi
 }
+__norm_int() {
+  # Coerce a possibly-decimal/empty/garbage field value to a non-negative
+  # integer string. Used by token-display helpers.
+  local v="$1"
+  v="\${v%%.*}"
+  case "$v" in
+    ''|*[!0-9]*) printf '0' ;;
+    *) printf '%s' "$v" ;;
+  esac
+}
+__fmt_token_compact() {
+  local n
+  n="$(__norm_int "$1")"
+  if [ "$n" -lt 1000 ]; then printf '%s' "$n"; return; fi
+  if [ "$n" -lt 1000000 ]; then
+    local whole=$((n / 1000))
+    local rem=$((n - whole * 1000))
+    local dec=$((rem / 100))
+    if [ "$dec" -eq 0 ]; then printf '%dk' "$whole"; else printf '%d.%dk' "$whole" "$dec"; fi
+    return
+  fi
+  local whole=$((n / 1000000))
+  local rem=$((n - whole * 1000000))
+  local dec=$((rem / 100000))
+  if [ "$dec" -eq 0 ]; then printf '%dM' "$whole"; else printf '%d.%dM' "$whole" "$dec"; fi
+}
+__fmt_token_full() {
+  local n
+  n="$(__norm_int "$1")"
+  printf '%s' "$n" | awk '{
+    s=$0; out=""; n=length(s)
+    while (n > 3) { out=","substr(s,n-2,3) out; n -= 3 }
+    out=substr(s,1,n) out
+    printf "%s", out
+  }'
+}
+__tokens_used() { __field 'context_window.total_input_tokens'; }
+__tokens_total() { __field 'context_window.context_window_size'; }
+__tokens_remaining() {
+  local u t
+  u="$(__norm_int "$(__tokens_used)")"
+  t="$(__norm_int "$(__tokens_total)")"
+  local r=$((t - u))
+  if [ "$r" -lt 0 ]; then r=0; fi
+  printf '%d' "$r"
+}
+__tokens_pct_int() {
+  local p="$(__field 'context_window.used_percentage')"
+  __norm_int "$p"
+}
 __tick() {
   if [ -n "\${STATUSLINE_CLOCK_OVERRIDE:-}" ]; then
     printf '%s' "$STATUSLINE_CLOCK_OVERRIDE"
   else
     date +%s
   fi
+}
+__rel_time() {
+  local target="$1"
+  if [ -z "$target" ]; then printf ''; return; fi
+  case "$target" in
+    ''|*[!0-9.-]*) printf ''; return ;;
+  esac
+  local t_int="\${target%.*}"
+  if [ -z "$t_int" ] || [ "$t_int" = "-" ]; then printf ''; return; fi
+  local now diff h m s rem
+  now=$(__tick)
+  diff=$((t_int - now))
+  if [ "$diff" -le 0 ]; then printf ''; return; fi
+  if [ "$diff" -lt 60 ]; then printf 'T-%ds' "$diff"; return; fi
+  if [ "$diff" -lt 3600 ]; then
+    m=$((diff/60)); s=$((diff%60))
+    printf 'T-%dm%02ds' "$m" "$s"; return
+  fi
+  h=$((diff/3600)); rem=$(((diff%3600)/60))
+  printf 'T-%dh%02dm' "$h" "$rem"
 }
 `;
 
@@ -168,7 +274,9 @@ function emitOp(op: RenderOp, depth = 0): string {
           ? `__v="$(__basename "$__v")"`
           : t === "tilde"
             ? `__v="$(__tildify "$__v")"`
-            : "";
+            : t === "compact"
+              ? `__v="$(__compact "$__v")"`
+              : "";
       return (
         `${pad}__v="$(__field '${path}')"\n` +
         (transformLine ? `${pad}${transformLine}\n` : "") +
@@ -194,7 +302,14 @@ function emitOp(op: RenderOp, depth = 0): string {
         test = `awk -v v="$(__field '${path}')" 'BEGIN{exit !(v+0 < ${Number(op.expr.value)})}'`;
       }
       let out = `${pad}if ${test}; then\n`;
-      for (const child of op.then) out += emitOp(child, depth + 1);
+      if (op.then.length === 0) {
+        // Bash requires at least one statement in the `then` branch — emit
+        // a no-op so an inverted/empty conditional (used e.g. by
+        // `outputStyle` to mean "show unless equal to default") parses.
+        out += `${pad}  :\n`;
+      } else {
+        for (const child of op.then) out += emitOp(child, depth + 1);
+      }
       if (op.else && op.else.length > 0) {
         out += `${pad}else\n`;
         for (const child of op.else) out += emitOp(child, depth + 1);
@@ -222,7 +337,8 @@ function emitOp(op: RenderOp, depth = 0): string {
         prelude =
           `${pad}__v="$(__field '${bashEscapeSingleQuoted(src.path)}')"\n` +
           (t === "basename" ? `${pad}__v="$(__basename "$__v")"\n` : "") +
-          (t === "tilde" ? `${pad}__v="$(__tildify "$__v")"\n` : "");
+          (t === "tilde" ? `${pad}__v="$(__tildify "$__v")"\n` : "") +
+          (t === "compact" ? `${pad}__v="$(__compact "$__v")"\n` : "");
       } else if (src.op === "literal") {
         prelude = `${pad}__v='${bashEscapeSingleQuoted(src.text)}'\n`;
       } else if (src.op === "compute" && src.expr === "git_branch") {
@@ -288,7 +404,48 @@ function emitOp(op: RenderOp, depth = 0): string {
             `${pad}__out="$(__git_dirty)"\n` +
             `${pad}__emit '${styleCodes}' "$__out"\n`
           );
+        case "relative_time":
+          return (
+            `${pad}__v="$(__field '${arg}')"\n` +
+            `${pad}__out="$(__rel_time "$__v")"\n` +
+            `${pad}__emit '${styleCodes}' "$__out"\n`
+          );
       }
+    }
+    case "tokenDisplay": {
+      const fnFmt = op.compact ? "__fmt_token_compact" : "__fmt_token_full";
+      switch (op.variant) {
+        case "used":
+          return (
+            `${pad}__v="$(__tokens_used)"\n` +
+            `${pad}__out="$(${fnFmt} "$__v")"\n` +
+            `${pad}__emit '${styleCodes}' "$__out"\n`
+          );
+        case "remaining":
+          return (
+            `${pad}__v="$(__tokens_remaining)"\n` +
+            `${pad}__out="$(${fnFmt} "$__v")"\n` +
+            `${pad}__emit '${styleCodes}' "$__out"\n`
+          );
+        case "ratio":
+          return (
+            `${pad}__u="$(__tokens_used)"\n` +
+            `${pad}__t="$(__tokens_total)"\n` +
+            `${pad}__uf="$(${fnFmt} "$__u")"\n` +
+            `${pad}__tf="$(${fnFmt} "$__t")"\n` +
+            `${pad}__emit '${styleCodes}' "$__uf/$__tf"\n`
+          );
+        case "ratioPct":
+          return (
+            `${pad}__u="$(__tokens_used)"\n` +
+            `${pad}__t="$(__tokens_total)"\n` +
+            `${pad}__p="$(__tokens_pct_int)"\n` +
+            `${pad}__uf="$(${fnFmt} "$__u")"\n` +
+            `${pad}__tf="$(${fnFmt} "$__t")"\n` +
+            `${pad}__emit '${styleCodes}' "$__uf/$__tf ($__p%)"\n`
+          );
+      }
+      return "";
     }
     case "rotator": {
       const n = op.items.length;
@@ -311,12 +468,134 @@ function emitOp(op: RenderOp, depth = 0): string {
       body += `${pad}__emit '${styleCodes}' "\${__items[$__idx]}"\n`;
       return body;
     }
+    case "lineBreak":
+      // Reset SGR state, then emit a real LF byte. The reset prevents
+      // element-level or design-level background colors from bleeding
+      // past the line boundary.
+      return `${pad}__reset\n${pad}printf '\\n'\n`;
+    case "fixedSpacer": {
+      if (op.width <= 0) return "";
+      const ch = bashEscapeSingleQuoted(op.char);
+      return `${pad}__repeat_char '${ch}' ${op.width}\n`;
+    }
+    case "flexSpacer":
+      // Top-level flex spacers are handled by the deck partitioner in
+      // compileToBash. If we reach this branch we're nested inside a
+      // cond, where flex resolution is undefined — emit nothing.
+      return "";
   }
+}
+
+/**
+ * Emit a deck slice as bash. If the slice contains no flex spacers, emit
+ * the ops straight through (preserving the old fast path so non-spacer
+ * designs are byte-equivalent to before). Otherwise, capture each chunk
+ * to a variable via command substitution, measure visible widths, and
+ * emit pad spans between them computed from STATUSLINE_COLS.
+ */
+function emitDeck(deckOps: RenderOp[]): string {
+  const flexCount = deckOps.filter((op) => op.op === "flexSpacer").length;
+  if (flexCount === 0) {
+    return deckOps.map((op) => emitOp(op, 0)).join("");
+  }
+
+  // Partition into chunks at each flexSpacer. spacerChars[i] is the
+  // padding character to use after chunk i.
+  const chunks: RenderOp[][] = [[]];
+  const spacerChars: string[] = [];
+  for (const op of deckOps) {
+    if (op.op === "flexSpacer") {
+      spacerChars.push(op.char);
+      chunks.push([]);
+    } else {
+      chunks[chunks.length - 1]!.push(op);
+    }
+  }
+
+  let body = "";
+  // Compile each chunk into a subshell-renderable form: capture via
+  //   __chunk_N="$(...statements...)"
+  // The statements are the normal emitOp output for that chunk.
+  const chunkVars: string[] = [];
+  for (let i = 0; i < chunks.length; i++) {
+    const name = `__chunk_${i}`;
+    chunkVars.push(name);
+    const chunkBody = chunks[i]!.map((op) => emitOp(op, 1)).join("");
+    body += `${name}="$( {\n${chunkBody}} )"\n`;
+  }
+
+  // Drop trailing flex spacer if the last chunk is empty (spacer at EOL).
+  let activeSpacerCount = spacerChars.length;
+  let lastIdx = chunks.length - 1;
+  // We can't know chunk emptiness statically (it depends on runtime
+  // fields), but the documented edge case is "spacer at end of line"
+  // which means the AST chunk list is `[ops, ..., []]` — an empty array
+  // of ops. Detect that here.
+  if (
+    activeSpacerCount > 0 &&
+    chunks[lastIdx]!.length === 0
+  ) {
+    activeSpacerCount--;
+    lastIdx--;
+  }
+
+  // Compute lengths and emit padding. We rely on bash arithmetic for
+  // floor + distribute-leftover.
+  body += `__total_len=0\n`;
+  for (let i = 0; i <= lastIdx; i++) {
+    body += `__len_${i}=$(__visible_len "$${chunkVars[i]}")\n`;
+    body += `__total_len=$((__total_len + __len_${i}))\n`;
+  }
+  body += `__remaining=$((STATUSLINE_COLS - __total_len))\n`;
+  body += `if [ "$__remaining" -lt 0 ]; then __remaining=0; fi\n`;
+  if (activeSpacerCount > 0) {
+    body += `__pad_base=$((__remaining / ${activeSpacerCount}))\n`;
+    body += `__pad_extra=$((__remaining - __pad_base * ${activeSpacerCount}))\n`;
+  } else {
+    body += `__pad_base=0\n__pad_extra=0\n`;
+  }
+
+  let spacerSeen = 0;
+  for (let i = 0; i <= lastIdx; i++) {
+    body += `printf '%s' "$${chunkVars[i]}"\n`;
+    if (i < lastIdx) {
+      const ch = bashEscapeSingleQuoted(spacerChars[i] ?? " ");
+      // First `__pad_extra` paddings get one bonus char.
+      body += `if [ ${spacerSeen} -lt "$__pad_extra" ]; then\n`;
+      body += `  __repeat_char '${ch}' $((__pad_base + 1))\n`;
+      body += `else\n`;
+      body += `  __repeat_char '${ch}' "$__pad_base"\n`;
+      body += `fi\n`;
+      spacerSeen++;
+    }
+  }
+
+  return body;
 }
 
 export function compileToBash(design: Design): string {
   const ops = compileToOps(design);
-  const body = ops.map((op) => emitOp(op, 0)).join("");
+
+  // Partition into decks at each top-level lineBreak. Each deck gets
+  // compiled independently so flex-spacer math is per-line.
+  const decks: RenderOp[][] = [[]];
+  for (const op of ops) {
+    if (op.op === "lineBreak") {
+      decks.push([]);
+    } else {
+      decks[decks.length - 1]!.push(op);
+    }
+  }
+
+  let body = "";
+  for (let d = 0; d < decks.length; d++) {
+    body += emitDeck(decks[d]!);
+    if (d < decks.length - 1) {
+      // Emit the same reset-then-newline contract as a lineBreak op.
+      body += `__reset\nprintf '\\n'\n`;
+    }
+  }
+
   return BASH_HEADER + body + "\nexit 0\n";
 }
 

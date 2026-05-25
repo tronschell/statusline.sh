@@ -9,6 +9,7 @@ import {
   Minus,
   Percent,
   ChartBar,
+  Hash,
   CurrencyDollar,
   Clock,
   Sparkle,
@@ -20,6 +21,12 @@ import {
   Gauge,
   Hourglass,
   CalendarBlank,
+  ArrowElbowDownLeft,
+  Rows,
+  Brain,
+  Palette,
+  Lightning,
+  ArrowsHorizontal,
   type IconProps,
 } from "@phosphor-icons/react";
 import type { ElementType } from "@statusline/shared/types";
@@ -47,6 +54,24 @@ const PALETTE_GROUPS: ReadonlyArray<PaletteGroup> = [
     entries: [
       { type: "model", label: "Model", description: "Current Claude model", Icon: Cube },
       { type: "cwd", label: "Working dir", description: "Current directory", Icon: Folder },
+      {
+        type: "thinkingEffort",
+        label: "Thinking effort",
+        description: "Effort level when extended thinking is on",
+        Icon: Brain,
+      },
+      {
+        type: "outputStyle",
+        label: "Output style",
+        description: "Active output style name",
+        Icon: Palette,
+      },
+      {
+        type: "fastMode",
+        label: "Fast mode",
+        description: "Badge shown when fast mode is on",
+        Icon: Lightning,
+      },
     ],
   },
   {
@@ -65,6 +90,12 @@ const PALETTE_GROUPS: ReadonlyArray<PaletteGroup> = [
     entries: [
       { type: "contextPct", label: "Percentage", description: "Context window %", Icon: Percent },
       { type: "contextBar", label: "Progress bar", description: "Filled / empty bar", Icon: ChartBar },
+      {
+        type: "contextTokens",
+        label: "Tokens",
+        description: "Used / total counts (e.g. 94k/200k)",
+        Icon: Hash,
+      },
     ],
   },
   {
@@ -140,6 +171,25 @@ const PALETTE_GROUPS: ReadonlyArray<PaletteGroup> = [
       { type: "segmentSplit", label: "Split", description: "Split & style parts", Icon: TextColumns },
     ],
   },
+  {
+    id: "layout",
+    label: "Layout",
+    Icon: Rows,
+    entries: [
+      {
+        type: "lineBreak",
+        label: "Line break",
+        description: "Start a new deck (max 4 decks)",
+        Icon: ArrowElbowDownLeft,
+      },
+      {
+        type: "spacer",
+        label: "Spacer",
+        description: "Fixed gap or flex (push to right edge)",
+        Icon: ArrowsHorizontal,
+      },
+    ],
+  },
 ];
 
 // Flattened export kept for backwards-compat with any consumer that imported
@@ -172,6 +222,7 @@ const DEFAULT_OPEN: ReadonlyArray<string> = [
   "rateLimits",
   "session",
   "alive",
+  "layout",
 ];
 
 export function ElementPalette() {

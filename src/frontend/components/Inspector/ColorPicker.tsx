@@ -237,24 +237,33 @@ export default function ColorPicker({ value, onChange, label }: ColorPickerProps
     { value: "ansi256", label: "ANSI 256" },
   ];
 
+  const isDefault = !value || value.kind === "default";
+  const valueIsCode = !isDefault;
+
   return (
-    <div className="flex flex-col gap-3" role="group" aria-label={label}>
-      <div className="flex items-center gap-2">
+    <div className="flex flex-col gap-4" role="group" aria-label={label}>
+      <div className="flex items-center gap-3">
         <span
           aria-hidden="true"
-          className="inline-block h-5 w-5 rounded-[4px] border border-white/[0.12]"
+          className="inline-block h-[22px] w-[22px] rounded-[4px] border border-white/[0.12]"
           style={{
             background:
               previewCss ??
               "repeating-linear-gradient(45deg,#1C1C1F,#1C1C1F 4px,#2A2A2D 4px,#2A2A2D 8px)",
           }}
         />
-        <span className="text-xs text-[var(--color-text)]">{subLabel}</span>
-        {(!value || value.kind !== "default") && (
+        <span
+          className={`text-xs text-[var(--color-text)] ${
+            valueIsCode ? "font-mono" : ""
+          }`}
+        >
+          {subLabel}
+        </span>
+        {!isDefault && (
           <button
             type="button"
             onClick={() => onChange({ kind: "default" })}
-            className="ml-auto rounded-[4px] border border-white/[0.06] bg-[var(--color-surface-2)] px-2 py-1 text-[10px] uppercase tracking-wider text-[var(--color-text-muted)] hover:text-[var(--color-text)]"
+            className="ml-auto bg-transparent px-1 py-0.5 text-xs text-[var(--color-text-muted)] transition-colors hover:text-[var(--color-text)] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#8FB8DA]/40"
           >
             Use default
           </button>
@@ -264,24 +273,27 @@ export default function ColorPicker({ value, onChange, label }: ColorPickerProps
       <div
         role="tablist"
         aria-label={`${label} format`}
-        className="flex gap-1 rounded-[6px] border border-white/[0.06] bg-[var(--color-surface-2)] p-1"
+        className="flex gap-1 border-b border-[var(--color-border)]"
       >
-        {tabs.map((t) => (
-          <button
-            key={t.value}
-            type="button"
-            role="tab"
-            aria-selected={tab === t.value}
-            onClick={() => setTab(t.value)}
-            className={`flex-1 rounded-[4px] px-2 py-1 text-xs uppercase tracking-wider transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-[#8FB8DA]/40 ${
-              tab === t.value
-                ? "bg-[#2A2A2D] text-[var(--color-text)]"
-                : "text-[var(--color-text-muted)] hover:text-[var(--color-text)]"
-            }`}
-          >
-            {t.label}
-          </button>
-        ))}
+        {tabs.map((t) => {
+          const active = tab === t.value;
+          return (
+            <button
+              key={t.value}
+              type="button"
+              role="tab"
+              aria-selected={active}
+              onClick={() => setTab(t.value)}
+              className={`-mb-px border-b px-3 py-2 text-xs uppercase tracking-wider transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-[#8FB8DA]/40 ${
+                active
+                  ? "border-[var(--color-text)] text-[var(--color-text)]"
+                  : "border-transparent text-[var(--color-text-muted)] hover:text-[var(--color-text)]"
+              }`}
+            >
+              {t.label}
+            </button>
+          );
+        })}
       </div>
 
       {tab === "picker" && (
@@ -442,7 +454,7 @@ function CanvasPicker({
         onPointerUp={onAreaPointerUp}
         onPointerCancel={onAreaPointerUp}
         onKeyDown={onAreaKeyDown}
-        className="relative h-40 w-full select-none rounded-[8px] border border-white/[0.06] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#8FB8DA]/40"
+        className="relative h-40 w-full select-none rounded-[8px] border border-[var(--color-border)] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#8FB8DA]/40"
         style={{
           background: hueCss,
           touchAction: "none",
@@ -502,7 +514,7 @@ function CanvasPicker({
             onClick={onEyeDrop}
             title="Pick color from screen"
             aria-label="Pick color from screen with eyedropper"
-            className="flex h-8 w-8 items-center justify-center rounded-[6px] border border-white/[0.06] bg-[var(--color-surface-2)] text-[var(--color-text)] transition-colors hover:border-white/[0.16] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#8FB8DA]/40"
+            className="flex h-8 w-8 items-center justify-center rounded-[6px] border border-[var(--color-border)] bg-[var(--color-surface-2)] text-[var(--color-text)] transition-colors hover:border-[var(--color-text-muted)] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#8FB8DA]/40"
           >
             <Eyedropper size={14} weight="bold" />
           </button>
@@ -522,7 +534,7 @@ function CanvasPicker({
             aria-label="Color format"
             value={format}
             onChange={(e) => setFormat(e.target.value as Format)}
-            className="rounded-[4px] border border-white/[0.06] bg-[var(--color-surface-2)] px-2 py-1 text-xs uppercase tracking-wider text-[var(--color-text)] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#8FB8DA]/40"
+            className="h-7 rounded-[4px] border-0 bg-[var(--color-surface-2)] px-2 text-xs uppercase tracking-wider text-[var(--color-text)] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#8FB8DA]/40"
           >
             <option value="hex">HEX</option>
             <option value="rgb">RGB</option>
@@ -545,7 +557,7 @@ function CanvasPicker({
             }}
             aria-label={`${label} hex value`}
             placeholder="#aabbcc"
-            className="w-full rounded-[4px] border border-white/[0.06] bg-[var(--color-surface-2)] px-3 py-2 font-mono text-sm text-[var(--color-text)] focus:outline-none focus:border-[#8FB8DA]"
+            className="w-full rounded-[4px] border border-[var(--color-border)] bg-[var(--color-surface-2)] px-3 py-2 font-mono text-sm text-[var(--color-text)] focus:outline-none focus:border-[#8FB8DA]"
           />
         )}
 
@@ -569,13 +581,13 @@ function CanvasPicker({
       <button
         type="button"
         onClick={snap}
-        className="rounded-[4px] border border-white/[0.06] bg-[var(--color-surface-2)] px-3 py-2 text-xs uppercase tracking-wider text-[var(--color-text)] transition-transform hover:scale-[0.98] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#8FB8DA]/40"
+        className="self-start bg-transparent px-0 py-0.5 text-xs text-[var(--color-text-muted)] transition-colors hover:text-[var(--color-text)] hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-[#8FB8DA]/40"
       >
         Snap to nearest ANSI 256
       </button>
 
-      <p className="rounded-[6px] border border-[#2E2820] bg-[#1C1812] px-3 py-2 text-xs text-[#D8B870]">
-        RGB truecolor may not render in every terminal — snap to 256 for the
+      <p className="text-[11px] italic text-[var(--color-text-muted)]">
+        Truecolor may not render in every terminal — snap to ANSI 256 for the
         widest compatibility.
       </p>
     </div>
@@ -609,7 +621,7 @@ function RgbInputs({
               onChange({ ...value, [k]: clamp(Math.round(n), 0, 255) });
             }}
             aria-label={`${label} ${k.toUpperCase()}`}
-            className="w-full rounded-[4px] border border-white/[0.06] bg-[var(--color-surface-2)] px-2 py-1 font-mono text-sm text-[var(--color-text)] focus:outline-none focus:border-[#8FB8DA]"
+            className="w-full rounded-[4px] border border-[var(--color-border)] bg-[var(--color-surface-2)] px-2 py-1 font-mono text-sm text-[var(--color-text)] focus:outline-none focus:border-[#8FB8DA]"
           />
         </div>
       ))}
@@ -712,12 +724,14 @@ function Swatch({
       aria-label={ariaLabel}
       aria-pressed={selected}
       onClick={onClick}
-      className="relative rounded-[3px] transition-transform hover:scale-[1.06] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#8FB8DA]/40"
+      className="relative rounded-[3px] transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-[#8FB8DA]/40"
       style={{
         width: size,
         height: size,
         background: bg,
-        outline: selected ? "2px solid #E8E8E6" : "1px solid rgba(255,255,255,0.06)",
+        outline: selected
+          ? "2px solid var(--color-text)"
+          : "1px solid var(--color-border)",
         outlineOffset: selected ? "1px" : "0",
       }}
     />
@@ -732,7 +746,7 @@ function Ansi16Grid({
   onChange: (v: AnsiColor) => void;
 }) {
   return (
-    <div className="grid grid-cols-8 gap-1.5" role="grid" aria-label="ANSI 16 palette">
+    <div className="grid grid-cols-8 gap-1" role="grid" aria-label="ANSI 16 palette">
       {Array.from({ length: 16 }, (_, i) => i).map((i) => {
         const sel: AnsiColor = { kind: "ansi16", index: i };
         return (
@@ -760,7 +774,7 @@ function Ansi256Grid({
 }) {
   return (
     <div
-      className="grid gap-[2px]"
+      className="grid gap-1"
       role="grid"
       aria-label="ANSI 256 palette"
       style={{ gridTemplateColumns: "repeat(16, minmax(0, 1fr))" }}

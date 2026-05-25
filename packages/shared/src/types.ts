@@ -32,10 +32,36 @@ export type SegmentStyle = {
   suffix?: string;
 };
 
+export type ContextColorMode = "static" | "percentage" | "absolute";
+
+export type TokenDisplayVariant =
+  | "ratio"
+  | "used"
+  | "remaining"
+  | "ratioPct";
+
+export interface ContextThresholds {
+  green: number;
+  yellow: number;
+  orange: number;
+}
+
+export const DEFAULT_CONTEXT_THRESHOLDS: ContextThresholds = {
+  green: 50000,
+  yellow: 80000,
+  orange: 150000,
+};
+
 export type Element =
   | (BaseElement & { type: "static"; text: string })
   | (BaseElement & { type: "model" })
-  | (BaseElement & { type: "cwd"; mode: "basename" | "full" | "tilde" })
+  | (BaseElement & {
+      type: "cwd";
+      mode: "basename" | "full" | "tilde" | "compact";
+    })
+  | (BaseElement & { type: "thinkingEffort" })
+  | (BaseElement & { type: "outputStyle"; alwaysShow?: boolean })
+  | (BaseElement & { type: "fastMode"; text?: string })
   | (BaseElement & { type: "gitBranch" })
   | (BaseElement & {
       type: "gitStatus";
@@ -46,21 +72,34 @@ export type Element =
     })
   | (BaseElement & { type: "linesAdded" })
   | (BaseElement & { type: "linesRemoved" })
-  | (BaseElement & { type: "contextPct" })
+  | (BaseElement & {
+      type: "contextPct";
+      colorMode?: ContextColorMode;
+      thresholds?: ContextThresholds;
+    })
   | (BaseElement & {
       type: "contextBar";
       width: number;
       filledChar: string;
       emptyChar: string;
+      colorMode?: ContextColorMode;
+      thresholds?: ContextThresholds;
     })
-  | (BaseElement & { type: "rateLimit5hPct" })
+  | (BaseElement & {
+      type: "contextTokens";
+      variant: TokenDisplayVariant;
+      compact: boolean;
+      colorMode?: ContextColorMode;
+      thresholds?: ContextThresholds;
+    })
+  | (BaseElement & { type: "rateLimit5hPct"; showResetTime?: boolean })
   | (BaseElement & {
       type: "rateLimit5hBar";
       width: number;
       filledChar: string;
       emptyChar: string;
     })
-  | (BaseElement & { type: "rateLimit7dPct" })
+  | (BaseElement & { type: "rateLimit7dPct"; showResetTime?: boolean })
   | (BaseElement & {
       type: "rateLimit7dBar";
       width: number;
@@ -83,6 +122,13 @@ export type Element =
       delimiter: string;
       segments: SegmentStyle[];
       joinWith?: string;
+    })
+  | (BaseElement & { type: "lineBreak" })
+  | (BaseElement & {
+      type: "spacer";
+      mode: "fixed" | "flex";
+      width?: number;
+      char?: string;
     });
 
 export type ElementType = Element["type"];
@@ -130,6 +176,16 @@ export interface ClaudeStdin {
     seven_day?: { used_percentage?: number; resets_at?: number };
   };
   output_style?: { name?: string };
+  thinking?: { enabled?: boolean };
+  effort?: { level?: string };
+  fast_mode?: boolean;
+  /**
+   * Optional terminal width (columns) used by the interpret backend to
+   * resolve flex spacers in browser preview. Bash/PowerShell backends
+   * ignore this and read the real terminal width via `tput cols` /
+   * `[Console]::WindowWidth`.
+   */
+  _terminalWidth?: number;
   [k: string]: unknown;
 }
 

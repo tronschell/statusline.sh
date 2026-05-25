@@ -26,6 +26,11 @@ export interface CollapsibleProps {
  * attribute (no display:none games) so screen readers honor expansion
  * state. Caret rotates via CSS for a subtle reveal cue without animating
  * layout (which would jank when nested pickers expand).
+ *
+ * Visually the trigger is treated as a typographic section header (uppercase
+ * eyebrow + caret) rather than a chunky button — no border, no background,
+ * only a low-opacity hover tint. This keeps Inspector panels feeling like a
+ * document rather than a stack of nested cards.
  */
 export default function Collapsible({
   title,
@@ -50,7 +55,8 @@ export default function Collapsible({
   const panelId = useId();
   const triggerId = useId();
 
-  const pad = density === "compact" ? "px-2 py-1.5" : "px-3 py-2";
+  const pad = density === "compact" ? "px-2 py-1" : "px-3 py-1.5";
+  const hasSummary = summary !== undefined;
 
   return (
     <section className="flex flex-col gap-2">
@@ -61,7 +67,7 @@ export default function Collapsible({
           aria-expanded={open}
           aria-controls={panelId}
           onClick={() => setOpen(!open)}
-          className={`flex w-full items-center gap-2 rounded-[6px] border border-[var(--color-border)] bg-[var(--color-surface-2)] ${pad} text-left transition-colors hover:border-white/[0.12] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#8FB8DA]/40`}
+          className={`flex w-full items-center gap-2 rounded-[6px] ${pad} text-left transition-colors hover:bg-[var(--color-surface-2)]/40 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#8FB8DA]/40`}
         >
           <CaretDown
             size={12}
@@ -71,12 +77,12 @@ export default function Collapsible({
           <span className="text-xs uppercase tracking-wider text-[var(--color-text-muted)]">
             {title}
           </span>
-          {summary !== undefined && (
+          {hasSummary && (
             <span className="ml-auto flex items-center gap-2">{summary}</span>
           )}
           {trailing !== undefined && (
             <span
-              className="flex items-center"
+              className={`flex items-center${hasSummary ? "" : " ml-auto"}`}
               onClick={(e) => e.stopPropagation()}
             >
               {trailing}

@@ -7,6 +7,11 @@ const MODES: { value: CwdElement["mode"]; label: string; hint: string }[] = [
   { value: "basename", label: "Basename", hint: "Last path segment only" },
   { value: "full", label: "Full", hint: "Entire absolute path" },
   { value: "tilde", label: "Tilde", hint: "~ for home directory" },
+  {
+    value: "compact",
+    label: "Compact",
+    hint: "Parent dirs collapse to first char (/h/u/project)",
+  },
 ];
 
 export default function CwdFields({

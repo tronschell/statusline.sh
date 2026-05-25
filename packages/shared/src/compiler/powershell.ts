@@ -7,6 +7,23 @@ $ErrorActionPreference = 'SilentlyContinue'
 $__input = [Console]::In.ReadToEnd()
 try { $j = $__input | ConvertFrom-Json } catch { $j = $null }
 
+# Terminal width for flex-spacer math. STATUSLINE_COLS env var overrides;
+# else WindowWidth (throws on redirected stdout / CI), else 80.
+$STATUSLINE_COLS = if ($env:STATUSLINE_COLS) {
+  try { [int]$env:STATUSLINE_COLS } catch { 80 }
+} else {
+  try { [Console]::WindowWidth } catch { 80 }
+}
+
+# Visible-character length: strip CSI SGR sequences then .Length.
+# Wide glyphs (emoji, CJK) count as 1 column — same simplification as the
+# interpret backend uses.
+function __visibleLen([string]$s) {
+  if ([string]::IsNullOrEmpty($s)) { return 0 }
+  $stripped = $s -replace "$([char]27)\\[[0-9;]*m", ''
+  return $stripped.Length
+}
+
 function __get($obj, [string]$path) {
   if ($null -eq $obj -or [string]::IsNullOrEmpty($path)) { return '' }
   $cur = $obj
@@ -26,17 +43,46 @@ function __sgr([string]$codes) {
   return "$([char]27)[\${codes}m"
 }
 function __reset() { return "$([char]27)[0m" }
+
+# Output sink: when $__SINK is non-null, __emit/__write append to it
+# (used for flex-spacer chunk capture). Otherwise everything goes
+# straight to the console via [Console]::Out.Write.
+$__SINK = $null
+function __write([string]$text) {
+  if ($null -eq $__SINK) { [Console]::Out.Write($text) }
+  else { $script:__SINK.Append($text) | Out-Null }
+}
 function __emit([string]$codes, [string]$text) {
   $out = ''
   if ($codes) { $out += __sgr $codes }
   $out += $text
   if ($codes) { $out += __reset }
-  [Console]::Out.Write($out)
+  __write $out
 }
 function __basename([string]$s) {
   if ([string]::IsNullOrEmpty($s)) { return '' }
   $idx = [Math]::Max($s.LastIndexOf('/'), $s.LastIndexOf('\\'))
   if ($idx -ge 0) { return $s.Substring($idx + 1) } else { return $s }
+}
+function __compact([string]$s) {
+  if ([string]::IsNullOrEmpty($s)) { return '' }
+  $sep = '/'
+  if (($s.IndexOf('\\') -ge 0) -and ($s.IndexOf('/') -lt 0)) { $sep = '\\' }
+  $leading = ''
+  $body = $s
+  if ($s.StartsWith($sep)) { $leading = $sep; $body = $s.Substring(1) }
+  if ($body -eq '') { return $leading }
+  $parts = $body -split [regex]::Escape($sep)
+  if ($parts.Length -le 1) { return $s }
+  $last = $parts[$parts.Length - 1]
+  $collapsed = New-Object System.Collections.Generic.List[string]
+  for ($i = 0; $i -lt $parts.Length - 1; $i++) {
+    $seg = $parts[$i]
+    if ([string]::IsNullOrEmpty($seg)) { $collapsed.Add('') }
+    else { $collapsed.Add($seg.Substring(0, 1)) }
+  }
+  $collapsed.Add($last)
+  return $leading + ($collapsed -join $sep)
 }
 function __tildify([string]$s) {
   if ([string]::IsNullOrEmpty($s)) { return '' }
@@ -80,6 +126,48 @@ function __bar([string]$v, [int]$width, [string]$filled, [string]$empty) {
   $e = $width - $n
   return ($filled * $n) + ($empty * $e)
 }
+function __normInt([string]$v) {
+  if ([string]::IsNullOrEmpty($v)) { return 0 }
+  $idx = $v.IndexOf('.')
+  if ($idx -ge 0) { $v = $v.Substring(0, $idx) }
+  $n = 0
+  if (-not [int64]::TryParse($v, [ref]$n)) { return 0 }
+  if ($n -lt 0) { return 0 }
+  return $n
+}
+function __fmtTokenCompact([string]$v) {
+  $n = __normInt $v
+  if ($n -lt 1000) { return [string]$n }
+  if ($n -lt 1000000) {
+    $whole = [math]::Floor($n / 1000)
+    $rem = $n - ($whole * 1000)
+    $dec = [math]::Floor($rem / 100)
+    if ($dec -eq 0) { return ('{0}k' -f $whole) }
+    return ('{0}.{1}k' -f $whole, $dec)
+  }
+  $whole = [math]::Floor($n / 1000000)
+  $rem = $n - ($whole * 1000000)
+  $dec = [math]::Floor($rem / 100000)
+  if ($dec -eq 0) { return ('{0}M' -f $whole) }
+  return ('{0}.{1}M' -f $whole, $dec)
+}
+function __fmtTokenFull([string]$v) {
+  $n = __normInt $v
+  return $n.ToString('N0', [System.Globalization.CultureInfo]::InvariantCulture)
+}
+function __tokensUsed() { __field 'context_window.total_input_tokens' }
+function __tokensTotal() { __field 'context_window.context_window_size' }
+function __tokensRemaining() {
+  $u = __normInt (__tokensUsed)
+  $t = __normInt (__tokensTotal)
+  $r = $t - $u
+  if ($r -lt 0) { $r = 0 }
+  return [string]$r
+}
+function __tokensPctInt() {
+  $p = __field 'context_window.used_percentage'
+  return [string](__normInt $p)
+}
 function __gitBranch() {
   $cwd = __field 'workspace.current_dir'
   if (-not $cwd) { $cwd = __field 'cwd' }
@@ -104,6 +192,21 @@ function __tick() {
     if ([int64]::TryParse($env:STATUSLINE_CLOCK_OVERRIDE, [ref]$o)) { return $o }
   }
   return [DateTimeOffset]::Now.ToUnixTimeSeconds()
+}
+function __relTime([string]$v) {
+  if ([string]::IsNullOrEmpty($v)) { return '' }
+  $target = 0.0
+  if (-not [double]::TryParse($v, [ref]$target)) { return '' }
+  $now = __tick
+  $diff = [int]([math]::Floor($target - $now))
+  if ($diff -le 0) { return '' }
+  if ($diff -lt 60) { return ('T-{0}s' -f $diff) }
+  if ($diff -lt 3600) {
+    $m = [math]::Floor($diff / 60); $s = $diff % 60
+    return ('T-{0}m{1:D2}s' -f $m, $s)
+  }
+  $h = [math]::Floor($diff / 3600); $rem = [math]::Floor(($diff % 3600) / 60)
+  return ('T-{0}h{1:D2}m' -f $h, $rem)
 }
 `;
 
@@ -132,6 +235,7 @@ function emitOp(op: RenderOp, depth = 0): string {
       let v = `(__field '${psEscapeSingle(op.path)}')`;
       if (t === "basename") v = `(__basename ${v})`;
       else if (t === "tilde") v = `(__tildify ${v})`;
+      else if (t === "compact") v = `(__compact ${v})`;
       if (op.truncate) v = `(__truncate ${v} ${op.truncate})`;
       return `${pad}__emit '${styleCodes}' ${v}\n`;
     }
@@ -177,6 +281,7 @@ function emitOp(op: RenderOp, depth = 0): string {
         let v = `(__field '${psEscapeSingle(src.path)}')`;
         if (t === "basename") v = `(__basename ${v})`;
         else if (t === "tilde") v = `(__tildify ${v})`;
+        else if (t === "compact") v = `(__compact ${v})`;
         prelude = `${pad}$__v = ${v}\n`;
       } else if (src.op === "literal") {
         prelude = `${pad}$__v = '${psEscapeSingle(src.text)}'\n`;
@@ -190,7 +295,7 @@ function emitOp(op: RenderOp, depth = 0): string {
       body += `${pad}$__join = '${psEscapeSingle(op.joinWith ?? op.delimiter)}'\n`;
       body += `${pad}$__parts = [string]$__v -split [regex]::Escape($__delim)\n`;
       body += `${pad}for ($__i = 0; $__i -lt $__parts.Length; $__i++) {\n`;
-      body += `${pad}  if ($__i -gt 0) { [Console]::Out.Write($__join) }\n`;
+      body += `${pad}  if ($__i -gt 0) { __write $__join }\n`;
       const lastIdx = op.segments.length - 1;
       body += `${pad}  switch ($__i) {\n`;
       for (let i = 0; i < op.segments.length; i++) {
@@ -222,9 +327,25 @@ function emitOp(op: RenderOp, depth = 0): string {
           return `${pad}__emit '${styleCodes}' (__gitBranch)\n`;
         case "git_dirty":
           return `${pad}__emit '${styleCodes}' (__gitDirty)\n`;
+        case "relative_time":
+          return `${pad}__emit '${styleCodes}' (__relTime (__field '${arg}'))\n`;
       }
     }
 
+    case "tokenDisplay": {
+      const fnFmt = op.compact ? "__fmtTokenCompact" : "__fmtTokenFull";
+      switch (op.variant) {
+        case "used":
+          return `${pad}__emit '${styleCodes}' (${fnFmt} (__tokensUsed))\n`;
+        case "remaining":
+          return `${pad}__emit '${styleCodes}' (${fnFmt} (__tokensRemaining))\n`;
+        case "ratio":
+          return `${pad}__emit '${styleCodes}' ((${fnFmt} (__tokensUsed)) + '/' + (${fnFmt} (__tokensTotal)))\n`;
+        case "ratioPct":
+          return `${pad}__emit '${styleCodes}' ((${fnFmt} (__tokensUsed)) + '/' + (${fnFmt} (__tokensTotal)) + ' (' + (__tokensPctInt) + '%)')\n`;
+      }
+      return "";
+    }
     case "rotator": {
       const n = op.items.length;
       if (n === 0) return "";
@@ -242,11 +363,110 @@ function emitOp(op: RenderOp, depth = 0): string {
       body += `${pad}__emit '${styleCodes}' $__items[$__idx]\n`;
       return body;
     }
+    case "lineBreak":
+      // Reset SGR state, then emit a real LF byte (PowerShell backtick-n).
+      // Writes via __write so the chunk-capture sink (used by flex spacers)
+      // also catches it; in normal flow __write falls through to
+      // [Console]::Out.Write so neither the reset nor the newline are
+      // mangled by host color handling.
+      return `${pad}__write ((__reset) + "\`n")\n`;
+    case "fixedSpacer": {
+      if (op.width <= 0) return "";
+      const ch = psEscapeSingle(op.char);
+      return `${pad}__write ('${ch}' * ${op.width})\n`;
+    }
+    case "flexSpacer":
+      // Top-level flex spacers are handled by the deck partitioner in
+      // compileToPS. If we reach this branch we are nested inside a
+      // cond, where flex resolution is undefined — emit nothing.
+      return "";
   }
+}
+
+function emitDeckPS(deckOps: RenderOp[]): string {
+  const flexCount = deckOps.filter((op) => op.op === "flexSpacer").length;
+  if (flexCount === 0) {
+    return deckOps.map((op) => emitOp(op, 0)).join("");
+  }
+
+  // Partition into chunks at each flexSpacer.
+  const chunks: RenderOp[][] = [[]];
+  const spacerChars: string[] = [];
+  for (const op of deckOps) {
+    if (op.op === "flexSpacer") {
+      spacerChars.push(op.char);
+      chunks.push([]);
+    } else {
+      chunks[chunks.length - 1]!.push(op);
+    }
+  }
+
+  // Drop trailing empty chunk + spacer (spacer-at-EOL no-op).
+  let activeSpacerCount = spacerChars.length;
+  let lastIdx = chunks.length - 1;
+  if (activeSpacerCount > 0 && chunks[lastIdx]!.length === 0) {
+    activeSpacerCount--;
+    lastIdx--;
+  }
+
+  let body = "";
+  // Capture each chunk into a StringBuilder by swapping the __SINK.
+  for (let i = 0; i <= lastIdx; i++) {
+    body += `$__chunkSb_${i} = New-Object System.Text.StringBuilder\n`;
+    body += `$__SINK = $__chunkSb_${i}\n`;
+    body += chunks[i]!.map((op) => emitOp(op, 0)).join("");
+    body += `$__SINK = $null\n`;
+    body += `$__chunk_${i} = $__chunkSb_${i}.ToString()\n`;
+  }
+
+  body += `$__totalLen = 0\n`;
+  for (let i = 0; i <= lastIdx; i++) {
+    body += `$__len_${i} = __visibleLen $__chunk_${i}\n`;
+    body += `$__totalLen += $__len_${i}\n`;
+  }
+  body += `$__remaining = [Math]::Max(0, $STATUSLINE_COLS - $__totalLen)\n`;
+  if (activeSpacerCount > 0) {
+    body += `$__padBase = [int][Math]::Floor($__remaining / ${activeSpacerCount})\n`;
+    body += `$__padExtra = $__remaining - $__padBase * ${activeSpacerCount}\n`;
+  } else {
+    body += `$__padBase = 0\n$__padExtra = 0\n`;
+  }
+
+  let spacerSeen = 0;
+  for (let i = 0; i <= lastIdx; i++) {
+    body += `__write $__chunk_${i}\n`;
+    if (i < lastIdx) {
+      const ch = psEscapeSingle(spacerChars[i] ?? " ");
+      body += `if (${spacerSeen} -lt $__padExtra) {\n`;
+      body += `  __write ('${ch}' * ($__padBase + 1))\n`;
+      body += `} else {\n`;
+      body += `  if ($__padBase -gt 0) { __write ('${ch}' * $__padBase) }\n`;
+      body += `}\n`;
+      spacerSeen++;
+    }
+  }
+  return body;
 }
 
 export function compileToPS(design: Design): string {
   const ops = compileToOps(design);
-  const body = ops.map((op) => emitOp(op, 0)).join("");
+
+  // Partition by lineBreak; each deck compiles independently.
+  const decks: RenderOp[][] = [[]];
+  for (const op of ops) {
+    if (op.op === "lineBreak") {
+      decks.push([]);
+    } else {
+      decks[decks.length - 1]!.push(op);
+    }
+  }
+
+  let body = "";
+  for (let d = 0; d < decks.length; d++) {
+    body += emitDeckPS(decks[d]!);
+    if (d < decks.length - 1) {
+      body += `__write ((__reset) + "\`n")\n`;
+    }
+  }
   return PS_HEADER + "\n" + body + "\nexit 0\n";
 }

@@ -1,5 +1,5 @@
-import { useCallback, useEffect, useMemo, useRef } from "react";
-import { Cube, Trash } from "@phosphor-icons/react";
+import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
+import { Trash } from "@phosphor-icons/react";
 import type {
   AnsiStyle,
   ConditionExpr,
@@ -19,12 +19,18 @@ import LinesAddedFields from "./fields/LinesAddedFields";
 import LinesRemovedFields from "./fields/LinesRemovedFields";
 import ContextPctFields from "./fields/ContextPctFields";
 import ContextBarFields from "./fields/ContextBarFields";
+import ContextTokensFields from "./fields/ContextTokensFields";
 import CostFields from "./fields/CostFields";
 import SessionDurationFields from "./fields/SessionDurationFields";
 import GlyphFields from "./fields/GlyphFields";
 import SeparatorFields from "./fields/SeparatorFields";
 import RotatorFields from "./fields/RotatorFields";
 import SegmentSplitFields from "./fields/SegmentSplitFields";
+import ThinkingEffortFields from "./fields/ThinkingEffortFields";
+import OutputStyleFields from "./fields/OutputStyleFields";
+import FastModeFields from "./fields/FastModeFields";
+import SpacerFields from "./fields/SpacerFields";
+import ThemePresets from "./ThemePresets";
 
 const TYPE_LABEL: Record<ElementType, string> = {
   static: "Static text",
@@ -36,6 +42,7 @@ const TYPE_LABEL: Record<ElementType, string> = {
   linesRemoved: "Lines removed",
   contextPct: "Context %",
   contextBar: "Context bar",
+  contextTokens: "Context tokens",
   rateLimit5hPct: "5-hour limit %",
   rateLimit5hBar: "5-hour limit bar",
   rateLimit7dPct: "7-day limit %",
@@ -46,6 +53,11 @@ const TYPE_LABEL: Record<ElementType, string> = {
   separator: "Separator",
   rotator: "Rotator",
   segmentSplit: "Segment split",
+  thinkingEffort: "Thinking effort",
+  outputStyle: "Output style",
+  fastMode: "Fast mode",
+  lineBreak: "Line break",
+  spacer: "Spacer",
 };
 
 const TYPE_DESCRIPTION: Record<ElementType, string> = {
@@ -58,6 +70,7 @@ const TYPE_DESCRIPTION: Record<ElementType, string> = {
   linesRemoved: "Total lines removed this session.",
   contextPct: "Context window usage percentage.",
   contextBar: "Visual meter of context usage.",
+  contextTokens: "Token counts: used / total / remaining.",
   rateLimit5hPct: "Claude.ai 5-hour rate limit usage percentage.",
   rateLimit5hBar: "Visual meter of 5-hour rate limit usage.",
   rateLimit7dPct: "Claude.ai 7-day rate limit usage percentage.",
@@ -68,11 +81,18 @@ const TYPE_DESCRIPTION: Record<ElementType, string> = {
   separator: "Visual divider between elements.",
   rotator: "Cycles through items on a clock.",
   segmentSplit: "Splits a field on a delimiter into styled segments.",
+  thinkingEffort: "Effort level when extended thinking is on.",
+  outputStyle: "Active output style (e.g. explanatory).",
+  fastMode: "Badge shown when fast mode is enabled.",
+  lineBreak: "Starts a new deck (multi-line statusline).",
+  spacer: "Fixed-width gap or flex spacer that pushes following elements right.",
 };
 
 const inputClass =
   "w-full bg-[var(--color-surface-2)] border border-white/[0.06] rounded-[4px] px-3 py-2 text-sm text-[var(--color-text)] focus:outline-none focus:border-[#8FB8DA]";
 const labelClass = "text-xs uppercase tracking-wider text-[var(--color-text-muted)]";
+const sectionHeading =
+  "px-3 text-[10px] uppercase tracking-[0.14em] text-[var(--color-text-muted)]";
 
 /**
  * Returns a stable patch function that batches calls into one
@@ -102,7 +122,13 @@ function useBatchedPatch(id: string | null) {
   return useCallback(
     (patch: Partial<Element>) => {
       if (!id) return;
-      pending.current = { ...(pending.current ?? {}), ...patch };
+      // Spread + cast: the union of partial element variants is no longer
+      // structurally narrowable once a shared discriminator-like key
+      // (`mode`) appears in two variants with disjoint literal sets
+      // (cwd vs spacer). The runtime invariant — patches only ever touch
+      // properties for the currently-selected element type — is enforced
+      // by the callers, not by this accumulator.
+      pending.current = { ...(pending.current ?? {}), ...patch } as Partial<Element>;
       if (frame.current !== null) return;
       frame.current = requestAnimationFrame(() => {
         frame.current = null;
@@ -123,14 +149,25 @@ export default function InspectorPanel() {
 
   const onPatch = useBatchedPatch(element?.id ?? null);
 
+  const [themesOpen, setThemesOpen] = useState(false);
+  const themesPanelId = useId();
+
   return (
     <aside
       aria-label="Element inspector"
-      className="flex h-full flex-col gap-4"
+      className="flex h-full flex-col"
     >
-      <div className="px-3 text-xs uppercase tracking-wider text-[var(--color-text-muted)]">
-        Inspector
-      </div>
+      <Toolbar
+        themesOpen={themesOpen}
+        themesPanelId={themesPanelId}
+        onToggleThemes={() => setThemesOpen((v) => !v)}
+      />
+
+      {themesOpen && (
+        <div id={themesPanelId} className="px-3 pb-4">
+          <ThemePresets onClose={() => setThemesOpen(false)} />
+        </div>
+      )}
 
       {!element ? (
         <EmptyState />
@@ -145,11 +182,46 @@ export default function InspectorPanel() {
   );
 }
 
+function Toolbar({
+  themesOpen,
+  themesPanelId,
+  onToggleThemes,
+}: {
+  themesOpen: boolean;
+  themesPanelId: string;
+  onToggleThemes: () => void;
+}) {
+  return (
+    <div className="flex items-center justify-between gap-2 px-3 pt-4 pb-3">
+      <span className="text-[10px] uppercase tracking-[0.18em] text-[var(--color-text-muted)]">
+        Inspector
+      </span>
+      <button
+        type="button"
+        onClick={onToggleThemes}
+        aria-expanded={themesOpen}
+        aria-controls={themesPanelId}
+        className={
+          themesOpen
+            ? "rounded-full border border-[var(--color-text)] bg-[var(--color-text)] px-3 py-1 text-[10px] uppercase tracking-[0.14em] text-[var(--color-canvas)] transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-[#8FB8DA]/40"
+            : "rounded-full border border-[var(--color-border)] bg-transparent px-3 py-1 text-[10px] uppercase tracking-[0.14em] text-[var(--color-text-muted)] transition-colors hover:border-white/20 hover:text-[var(--color-text)] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#8FB8DA]/40"
+        }
+      >
+        Themes
+      </button>
+    </div>
+  );
+}
+
 function EmptyState() {
   return (
-    <div className="flex flex-1 flex-col items-center justify-center gap-3 px-6 py-12 text-center text-[var(--color-text-muted)]">
-      <Cube size={32} weight="bold" className="opacity-40" />
-      <p className="text-sm">Select an element to edit</p>
+    <div className="flex flex-1 flex-col items-center justify-center gap-3 px-6 py-24 text-center">
+      <h2 className="editorial m-0 text-2xl leading-tight text-[var(--color-text)]">
+        Nothing selected.
+      </h2>
+      <p className="m-0 max-w-[18rem] text-sm text-[var(--color-text-muted)]">
+        Pick an element on the canvas to edit it.
+      </p>
     </div>
   );
 }
@@ -166,8 +238,8 @@ function ElementEditor({
   const setStyle = (s: AnsiStyle) => onPatch({ style: s } as Partial<Element>);
 
   return (
-    <div className="flex flex-col gap-5">
-      <Header
+    <div className="flex flex-col gap-8 pb-6">
+      <IdentitySection
         type={element.type}
         label={TYPE_LABEL[element.type]}
         description={TYPE_DESCRIPTION[element.type]}
@@ -175,20 +247,36 @@ function ElementEditor({
         onDelete={onDelete}
       />
 
-      <TypeFields element={element} onPatch={onPatch} />
+      <section className="flex flex-col gap-3">
+        <h3 className={`m-0 ${sectionHeading}`}>Content</h3>
+        <TypeFields element={element} onPatch={onPatch} />
+        <div className="px-3">
+          <LayoutFields element={element} onPatch={onPatch} />
+        </div>
+      </section>
 
-      <StyleEditor style={element.style} onChange={setStyle} />
+      <section className="flex flex-col gap-3">
+        <h3 className={`m-0 ${sectionHeading}`}>Appearance</h3>
+        <div className="px-3">
+          <StyleEditor
+            style={element.style}
+            onChange={setStyle}
+            title="Appearance"
+          />
+        </div>
+      </section>
 
-      <Collapsible title="Layout" defaultOpen={false}>
-        <LayoutFields element={element} onPatch={onPatch} />
-      </Collapsible>
-
-      <VisibilitySection element={element} onPatch={onPatch} />
+      <section className="flex flex-col gap-3">
+        <h3 className={`m-0 ${sectionHeading}`}>Visibility</h3>
+        <div className="px-3">
+          <VisibilitySection element={element} onPatch={onPatch} />
+        </div>
+      </section>
     </div>
   );
 }
 
-function Header({
+function IdentitySection({
   type,
   label,
   description,
@@ -202,21 +290,31 @@ function Header({
   onDelete: () => void;
 }) {
   return (
-    <header className="flex items-start justify-between gap-2 px-3">
-      <div className="flex min-w-0 flex-col gap-1">
-        <h2 className="m-0 text-base text-[var(--color-text)]">{label}</h2>
-        <span className="text-[11px] leading-snug text-[var(--color-text-muted)]">
+    <header className="flex items-start justify-between gap-3 px-3">
+      <div className="flex min-w-0 flex-col gap-2">
+        <h2 className="editorial m-0 text-xl leading-tight text-[var(--color-text)]">
+          {label}
+        </h2>
+        <span className="text-[12px] leading-snug text-[var(--color-text-muted)]">
           {description}
         </span>
-        <span className="font-mono text-[10px] text-[var(--color-text-muted)] opacity-70" title={`Element id: ${id}`}>
-          {type} · {id}
-        </span>
+        <div className="flex min-w-0 items-center gap-2 pt-0.5">
+          <span className="rounded-[4px] border border-[var(--color-border)] bg-[var(--color-surface-2)] px-1.5 py-0.5 font-mono text-[10px] uppercase tracking-wider text-[var(--color-text)]">
+            {type}
+          </span>
+          <span
+            className="truncate font-mono text-[10px] text-[var(--color-text-muted)] opacity-70"
+            title={`Element id: ${id}`}
+          >
+            {id}
+          </span>
+        </div>
       </div>
       <button
         type="button"
         onClick={onDelete}
         aria-label={`Delete ${label}`}
-        className="flex shrink-0 items-center gap-1 rounded-[4px] border border-white/[0.06] bg-[var(--color-surface-2)] px-3 py-1.5 text-xs uppercase tracking-wider text-[var(--color-text)] transition-colors hover:border-[#3A1F21] hover:text-[#E89B9E] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#E89B9E]/40"
+        className="flex shrink-0 items-center gap-1.5 rounded-[4px] border border-[var(--color-border)] bg-transparent px-2.5 py-1.5 text-xs uppercase tracking-wider text-[var(--color-text-muted)] transition-colors hover:border-[#3A1F21] hover:bg-[#1A1112] hover:text-[#E89B9E] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#E89B9E]/40"
       >
         <Trash size={12} weight="bold" />
         Delete
@@ -264,6 +362,8 @@ function renderTypeBody(
     case "rateLimit5hBar":
     case "rateLimit7dBar":
       return <ContextBarFields element={element} onPatch={onPatch} />;
+    case "contextTokens":
+      return <ContextTokensFields element={element} onPatch={onPatch} />;
     case "cost":
       return <CostFields element={element} onPatch={onPatch} />;
     case "sessionDuration":
@@ -276,6 +376,16 @@ function renderTypeBody(
       return <RotatorFields element={element} onPatch={onPatch} />;
     case "segmentSplit":
       return <SegmentSplitFields element={element} onPatch={onPatch} />;
+    case "thinkingEffort":
+      return <ThinkingEffortFields element={element} onPatch={onPatch} />;
+    case "outputStyle":
+      return <OutputStyleFields element={element} onPatch={onPatch} />;
+    case "fastMode":
+      return <FastModeFields element={element} onPatch={onPatch} />;
+    case "spacer":
+      return <SpacerFields element={element} onPatch={onPatch} />;
+    case "lineBreak":
+      return null;
   }
 }
 
@@ -340,7 +450,7 @@ function LayoutFields({
           className={inputClass}
           placeholder="No limit"
         />
-        <p className="text-xs text-[var(--color-text-muted)]">
+        <p className="m-0 text-[11px] text-[var(--color-text-muted)]">
           Truncates the rendered value to this many characters.
         </p>
       </div>
@@ -397,7 +507,8 @@ function VisibilitySection({
 
   return (
     <Collapsible
-      title="Visibility"
+      title="Condition"
+      variant="flush"
       summary={
         enabled ? (
           <span className="rounded-full bg-[#1E2A36] px-2 py-0.5 text-[10px] uppercase tracking-wider text-[#8FB8DA]">
@@ -414,7 +525,7 @@ function VisibilitySection({
         <button
           type="button"
           onClick={enabled ? disable : enable}
-          className="rounded-[4px] border border-white/[0.06] bg-[var(--color-surface-2)] px-2 py-1 text-xs uppercase tracking-wider text-[var(--color-text)] transition-transform hover:scale-[0.98] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#8FB8DA]/40"
+          className="rounded-[4px] border border-[var(--color-border)] bg-[var(--color-surface-2)] px-2 py-1 text-xs uppercase tracking-wider text-[var(--color-text)] transition-transform hover:scale-[0.98] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#8FB8DA]/40"
         >
           {enabled ? "Clear" : "Enable"}
         </button>

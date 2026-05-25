@@ -21,7 +21,9 @@ export function StaticPreview({ design, mock, className }: StaticPreviewProps) {
   }, [design, mock]);
   return (
     <TerminalFrame className={className}>
-      <AnsiToHtml ansi={ansi} />
+      <div className="whitespace-pre">
+        <AnsiToHtml ansi={ansi} />
+      </div>
     </TerminalFrame>
   );
 }

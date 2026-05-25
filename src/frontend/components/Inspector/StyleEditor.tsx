@@ -1,8 +1,7 @@
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import type { AnsiColor, AnsiStyle } from "@statusline/shared/types";
 import { ANSI16_HEX, ansi256ToRgb } from "@statusline/shared/ansi";
 import ColorPicker from "./ColorPicker";
-import Collapsible from "./Collapsible";
 
 export interface StyleEditorProps {
   style: AnsiStyle;
@@ -18,7 +17,24 @@ const TOGGLES: { key: ToggleKey; label: string }[] = [
   { key: "underline", label: "Underline" },
 ];
 
-function colorPreview(c: AnsiColor | undefined): { css: string | null; label: string } {
+type Channel = "fg" | "bg";
+
+const CHECKER_BG =
+  "repeating-linear-gradient(45deg,#1C1C1F,#1C1C1F 3px,#2A2A2D 3px,#2A2A2D 6px)";
+
+function toHex(n: number): string {
+  return n.toString(16).padStart(2, "0").toUpperCase();
+}
+
+/**
+ * Resolves an AnsiColor into a CSS background string for the swatch
+ * preview plus a short human label ("Default", "16·9", "256·240",
+ * "#F26B1D"). Returning a null `css` signals "use the checker pattern".
+ */
+function colorPreview(c: AnsiColor | undefined): {
+  css: string | null;
+  label: string;
+} {
   if (!c) return { css: null, label: "Default" };
   switch (c.kind) {
     case "default":
@@ -30,63 +46,143 @@ function colorPreview(c: AnsiColor | undefined): { css: string | null; label: st
       return { css: `rgb(${r},${g},${b})`, label: `256·${c.index}` };
     }
     case "rgb":
-      return { css: `rgb(${c.r},${c.g},${c.b})`, label: "RGB" };
+      return {
+        css: `rgb(${c.r},${c.g},${c.b})`,
+        label: `#${toHex(c.r)}${toHex(c.g)}${toHex(c.b)}`,
+      };
   }
 }
 
-function ColorSummary({ color }: { color: AnsiColor | undefined }) {
-  const { css, label } = useMemo(() => colorPreview(color), [color]);
+interface SwatchChipProps {
+  channel: Channel;
+  label: string;
+  color: AnsiColor | undefined;
+  active: boolean;
+  onClick: () => void;
+}
+
+function SwatchChip({ channel, label, color, active, onClick }: SwatchChipProps) {
+  const { css, summary } = useMemo(() => {
+    const p = colorPreview(color);
+    return { css: p.css, summary: p.label };
+  }, [color]);
+
   return (
-    <span className="flex items-center gap-1.5">
+    <button
+      type="button"
+      onClick={onClick}
+      aria-expanded={active}
+      aria-controls={`style-editor-picker-${channel}`}
+      className={`flex flex-1 items-center gap-2.5 rounded-[8px] border bg-[var(--color-surface-2)] px-2 py-1.5 text-left transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-[#8FB8DA]/40 ${
+        active
+          ? "border-[#8FB8DA]/40"
+          : "border-white/[0.06] hover:border-white/[0.14]"
+      }`}
+    >
       <span
         aria-hidden="true"
-        className="inline-block h-3.5 w-3.5 rounded-[3px] border border-white/[0.12]"
-        style={{
-          background:
-            css ??
-            "repeating-linear-gradient(45deg,#1C1C1F,#1C1C1F 3px,#2A2A2D 3px,#2A2A2D 6px)",
-        }}
+        className="inline-block h-[22px] w-[22px] shrink-0 rounded-[4px] border border-white/[0.12]"
+        style={{ background: css ?? CHECKER_BG }}
       />
-      <span className="text-[10px] uppercase tracking-wider text-[var(--color-text-muted)]">
-        {label}
+      <span className="flex min-w-0 flex-col leading-tight">
+        <span className="text-xs text-[var(--color-text-muted)]">{label}</span>
+        <span className="truncate font-mono text-[10px] uppercase tracking-wider text-[var(--color-text)]">
+          {summary}
+        </span>
       </span>
-    </span>
+    </button>
   );
 }
 
 /**
- * Renders the Appearance section: foreground + background color pickers
- * (each in its own disclosure) and the four text decoration toggles.
- * Collapsing each picker keeps the inspector vertical real-estate
- * managable when only one channel is being edited.
+ * Renders the Appearance section: a flat heading, a two-up swatch row
+ * for foreground/background, an inline picker drawer that opens for
+ * whichever channel is active, and a row of decoration toggle pills.
+ *
+ * The picker drawer uses controlled local state so clicking the active
+ * swatch toggles it closed — this keeps the inspector's vertical real
+ * estate manageable without nesting collapsibles.
  */
 export default function StyleEditor({
   style,
   onChange,
   title = "Appearance",
 }: StyleEditorProps) {
+  const [active, setActive] = useState<Channel | null>(null);
+
   const patch = (p: Partial<AnsiStyle>) => onChange({ ...style, ...p });
   const setFg = (v: AnsiColor) => patch({ fg: v });
   const setBg = (v: AnsiColor) => patch({ bg: v });
 
+  const toggleChannel = (c: Channel) =>
+    setActive((cur) => (cur === c ? null : c));
+
+  const activeLabel = active === "fg" ? "Foreground" : "Background";
+
   return (
-    <Collapsible title={title} defaultOpen variant="flush">
-      <fieldset className="m-0 flex flex-col gap-2 border-0 p-0 pl-3">
-        <legend className="px-1 text-xs uppercase tracking-wider text-[var(--color-text-muted)]">
+    <section className="flex flex-col gap-3">
+      <h3 className="text-xs uppercase tracking-wider text-[var(--color-text-muted)]">
+        {title}
+      </h3>
+
+      <div className="flex items-stretch gap-2">
+        <SwatchChip
+          channel="fg"
+          label="Foreground"
+          color={style.fg}
+          active={active === "fg"}
+          onClick={() => toggleChannel("fg")}
+        />
+        <SwatchChip
+          channel="bg"
+          label="Background"
+          color={style.bg}
+          active={active === "bg"}
+          onClick={() => toggleChannel("bg")}
+        />
+      </div>
+
+      {active !== null && (
+        <div
+          id={`style-editor-picker-${active}`}
+          className="flex flex-col gap-2 rounded-[10px] border border-[var(--color-border)] bg-[var(--color-surface)] p-3"
+        >
+          <div className="flex items-center justify-between">
+            <span className="text-[10px] uppercase tracking-wider text-[var(--color-text-muted)]">
+              Editing: {activeLabel}
+            </span>
+            <button
+              type="button"
+              onClick={() => setActive(null)}
+              className="text-[11px] uppercase tracking-wider text-[var(--color-text-muted)] transition-colors hover:text-[var(--color-text)] focus:outline-none focus-visible:text-[var(--color-text)]"
+            >
+              Done
+            </button>
+          </div>
+          {active === "fg" ? (
+            <ColorPicker value={style.fg} onChange={setFg} label="Foreground" />
+          ) : (
+            <ColorPicker value={style.bg} onChange={setBg} label="Background" />
+          )}
+        </div>
+      )}
+
+      <div className="flex flex-col gap-2">
+        <span className="text-xs uppercase tracking-wider text-[var(--color-text-muted)]">
           Decorations
-        </legend>
-        <div className="flex flex-wrap gap-2">
+        </span>
+        <div className="flex flex-wrap gap-1.5">
           {TOGGLES.map(({ key, label }) => {
-            const active = Boolean(style[key]);
+            const isActive = Boolean(style[key]);
             return (
               <button
                 key={key}
                 type="button"
                 role="switch"
-                aria-checked={active}
-                onClick={() => patch({ [key]: !active })}
-                className={`rounded-full px-3 py-1 text-xs uppercase tracking-wider transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-[#8FB8DA]/40 ${
-                  active
+                aria-checked={isActive}
+                onClick={() => patch({ [key]: !isActive })}
+                className={`rounded-full px-2.5 py-1 text-[11px] uppercase tracking-wider transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-[#8FB8DA]/40 ${
+                  isActive
                     ? "bg-[var(--color-text)] text-[var(--color-canvas)]"
                     : "border border-white/[0.06] bg-[var(--color-surface-2)] text-[var(--color-text-muted)] hover:text-[var(--color-text)]"
                 }`}
@@ -98,7 +194,7 @@ export default function StyleEditor({
                       : key === "underline"
                         ? { textDecoration: "underline" }
                         : key === "dim"
-                          ? { opacity: active ? 1 : 0.7 }
+                          ? { opacity: isActive ? 1 : 0.7 }
                           : undefined
                 }
               >
@@ -107,27 +203,7 @@ export default function StyleEditor({
             );
           })}
         </div>
-      </fieldset>
-
-      <div className="flex flex-col gap-2 pl-3">
-        <Collapsible
-          title="Foreground"
-          summary={<ColorSummary color={style.fg} />}
-          defaultOpen={false}
-          density="compact"
-        >
-          <ColorPicker value={style.fg} onChange={setFg} label="Foreground" />
-        </Collapsible>
-
-        <Collapsible
-          title="Background"
-          summary={<ColorSummary color={style.bg} />}
-          defaultOpen={false}
-          density="compact"
-        >
-          <ColorPicker value={style.bg} onChange={setBg} label="Background" />
-        </Collapsible>
       </div>
-    </Collapsible>
+    </section>
   );
 }

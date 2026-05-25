@@ -2,11 +2,14 @@ import type {
   AnsiColor,
   AnsiStyle,
   ConditionExpr,
+  ContextColorMode,
+  ContextThresholds,
   Design,
   Element,
   ElementRef,
   ElementType,
   SegmentStyle,
+  TokenDisplayVariant,
 } from "./types";
 
 export class ValidationError extends Error {
@@ -30,6 +33,7 @@ const ELEMENT_TYPES: ReadonlyArray<ElementType> = [
   "linesRemoved",
   "contextPct",
   "contextBar",
+  "contextTokens",
   "rateLimit5hPct",
   "rateLimit5hBar",
   "rateLimit7dPct",
@@ -40,6 +44,11 @@ const ELEMENT_TYPES: ReadonlyArray<ElementType> = [
   "separator",
   "rotator",
   "segmentSplit",
+  "thinkingEffort",
+  "outputStyle",
+  "fastMode",
+  "lineBreak",
+  "spacer",
 ];
 
 function vColor(v: unknown, path: string): AnsiColor {
@@ -86,6 +95,29 @@ function vStyle(v: unknown, path: string): AnsiStyle {
         throw new ValidationError(`${path}.${k}`, "expected boolean");
       out[k] = v[k] as boolean;
     }
+  }
+  return out;
+}
+
+function vColorMode(v: unknown, path: string): ContextColorMode {
+  if (v === "static" || v === "percentage" || v === "absolute") return v;
+  throw new ValidationError(path, "expected static|percentage|absolute");
+}
+
+function vTokenVariant(v: unknown, path: string): TokenDisplayVariant {
+  if (v === "ratio" || v === "used" || v === "remaining" || v === "ratioPct")
+    return v;
+  throw new ValidationError(path, "expected ratio|used|remaining|ratioPct");
+}
+
+function vThresholds(v: unknown, path: string): ContextThresholds {
+  if (!isObj(v)) throw new ValidationError(path, "expected object");
+  const out: ContextThresholds = { green: 0, yellow: 0, orange: 0 };
+  for (const k of ["green", "yellow", "orange"] as const) {
+    const n = v[k];
+    if (typeof n !== "number" || !Number.isFinite(n) || n < 0)
+      throw new ValidationError(`${path}.${k}`, "expected non-negative number");
+    out[k] = n;
   }
   return out;
 }
@@ -182,8 +214,16 @@ function vElement(v: unknown, path: string): Element {
     case "model":
       return { ...base, type: "model" };
     case "cwd": {
-      if (v.mode !== "basename" && v.mode !== "full" && v.mode !== "tilde")
-        throw new ValidationError(path + ".mode", "expected basename|full|tilde");
+      if (
+        v.mode !== "basename" &&
+        v.mode !== "full" &&
+        v.mode !== "tilde" &&
+        v.mode !== "compact"
+      )
+        throw new ValidationError(
+          path + ".mode",
+          "expected basename|full|tilde|compact",
+        );
       return { ...base, type: "cwd", mode: v.mode };
     }
     case "gitBranch":
@@ -208,8 +248,14 @@ function vElement(v: unknown, path: string): Element {
       return { ...base, type: "linesAdded" };
     case "linesRemoved":
       return { ...base, type: "linesRemoved" };
-    case "contextPct":
-      return { ...base, type: "contextPct" };
+    case "contextPct": {
+      const out: Element = { ...base, type: "contextPct" };
+      if (v.colorMode !== undefined)
+        out.colorMode = vColorMode(v.colorMode, path + ".colorMode");
+      if (v.thresholds !== undefined)
+        out.thresholds = vThresholds(v.thresholds, path + ".thresholds");
+      return out;
+    }
     case "contextBar":
     case "rateLimit5hBar":
     case "rateLimit7dBar": {
@@ -219,18 +265,62 @@ function vElement(v: unknown, path: string): Element {
         throw new ValidationError(path + ".filledChar", "expected non-empty string");
       if (typeof v.emptyChar !== "string" || v.emptyChar.length === 0)
         throw new ValidationError(path + ".emptyChar", "expected non-empty string");
+      if (t === "contextBar") {
+        const out: Element = {
+          ...base,
+          type: "contextBar",
+          width: v.width,
+          filledChar: v.filledChar,
+          emptyChar: v.emptyChar,
+        };
+        if (v.colorMode !== undefined)
+          out.colorMode = vColorMode(v.colorMode, path + ".colorMode");
+        if (v.thresholds !== undefined)
+          out.thresholds = vThresholds(v.thresholds, path + ".thresholds");
+        return out;
+      }
       return {
         ...base,
-        type: t as "contextBar" | "rateLimit5hBar" | "rateLimit7dBar",
+        type: t as "rateLimit5hBar" | "rateLimit7dBar",
         width: v.width,
         filledChar: v.filledChar,
         emptyChar: v.emptyChar,
       };
     }
-    case "rateLimit5hPct":
-      return { ...base, type: "rateLimit5hPct" };
-    case "rateLimit7dPct":
-      return { ...base, type: "rateLimit7dPct" };
+    case "contextTokens": {
+      const variant = vTokenVariant(v.variant, path + ".variant");
+      if (typeof v.compact !== "boolean")
+        throw new ValidationError(path + ".compact", "expected boolean");
+      const out: Element = {
+        ...base,
+        type: "contextTokens",
+        variant,
+        compact: v.compact,
+      };
+      if (v.colorMode !== undefined)
+        out.colorMode = vColorMode(v.colorMode, path + ".colorMode");
+      if (v.thresholds !== undefined)
+        out.thresholds = vThresholds(v.thresholds, path + ".thresholds");
+      return out;
+    }
+    case "rateLimit5hPct": {
+      const out: Element = { ...base, type: "rateLimit5hPct" };
+      if (v.showResetTime !== undefined) {
+        if (typeof v.showResetTime !== "boolean")
+          throw new ValidationError(path + ".showResetTime", "expected boolean");
+        out.showResetTime = v.showResetTime;
+      }
+      return out;
+    }
+    case "rateLimit7dPct": {
+      const out: Element = { ...base, type: "rateLimit7dPct" };
+      if (v.showResetTime !== undefined) {
+        if (typeof v.showResetTime !== "boolean")
+          throw new ValidationError(path + ".showResetTime", "expected boolean");
+        out.showResetTime = v.showResetTime;
+      }
+      return out;
+    }
     case "cost": {
       const p = v.precision;
       if (typeof p !== "number" || p < 0 || p > 6)
@@ -275,6 +365,26 @@ function vElement(v: unknown, path: string): Element {
         pickMode: v.pickMode,
       };
     }
+    case "thinkingEffort":
+      return { ...base, type: "thinkingEffort" };
+    case "outputStyle": {
+      const out: Element = { ...base, type: "outputStyle" };
+      if (v.alwaysShow !== undefined) {
+        if (typeof v.alwaysShow !== "boolean")
+          throw new ValidationError(path + ".alwaysShow", "expected boolean");
+        out.alwaysShow = v.alwaysShow;
+      }
+      return out;
+    }
+    case "fastMode": {
+      const out: Element = { ...base, type: "fastMode" };
+      if (v.text !== undefined) {
+        if (typeof v.text !== "string")
+          throw new ValidationError(path + ".text", "expected string");
+        out.text = v.text;
+      }
+      return out;
+    }
     case "segmentSplit": {
       const source = vElementRef(v.source, path + ".source");
       if (typeof v.delimiter !== "string" || v.delimiter.length === 0)
@@ -295,6 +405,24 @@ function vElement(v: unknown, path: string): Element {
         if (typeof v.joinWith !== "string")
           throw new ValidationError(path + ".joinWith", "expected string");
         out.joinWith = v.joinWith;
+      }
+      return out;
+    }
+    case "lineBreak":
+      return { ...base, type: "lineBreak" };
+    case "spacer": {
+      if (v.mode !== "fixed" && v.mode !== "flex")
+        throw new ValidationError(path + ".mode", "expected fixed|flex");
+      const out: Element = { ...base, type: "spacer", mode: v.mode };
+      if (v.width !== undefined) {
+        if (typeof v.width !== "number" || v.width < 0 || !Number.isFinite(v.width))
+          throw new ValidationError(path + ".width", "expected non-negative number");
+        out.width = v.width;
+      }
+      if (v.char !== undefined) {
+        if (typeof v.char !== "string")
+          throw new ValidationError(path + ".char", "expected string");
+        out.char = v.char;
       }
       return out;
     }

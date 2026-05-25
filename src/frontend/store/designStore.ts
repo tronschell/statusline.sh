@@ -8,6 +8,7 @@ import type {
   Element,
   ElementType,
 } from "@statusline/shared/types";
+import { getThemePreset } from "../themes/presets";
 
 function safeStorage(): StateStorage {
   if (typeof localStorage !== "undefined") return localStorage;
@@ -24,6 +25,7 @@ function safeStorage(): StateStorage {
 }
 
 const HISTORY_CAP = 50;
+const MAX_LINE_BREAKS = 3;
 
 const INITIAL_DESIGN: Design = {
   version: 1,
@@ -60,6 +62,8 @@ function defaultsFor(type: ElementType, id: string): Element {
         filledChar: "█",
         emptyChar: "░",
       };
+    case "contextTokens":
+      return { ...base, type, variant: "ratio", compact: true };
     case "rateLimit5hPct":
       return { ...base, type };
     case "rateLimit5hBar":
@@ -104,7 +108,26 @@ function defaultsFor(type: ElementType, id: string): Element {
         delimiter: "/",
         segments: [{ style: {} }, { style: {} }],
       };
+    case "thinkingEffort":
+      return { ...base, type };
+    case "outputStyle":
+      return { ...base, type, alwaysShow: false };
+    case "fastMode":
+      return { ...base, type, text: "⚡fast" };
+    case "lineBreak":
+      return { ...base, type };
+    case "spacer":
+      return { ...base, type, mode: "flex", char: " " };
   }
+}
+
+function lineBreakCapReached(design: Design): boolean {
+  let n = 0;
+  for (const el of design.elements) {
+    if (el.type === "lineBreak") n++;
+    if (n >= MAX_LINE_BREAKS) return true;
+  }
+  return false;
 }
 
 export interface DesignState {
@@ -124,6 +147,7 @@ export interface DesignState {
   redo(): void;
   importDesign(d: Design): void;
   reset(): void;
+  applyThemePreset(presetId: string): void;
 }
 
 function pushHistory(past: Design[], prior: Design): Design[] {
@@ -156,6 +180,9 @@ export const useDesignStore = create<DesignState>()(
 
         addElement(type) {
           withHistory((design) => {
+            if (type === "lineBreak" && lineBreakCapReached(design)) {
+              return design;
+            }
             const el = defaultsFor(type, nanoid(8));
             return { ...design, elements: [...design.elements, el] };
           });
@@ -163,6 +190,9 @@ export const useDesignStore = create<DesignState>()(
 
         addElementAt(type, index) {
           withHistory((design) => {
+            if (type === "lineBreak" && lineBreakCapReached(design)) {
+              return design;
+            }
             const el = defaultsFor(type, nanoid(8));
             const i = Math.max(0, Math.min(index, design.elements.length));
             const elements = design.elements.slice();
@@ -265,6 +295,22 @@ export const useDesignStore = create<DesignState>()(
             past: [],
             future: [],
             selectedId: null,
+          });
+        },
+
+        applyThemePreset(presetId) {
+          const preset = getThemePreset(presetId);
+          if (!preset) return;
+          withHistory((design) => {
+            if (design.elements.length === 0) return design;
+            const elements = design.elements.map((el) => {
+              const color = preset.colors[el.type] ?? preset.colors.default;
+              return {
+                ...el,
+                style: { ...el.style, fg: color },
+              } as Element;
+            });
+            return { ...design, elements };
           });
         },
       };
