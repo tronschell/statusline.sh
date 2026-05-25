@@ -6,10 +6,7 @@ import type {
 import { DEFAULT_CONTEXT_THRESHOLDS } from "@statusline/shared/types";
 import { type FieldsProps, inputClass, labelClass } from "./common";
 
-type BarElement = Extract<
-  Element,
-  { type: "contextBar" | "rateLimit5hBar" | "rateLimit7dBar" }
->;
+type BarElement = Extract<Element, { type: "contextBar" }>;
 
 const COLOR_MODES: { value: ContextColorMode; label: string }[] = [
   { value: "static", label: "Static" },
@@ -26,14 +23,9 @@ export default function ContextBarFields({
     onPatch({ width: clamped } as Partial<Element>);
   };
 
-  const isContextBar = element.type === "contextBar";
-  // Narrow once for thresholds/colorMode access.
-  const ctxEl = isContextBar
-    ? (element as Extract<Element, { type: "contextBar" }>)
-    : null;
-  const colorMode: ContextColorMode = ctxEl?.colorMode ?? "static";
+  const colorMode: ContextColorMode = element.colorMode ?? "static";
   const thresholds: ContextThresholds =
-    ctxEl?.thresholds ?? DEFAULT_CONTEXT_THRESHOLDS;
+    element.thresholds ?? DEFAULT_CONTEXT_THRESHOLDS;
 
   const setColorMode = (m: ContextColorMode) =>
     onPatch({ colorMode: m } as Partial<Element>);
@@ -88,55 +80,53 @@ export default function ContextBarFields({
         </div>
       </div>
 
-      {isContextBar && (
-        <div className="flex flex-col gap-2">
-          <label className={labelClass}>Color mode</label>
-          <div className="grid grid-cols-3 gap-1 rounded-[4px] border border-white/[0.06] bg-[#1C1C1F] p-1">
-            {COLOR_MODES.map((m) => {
-              const active = colorMode === m.value;
-              return (
-                <button
-                  key={m.value}
-                  type="button"
-                  onClick={() => setColorMode(m.value)}
-                  className={`rounded-[4px] px-2 py-1 text-xs transition-colors ${
-                    active
-                      ? "bg-[#1E2A36] text-[#E8E8E6]"
-                      : "text-[#8A8A86] hover:text-[#E8E8E6]"
-                  }`}
-                >
-                  {m.label}
-                </button>
-              );
-            })}
-          </div>
-          {colorMode === "absolute" && (
-            <div className="flex flex-col gap-2 rounded-[4px] border border-white/[0.06] p-3">
-              <span className="text-xs text-[#8A8A86]">
-                Token thresholds. Color picks the highest band ≤ tokens.
-              </span>
-              {(["green", "yellow", "orange"] as const).map((k) => (
-                <div key={k} className="flex items-center gap-2">
-                  <label className="w-16 text-xs uppercase tracking-wider text-[#8A8A86]">
-                    {k}
-                  </label>
-                  <input
-                    type="number"
-                    min={0}
-                    step={1000}
-                    value={thresholds[k]}
-                    onChange={(e) => {
-                      const n = Number(e.target.value);
-                      if (Number.isFinite(n)) setThreshold(k, n);
-                    }}
-                    className={inputClass}
-                  />
-                </div>
-              ))}
-            </div>
-          )}
+      <div className="flex flex-col gap-2">
+        <label className={labelClass}>Color mode</label>
+        <div className="grid grid-cols-3 gap-1 rounded-[4px] border border-white/[0.06] bg-[#1C1C1F] p-1">
+          {COLOR_MODES.map((m) => {
+            const active = colorMode === m.value;
+            return (
+              <button
+                key={m.value}
+                type="button"
+                onClick={() => setColorMode(m.value)}
+                className={`rounded-[4px] px-2 py-1 text-xs transition-colors ${
+                  active
+                    ? "bg-[#1E2A36] text-[#E8E8E6]"
+                    : "text-[#8A8A86] hover:text-[#E8E8E6]"
+                }`}
+              >
+                {m.label}
+              </button>
+            );
+          })}
         </div>
-      )}
+        {colorMode === "absolute" && (
+          <div className="flex flex-col gap-2 rounded-[4px] border border-white/[0.06] p-3">
+            <span className="text-xs text-[#8A8A86]">
+              Token thresholds. Color picks the highest band ≤ tokens.
+            </span>
+            {(["green", "yellow", "orange"] as const).map((k) => (
+              <div key={k} className="flex items-center gap-2">
+                <label className="w-16 text-xs uppercase tracking-wider text-[#8A8A86]">
+                  {k}
+                </label>
+                <input
+                  type="number"
+                  min={0}
+                  step={1000}
+                  value={thresholds[k]}
+                  onChange={(e) => {
+                    const n = Number(e.target.value);
+                    if (Number.isFinite(n)) setThreshold(k, n);
+                  }}
+                  className={inputClass}
+                />
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
     </div>
   );
 }

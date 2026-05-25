@@ -33,10 +33,8 @@ function makeTheme(args: {
   gitStatus?: AnsiColor;
   contextPct?: AnsiColor;
   contextBar?: AnsiColor;
-  rateLimit5hPct?: AnsiColor;
-  rateLimit5hBar?: AnsiColor;
-  rateLimit7dPct?: AnsiColor;
-  rateLimit7dBar?: AnsiColor;
+  rateLimit5h?: AnsiColor;
+  rateLimit7d?: AnsiColor;
   cost?: AnsiColor;
   sessionDuration?: AnsiColor;
   separator?: AnsiColor;
@@ -54,10 +52,8 @@ function makeTheme(args: {
   assign("gitStatus", args.gitStatus);
   assign("contextPct", args.contextPct);
   assign("contextBar", args.contextBar);
-  assign("rateLimit5hPct", args.rateLimit5hPct);
-  assign("rateLimit5hBar", args.rateLimit5hBar);
-  assign("rateLimit7dPct", args.rateLimit7dPct);
-  assign("rateLimit7dBar", args.rateLimit7dBar);
+  assign("rateLimit5h", args.rateLimit5h);
+  assign("rateLimit7d", args.rateLimit7d);
   assign("cost", args.cost);
   assign("sessionDuration", args.sessionDuration);
   assign("separator", args.separator);
@@ -91,10 +87,8 @@ export const THEME_PRESETS: ReadonlyArray<ThemePreset> = [
     gitStatus: rgb(249, 226, 175), // yellow
     contextPct: rgb(116, 199, 236), // sapphire
     contextBar: rgb(116, 199, 236),
-    rateLimit5hPct: rgb(245, 194, 231), // pink
-    rateLimit5hBar: rgb(245, 194, 231),
-    rateLimit7dPct: rgb(245, 194, 231),
-    rateLimit7dBar: rgb(245, 194, 231),
+    rateLimit5h: rgb(245, 194, 231), // pink
+    rateLimit7d: rgb(245, 194, 231),
     cost: rgb(250, 179, 135), // peach
     sessionDuration: rgb(127, 132, 156), // overlay1
     separator: rgb(88, 91, 112), // surface2
@@ -114,10 +108,8 @@ export const THEME_PRESETS: ReadonlyArray<ThemePreset> = [
     gitStatus: rgb(224, 175, 104), // orange/yellow
     contextPct: rgb(125, 207, 255), // cyan
     contextBar: rgb(125, 207, 255),
-    rateLimit5hPct: rgb(255, 158, 100), // orange
-    rateLimit5hBar: rgb(255, 158, 100),
-    rateLimit7dPct: rgb(255, 158, 100),
-    rateLimit7dBar: rgb(255, 158, 100),
+    rateLimit5h: rgb(255, 158, 100), // orange
+    rateLimit7d: rgb(255, 158, 100),
     cost: rgb(255, 158, 100),
     sessionDuration: rgb(86, 95, 137), // comment
     separator: rgb(65, 72, 104), // dark3
@@ -137,10 +129,8 @@ export const THEME_PRESETS: ReadonlyArray<ThemePreset> = [
     gitStatus: rgb(250, 189, 47), // yellow
     contextPct: rgb(131, 165, 152), // aqua
     contextBar: rgb(131, 165, 152),
-    rateLimit5hPct: rgb(254, 128, 25), // orange
-    rateLimit5hBar: rgb(254, 128, 25),
-    rateLimit7dPct: rgb(254, 128, 25),
-    rateLimit7dBar: rgb(254, 128, 25),
+    rateLimit5h: rgb(254, 128, 25), // orange
+    rateLimit7d: rgb(254, 128, 25),
     cost: rgb(254, 128, 25),
     sessionDuration: rgb(146, 131, 116), // gray
     separator: rgb(80, 73, 69),
@@ -160,10 +150,8 @@ export const THEME_PRESETS: ReadonlyArray<ThemePreset> = [
     gitStatus: rgb(235, 203, 139), // aurora yellow
     contextPct: rgb(136, 192, 208), // frost-2 cyan
     contextBar: rgb(136, 192, 208),
-    rateLimit5hPct: rgb(208, 135, 112), // aurora orange
-    rateLimit5hBar: rgb(208, 135, 112),
-    rateLimit7dPct: rgb(208, 135, 112),
-    rateLimit7dBar: rgb(208, 135, 112),
+    rateLimit5h: rgb(208, 135, 112), // aurora orange
+    rateLimit7d: rgb(208, 135, 112),
     cost: rgb(208, 135, 112),
     sessionDuration: rgb(76, 86, 106), // polar night 3
     separator: rgb(67, 76, 94), // polar night 2
@@ -183,10 +171,8 @@ export const THEME_PRESETS: ReadonlyArray<ThemePreset> = [
     gitStatus: rgb(181, 137, 0), // yellow
     contextPct: rgb(42, 161, 152), // cyan
     contextBar: rgb(42, 161, 152),
-    rateLimit5hPct: rgb(203, 75, 22), // orange
-    rateLimit5hBar: rgb(203, 75, 22),
-    rateLimit7dPct: rgb(203, 75, 22),
-    rateLimit7dBar: rgb(203, 75, 22),
+    rateLimit5h: rgb(203, 75, 22), // orange
+    rateLimit7d: rgb(203, 75, 22),
     cost: rgb(203, 75, 22),
     sessionDuration: rgb(88, 110, 117), // base01
     separator: rgb(7, 54, 66), // base02
@@ -206,10 +192,8 @@ export const THEME_PRESETS: ReadonlyArray<ThemePreset> = [
     gitStatus: rgb(241, 250, 140), // yellow
     contextPct: rgb(139, 233, 253), // cyan
     contextBar: rgb(139, 233, 253),
-    rateLimit5hPct: rgb(255, 184, 108), // orange
-    rateLimit5hBar: rgb(255, 184, 108),
-    rateLimit7dPct: rgb(255, 184, 108),
-    rateLimit7dBar: rgb(255, 184, 108),
+    rateLimit5h: rgb(255, 184, 108), // orange
+    rateLimit7d: rgb(255, 184, 108),
     cost: rgb(255, 184, 108),
     sessionDuration: rgb(98, 114, 164), // comment
     separator: rgb(68, 71, 90), // currentLine
@@ -229,10 +213,8 @@ export const THEME_PRESETS: ReadonlyArray<ThemePreset> = [
     gitStatus: rgb(212, 212, 216),
     contextPct: rgb(161, 161, 170), // zinc-400
     contextBar: rgb(161, 161, 170),
-    rateLimit5hPct: rgb(161, 161, 170),
-    rateLimit5hBar: rgb(161, 161, 170),
-    rateLimit7dPct: rgb(161, 161, 170),
-    rateLimit7dBar: rgb(161, 161, 170),
+    rateLimit5h: rgb(161, 161, 170),
+    rateLimit7d: rgb(161, 161, 170),
     cost: rgb(228, 228, 231),
     sessionDuration: rgb(113, 113, 122), // zinc-500
     separator: rgb(82, 82, 91), // zinc-600

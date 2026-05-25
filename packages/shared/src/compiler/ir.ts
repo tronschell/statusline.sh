@@ -271,32 +271,26 @@ function elementToOps(el: Element): RenderOp[] {
       }
       break;
     }
-    case "rateLimit5hPct":
-      inner.push({ op: "field", path: "rate_limits.five_hour.used_percentage", style });
+    case "rateLimit5h":
+    case "rateLimit7d": {
+      const pctPath =
+        el.type === "rateLimit5h"
+          ? "rate_limits.five_hour.used_percentage"
+          : "rate_limits.seven_day.used_percentage";
+      if (el.variant === "bar") {
+        inner.push({
+          op: "progressBar",
+          pctPath,
+          width: el.width,
+          filled: el.filledChar,
+          empty: el.emptyChar,
+          style,
+        });
+      } else {
+        inner.push({ op: "field", path: pctPath, style });
+      }
       break;
-    case "rateLimit5hBar":
-      inner.push({
-        op: "progressBar",
-        pctPath: "rate_limits.five_hour.used_percentage",
-        width: el.width,
-        filled: el.filledChar,
-        empty: el.emptyChar,
-        style,
-      });
-      break;
-    case "rateLimit7dPct":
-      inner.push({ op: "field", path: "rate_limits.seven_day.used_percentage", style });
-      break;
-    case "rateLimit7dBar":
-      inner.push({
-        op: "progressBar",
-        pctPath: "rate_limits.seven_day.used_percentage",
-        width: el.width,
-        filled: el.filledChar,
-        empty: el.emptyChar,
-        style,
-      });
-      break;
+    }
     case "cost":
       inner.push({
         op: "compute",
@@ -390,19 +384,21 @@ function elementToOps(el: Element): RenderOp[] {
   // Append reset-time suffix AFTER the user's suffix, so a design with
   // `suffix: "%"` renders as "61%T-1h01m" rather than "61T-1h01m%".
   // The compute itself emits "T-…" only when the target is in the future,
-  // and an empty string otherwise — so no stale "T-" artifacts.
-  if (el.type === "rateLimit5hPct" && el.showResetTime) {
+  // and an empty string otherwise — so no stale "T-" artifacts. Only the
+  // pct variant honors showResetTime; the bar would force-pad the bar
+  // width and look broken.
+  if (
+    (el.type === "rateLimit5h" || el.type === "rateLimit7d") &&
+    el.variant === "pct" &&
+    el.showResetTime
+  ) {
     ops = ops.concat({
       op: "compute",
       expr: "relative_time",
-      argPath: "rate_limits.five_hour.resets_at",
-      style,
-    });
-  } else if (el.type === "rateLimit7dPct" && el.showResetTime) {
-    ops = ops.concat({
-      op: "compute",
-      expr: "relative_time",
-      argPath: "rate_limits.seven_day.resets_at",
+      argPath:
+        el.type === "rateLimit5h"
+          ? "rate_limits.five_hour.resets_at"
+          : "rate_limits.seven_day.resets_at",
       style,
     });
   }

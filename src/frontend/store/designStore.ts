@@ -64,22 +64,20 @@ function defaultsFor(type: ElementType, id: string): Element {
       };
     case "contextTokens":
       return { ...base, type, variant: "ratio", compact: true };
-    case "rateLimit5hPct":
-      return { ...base, type };
-    case "rateLimit5hBar":
+    case "rateLimit5h":
       return {
         ...base,
         type,
+        variant: "pct",
         width: 10,
         filledChar: "█",
         emptyChar: "░",
       };
-    case "rateLimit7dPct":
-      return { ...base, type };
-    case "rateLimit7dBar":
+    case "rateLimit7d":
       return {
         ...base,
         type,
+        variant: "pct",
         width: 10,
         filledChar: "█",
         emptyChar: "░",
@@ -319,6 +317,37 @@ export const useDesignStore = create<DesignState>()(
       name: "statusline-design-v1",
       storage: createJSONStorage(safeStorage),
       partialize: (state) => ({ design: state.design }),
+      version: 2,
+      // v1 → v2: consolidate rateLimit{5h,7d}{Pct,Bar} into rateLimit{5h,7d}
+      // with a `variant: "pct" | "bar"` field. Old persisted designs would
+      // crash the inspector switch otherwise.
+      migrate: (persisted, _version) => {
+        if (!persisted || typeof persisted !== "object") return persisted;
+        const state = persisted as { design?: { elements?: unknown[] } };
+        const els = state.design?.elements;
+        if (!Array.isArray(els)) return persisted;
+        const ALIASES: Record<string, { type: string; variant: "pct" | "bar" }> = {
+          rateLimit5hPct: { type: "rateLimit5h", variant: "pct" },
+          rateLimit5hBar: { type: "rateLimit5h", variant: "bar" },
+          rateLimit7dPct: { type: "rateLimit7d", variant: "pct" },
+          rateLimit7dBar: { type: "rateLimit7d", variant: "bar" },
+        };
+        const next = els.map((el) => {
+          if (!el || typeof el !== "object") return el;
+          const e = el as Record<string, unknown>;
+          const alias = typeof e.type === "string" ? ALIASES[e.type] : undefined;
+          if (!alias) return el;
+          return {
+            width: 10,
+            filledChar: "█",
+            emptyChar: "░",
+            ...e,
+            type: alias.type,
+            variant: alias.variant,
+          };
+        });
+        return { ...state, design: { ...state.design, elements: next } };
+      },
     },
   ),
 );

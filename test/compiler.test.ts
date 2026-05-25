@@ -90,10 +90,10 @@ describe("compileToOps", () => {
       version: 1,
       name: "RL",
       elements: [
-        { id: "1", type: "rateLimit5hPct", style: {} },
-        { id: "2", type: "rateLimit5hBar", width: 8, filledChar: "#", emptyChar: ".", style: {} },
-        { id: "3", type: "rateLimit7dPct", style: {} },
-        { id: "4", type: "rateLimit7dBar", width: 8, filledChar: "#", emptyChar: ".", style: {} },
+        { id: "1", type: "rateLimit5h", variant: "pct", width: 10, filledChar: "█", emptyChar: "░", style: {} },
+        { id: "2", type: "rateLimit5h", variant: "bar", width: 8, filledChar: "#", emptyChar: ".", style: {} },
+        { id: "3", type: "rateLimit7d", variant: "pct", width: 10, filledChar: "█", emptyChar: "░", style: {} },
+        { id: "4", type: "rateLimit7d", variant: "bar", width: 8, filledChar: "#", emptyChar: ".", style: {} },
       ],
     };
     const ops = compileToOps(d);
@@ -143,13 +143,13 @@ describe("interpret renderToAnsi", () => {
       version: 1,
       name: "RL",
       elements: [
-        { id: "p5", type: "rateLimit5hPct", style: {}, suffix: "%" },
+        { id: "p5", type: "rateLimit5h", variant: "pct", width: 10, filledChar: "█", emptyChar: "░", style: {}, suffix: "%" },
         { id: "s1", type: "separator", text: " ", style: {} },
-        { id: "b5", type: "rateLimit5hBar", width: 10, filledChar: "#", emptyChar: ".", style: {} },
+        { id: "b5", type: "rateLimit5h", variant: "bar", width: 10, filledChar: "#", emptyChar: ".", style: {} },
         { id: "s2", type: "separator", text: " ", style: {} },
-        { id: "p7", type: "rateLimit7dPct", style: {}, suffix: "%" },
+        { id: "p7", type: "rateLimit7d", variant: "pct", width: 10, filledChar: "█", emptyChar: "░", style: {}, suffix: "%" },
         { id: "s3", type: "separator", text: " ", style: {} },
-        { id: "b7", type: "rateLimit7dBar", width: 10, filledChar: "#", emptyChar: ".", style: {} },
+        { id: "b7", type: "rateLimit7d", variant: "bar", width: 10, filledChar: "#", emptyChar: ".", style: {} },
       ],
     };
     const ansi = renderToAnsi(d, {
@@ -915,7 +915,11 @@ describe("rate-limit reset time + context absolute zones", () => {
       elements: [
         {
           id: "p5",
-          type: "rateLimit5hPct",
+          type: "rateLimit5h",
+          variant: "pct",
+          width: 10,
+          filledChar: "█",
+          emptyChar: "░",
           style: {},
           suffix: "%",
           showResetTime: true,
@@ -946,7 +950,11 @@ describe("rate-limit reset time + context absolute zones", () => {
       elements: [
         {
           id: "p5",
-          type: "rateLimit5hPct",
+          type: "rateLimit5h",
+          variant: "pct",
+          width: 10,
+          filledChar: "█",
+          emptyChar: "░",
           style: {},
           suffix: "%",
           showResetTime: true,
@@ -1071,13 +1079,13 @@ describe.skipIf(!HAS_BASH)("bash backend executes correctly", () => {
       version: 1,
       name: "RL",
       elements: [
-        { id: "p5", type: "rateLimit5hPct", style: {}, suffix: "%" },
+        { id: "p5", type: "rateLimit5h", variant: "pct", width: 10, filledChar: "█", emptyChar: "░", style: {}, suffix: "%" },
         { id: "s1", type: "separator", text: " ", style: {} },
-        { id: "b5", type: "rateLimit5hBar", width: 8, filledChar: "#", emptyChar: ".", style: {} },
+        { id: "b5", type: "rateLimit5h", variant: "bar", width: 8, filledChar: "#", emptyChar: ".", style: {} },
         { id: "s2", type: "separator", text: " ", style: {} },
-        { id: "p7", type: "rateLimit7dPct", style: {}, suffix: "%" },
+        { id: "p7", type: "rateLimit7d", variant: "pct", width: 10, filledChar: "█", emptyChar: "░", style: {}, suffix: "%" },
         { id: "s3", type: "separator", text: " ", style: {} },
-        { id: "b7", type: "rateLimit7dBar", width: 8, filledChar: "#", emptyChar: ".", style: {} },
+        { id: "b7", type: "rateLimit7d", variant: "bar", width: 8, filledChar: "#", emptyChar: ".", style: {} },
       ],
     };
     const script = compileToBash(d);
@@ -1130,7 +1138,11 @@ describe.skipIf(!HAS_BASH)("bash backend executes correctly", () => {
       elements: [
         {
           id: "p5",
-          type: "rateLimit5hPct",
+          type: "rateLimit5h",
+          variant: "pct",
+          width: 10,
+          filledChar: "█",
+          emptyChar: "░",
           style: {},
           suffix: "%",
           showResetTime: true,

@@ -40,6 +40,8 @@ export type TokenDisplayVariant =
   | "remaining"
   | "ratioPct";
 
+export type RateLimitVariant = "pct" | "bar";
+
 export interface ContextThresholds {
   green: number;
   yellow: number;
@@ -92,19 +94,21 @@ export type Element =
       colorMode?: ContextColorMode;
       thresholds?: ContextThresholds;
     })
-  | (BaseElement & { type: "rateLimit5hPct"; showResetTime?: boolean })
   | (BaseElement & {
-      type: "rateLimit5hBar";
+      type: "rateLimit5h";
+      variant: RateLimitVariant;
       width: number;
       filledChar: string;
       emptyChar: string;
+      showResetTime?: boolean;
     })
-  | (BaseElement & { type: "rateLimit7dPct"; showResetTime?: boolean })
   | (BaseElement & {
-      type: "rateLimit7dBar";
+      type: "rateLimit7d";
+      variant: RateLimitVariant;
       width: number;
       filledChar: string;
       emptyChar: string;
+      showResetTime?: boolean;
     })
   | (BaseElement & { type: "cost"; precision: number })
   | (BaseElement & { type: "sessionDuration"; format: "hms" | "human" })

@@ -20,6 +20,7 @@ import LinesRemovedFields from "./fields/LinesRemovedFields";
 import ContextPctFields from "./fields/ContextPctFields";
 import ContextBarFields from "./fields/ContextBarFields";
 import ContextTokensFields from "./fields/ContextTokensFields";
+import RateLimitFields from "./fields/RateLimitFields";
 import CostFields from "./fields/CostFields";
 import SessionDurationFields from "./fields/SessionDurationFields";
 import GlyphFields from "./fields/GlyphFields";
@@ -42,10 +43,8 @@ const TYPE_LABEL: Record<ElementType, string> = {
   contextPct: "Context %",
   contextBar: "Context bar",
   contextTokens: "Context tokens",
-  rateLimit5hPct: "5-hour limit %",
-  rateLimit5hBar: "5-hour limit bar",
-  rateLimit7dPct: "7-day limit %",
-  rateLimit7dBar: "7-day limit bar",
+  rateLimit5h: "5-hour rate limit",
+  rateLimit7d: "7-day rate limit",
   cost: "Cost",
   sessionDuration: "Session duration",
   glyph: "Glyph",
@@ -70,10 +69,8 @@ const TYPE_DESCRIPTION: Record<ElementType, string> = {
   contextPct: "Context window usage percentage.",
   contextBar: "Visual meter of context usage.",
   contextTokens: "Token counts: used / total / remaining.",
-  rateLimit5hPct: "Claude.ai 5-hour rate limit usage percentage.",
-  rateLimit5hBar: "Visual meter of 5-hour rate limit usage.",
-  rateLimit7dPct: "Claude.ai 7-day rate limit usage percentage.",
-  rateLimit7dBar: "Visual meter of 7-day rate limit usage.",
+  rateLimit5h: "Claude.ai 5-hour rate limit (percentage or bar).",
+  rateLimit7d: "Claude.ai 7-day rate limit (percentage or bar).",
   cost: "Session cost in USD.",
   sessionDuration: "Time since session start.",
   glyph: "Decorative Unicode glyph or emoji.",
@@ -290,15 +287,14 @@ function renderTypeBody(
     case "linesRemoved":
       return <LinesRemovedFields element={element} onPatch={onPatch} />;
     case "contextPct":
-    case "rateLimit5hPct":
-    case "rateLimit7dPct":
       return <ContextPctFields element={element} onPatch={onPatch} />;
     case "contextBar":
-    case "rateLimit5hBar":
-    case "rateLimit7dBar":
       return <ContextBarFields element={element} onPatch={onPatch} />;
     case "contextTokens":
       return <ContextTokensFields element={element} onPatch={onPatch} />;
+    case "rateLimit5h":
+    case "rateLimit7d":
+      return <RateLimitFields element={element} onPatch={onPatch} />;
     case "cost":
       return <CostFields element={element} onPatch={onPatch} />;
     case "sessionDuration":

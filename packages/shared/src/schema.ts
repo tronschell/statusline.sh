@@ -8,6 +8,7 @@ import type {
   Element,
   ElementRef,
   ElementType,
+  RateLimitVariant,
   SegmentStyle,
   TokenDisplayVariant,
 } from "./types";
@@ -34,10 +35,8 @@ const ELEMENT_TYPES: ReadonlyArray<ElementType> = [
   "contextPct",
   "contextBar",
   "contextTokens",
-  "rateLimit5hPct",
-  "rateLimit5hBar",
-  "rateLimit7dPct",
-  "rateLimit7dBar",
+  "rateLimit5h",
+  "rateLimit7d",
   "cost",
   "sessionDuration",
   "glyph",
@@ -50,6 +49,22 @@ const ELEMENT_TYPES: ReadonlyArray<ElementType> = [
   "lineBreak",
   "spacer",
 ];
+
+/**
+ * Maps legacy element type aliases to their consolidated replacement.
+ * Old community designs in D1 and locally-persisted state may still use
+ * the four-way split (rateLimit5hPct/Bar, rateLimit7dPct/Bar); the
+ * validator rewrites the type in-place and synthesizes a `variant`.
+ */
+const LEGACY_TYPE_ALIASES: Record<
+  string,
+  { type: ElementType; variant?: RateLimitVariant }
+> = {
+  rateLimit5hPct: { type: "rateLimit5h", variant: "pct" },
+  rateLimit5hBar: { type: "rateLimit5h", variant: "bar" },
+  rateLimit7dPct: { type: "rateLimit7d", variant: "pct" },
+  rateLimit7dBar: { type: "rateLimit7d", variant: "bar" },
+};
 
 function vColor(v: unknown, path: string): AnsiColor {
   if (!isObj(v)) throw new ValidationError(path, "expected object");
@@ -108,6 +123,11 @@ function vTokenVariant(v: unknown, path: string): TokenDisplayVariant {
   if (v === "ratio" || v === "used" || v === "remaining" || v === "ratioPct")
     return v;
   throw new ValidationError(path, "expected ratio|used|remaining|ratioPct");
+}
+
+function vRateLimitVariant(v: unknown, path: string): RateLimitVariant {
+  if (v === "pct" || v === "bar") return v;
+  throw new ValidationError(path, "expected pct|bar");
 }
 
 function vThresholds(v: unknown, path: string): ContextThresholds {
@@ -199,9 +219,19 @@ function vBaseFields(v: Record<string, unknown>, path: string) {
   return base;
 }
 
-function vElement(v: unknown, path: string): Element {
-  if (!isObj(v)) throw new ValidationError(path, "expected object");
-  const t = v.type;
+function vElement(raw: unknown, path: string): Element {
+  if (!isObj(raw)) throw new ValidationError(path, "expected object");
+  let v: Record<string, unknown> = raw;
+  let t = v.type;
+  if (typeof t === "string" && t in LEGACY_TYPE_ALIASES) {
+    const alias = LEGACY_TYPE_ALIASES[t]!;
+    const rewritten: Record<string, unknown> = { ...v, type: alias.type };
+    if (alias.variant !== undefined && rewritten.variant === undefined) {
+      rewritten.variant = alias.variant;
+    }
+    v = rewritten;
+    t = alias.type;
+  }
   if (typeof t !== "string" || !ELEMENT_TYPES.includes(t as ElementType))
     throw new ValidationError(path + ".type", `unknown element type: ${String(t)}`);
   const base = vBaseFields(v, path);
@@ -256,36 +286,25 @@ function vElement(v: unknown, path: string): Element {
         out.thresholds = vThresholds(v.thresholds, path + ".thresholds");
       return out;
     }
-    case "contextBar":
-    case "rateLimit5hBar":
-    case "rateLimit7dBar": {
+    case "contextBar": {
       if (typeof v.width !== "number" || v.width < 1)
         throw new ValidationError(path + ".width", "expected positive number");
       if (typeof v.filledChar !== "string" || v.filledChar.length === 0)
         throw new ValidationError(path + ".filledChar", "expected non-empty string");
       if (typeof v.emptyChar !== "string" || v.emptyChar.length === 0)
         throw new ValidationError(path + ".emptyChar", "expected non-empty string");
-      if (t === "contextBar") {
-        const out: Element = {
-          ...base,
-          type: "contextBar",
-          width: v.width,
-          filledChar: v.filledChar,
-          emptyChar: v.emptyChar,
-        };
-        if (v.colorMode !== undefined)
-          out.colorMode = vColorMode(v.colorMode, path + ".colorMode");
-        if (v.thresholds !== undefined)
-          out.thresholds = vThresholds(v.thresholds, path + ".thresholds");
-        return out;
-      }
-      return {
+      const out: Element = {
         ...base,
-        type: t as "rateLimit5hBar" | "rateLimit7dBar",
+        type: "contextBar",
         width: v.width,
         filledChar: v.filledChar,
         emptyChar: v.emptyChar,
       };
+      if (v.colorMode !== undefined)
+        out.colorMode = vColorMode(v.colorMode, path + ".colorMode");
+      if (v.thresholds !== undefined)
+        out.thresholds = vThresholds(v.thresholds, path + ".thresholds");
+      return out;
     }
     case "contextTokens": {
       const variant = vTokenVariant(v.variant, path + ".variant");
@@ -303,17 +322,28 @@ function vElement(v: unknown, path: string): Element {
         out.thresholds = vThresholds(v.thresholds, path + ".thresholds");
       return out;
     }
-    case "rateLimit5hPct": {
-      const out: Element = { ...base, type: "rateLimit5hPct" };
-      if (v.showResetTime !== undefined) {
-        if (typeof v.showResetTime !== "boolean")
-          throw new ValidationError(path + ".showResetTime", "expected boolean");
-        out.showResetTime = v.showResetTime;
-      }
-      return out;
-    }
-    case "rateLimit7dPct": {
-      const out: Element = { ...base, type: "rateLimit7dPct" };
+    case "rateLimit5h":
+    case "rateLimit7d": {
+      const variant = vRateLimitVariant(v.variant, path + ".variant");
+      // Bar fields are always stored so users can switch variants without
+      // losing their bar configuration. Defaults match the palette factory.
+      const width = v.width === undefined ? 10 : v.width;
+      const filledChar = v.filledChar === undefined ? "█" : v.filledChar;
+      const emptyChar = v.emptyChar === undefined ? "░" : v.emptyChar;
+      if (typeof width !== "number" || width < 1)
+        throw new ValidationError(path + ".width", "expected positive number");
+      if (typeof filledChar !== "string" || filledChar.length === 0)
+        throw new ValidationError(path + ".filledChar", "expected non-empty string");
+      if (typeof emptyChar !== "string" || emptyChar.length === 0)
+        throw new ValidationError(path + ".emptyChar", "expected non-empty string");
+      const out: Extract<Element, { type: "rateLimit5h" | "rateLimit7d" }> = {
+        ...base,
+        type: t as "rateLimit5h" | "rateLimit7d",
+        variant,
+        width,
+        filledChar,
+        emptyChar,
+      };
       if (v.showResetTime !== undefined) {
         if (typeof v.showResetTime !== "boolean")
           throw new ValidationError(path + ".showResetTime", "expected boolean");
