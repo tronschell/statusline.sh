@@ -5,6 +5,7 @@ import {
   UploadSimple,
   DownloadSimple,
   Globe,
+  Palette,
 } from "@phosphor-icons/react";
 import { useDesignStore } from "../../store/designStore";
 import { safeValidateDesign } from "@statusline/shared/schema";
@@ -14,6 +15,7 @@ export interface TopBarProps {
   slug: string | null;
   onOpenInstall(): void;
   onOpenPublish(): void;
+  onOpenThemes(): void;
 }
 
 const btnBase =
@@ -35,6 +37,7 @@ export default function TopBar({
   slug,
   onOpenInstall,
   onOpenPublish,
+  onOpenThemes,
 }: TopBarProps) {
   const design = useDesignStore((s) => s.design);
   const setName = useDesignStore((s) => s.setName);
@@ -125,6 +128,16 @@ export default function TopBar({
             className={btnBase}
           >
             <ArrowClockwise size={12} weight="bold" />
+          </button>
+
+          <button
+            type="button"
+            onClick={onOpenThemes}
+            className={btnBase}
+            aria-label="Theme presets"
+          >
+            <Palette size={12} weight="bold" />
+            Themes
           </button>
 
           <input

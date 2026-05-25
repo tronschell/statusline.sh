@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef } from "react";
 import { Trash } from "@phosphor-icons/react";
 import type {
   AnsiStyle,
@@ -30,7 +30,6 @@ import ThinkingEffortFields from "./fields/ThinkingEffortFields";
 import OutputStyleFields from "./fields/OutputStyleFields";
 import FastModeFields from "./fields/FastModeFields";
 import SpacerFields from "./fields/SpacerFields";
-import ThemePresets from "./ThemePresets";
 
 const TYPE_LABEL: Record<ElementType, string> = {
   static: "Static text",
@@ -149,26 +148,11 @@ export default function InspectorPanel() {
 
   const onPatch = useBatchedPatch(element?.id ?? null);
 
-  const [themesOpen, setThemesOpen] = useState(false);
-  const themesPanelId = useId();
-
   return (
     <aside
       aria-label="Element inspector"
       className="flex h-full flex-col"
     >
-      <Toolbar
-        themesOpen={themesOpen}
-        themesPanelId={themesPanelId}
-        onToggleThemes={() => setThemesOpen((v) => !v)}
-      />
-
-      {themesOpen && (
-        <div id={themesPanelId} className="px-3 pb-4">
-          <ThemePresets onClose={() => setThemesOpen(false)} />
-        </div>
-      )}
-
       {!element ? (
         <EmptyState />
       ) : (
@@ -179,34 +163,6 @@ export default function InspectorPanel() {
         />
       )}
     </aside>
-  );
-}
-
-function Toolbar({
-  themesOpen,
-  themesPanelId,
-  onToggleThemes,
-}: {
-  themesOpen: boolean;
-  themesPanelId: string;
-  onToggleThemes: () => void;
-}) {
-  return (
-    <div className="flex items-center justify-end gap-2 px-3 pt-4 pb-3">
-      <button
-        type="button"
-        onClick={onToggleThemes}
-        aria-expanded={themesOpen}
-        aria-controls={themesPanelId}
-        className={
-          themesOpen
-            ? "rounded-full border border-[var(--color-text)] bg-[var(--color-text)] px-3 py-1 text-[10px] uppercase tracking-[0.14em] text-[var(--color-canvas)] transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-[#8FB8DA]/40"
-            : "rounded-full border border-[var(--color-border)] bg-transparent px-3 py-1 text-[10px] uppercase tracking-[0.14em] text-[var(--color-text-muted)] transition-colors hover:border-white/20 hover:text-[var(--color-text)] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#8FB8DA]/40"
-        }
-      >
-        Themes
-      </button>
-    </div>
   );
 }
 
@@ -237,10 +193,8 @@ function ElementEditor({
   return (
     <div className="flex flex-col gap-8 pb-6">
       <IdentitySection
-        type={element.type}
         label={TYPE_LABEL[element.type]}
         description={TYPE_DESCRIPTION[element.type]}
-        id={element.id}
         onDelete={onDelete}
       />
 
@@ -273,16 +227,12 @@ function ElementEditor({
 }
 
 function IdentitySection({
-  type,
   label,
   description,
-  id,
   onDelete,
 }: {
-  type: ElementType;
   label: string;
   description: string;
-  id: string;
   onDelete: () => void;
 }) {
   return (
@@ -294,17 +244,6 @@ function IdentitySection({
         <span className="text-[12px] leading-snug text-[var(--color-text-muted)]">
           {description}
         </span>
-        <div className="flex min-w-0 items-center gap-2 pt-0.5">
-          <span className="rounded-[4px] border border-[var(--color-border)] bg-[var(--color-surface-2)] px-1.5 py-0.5 font-mono text-[10px] uppercase tracking-wider text-[var(--color-text)]">
-            {type}
-          </span>
-          <span
-            className="truncate font-mono text-[10px] text-[var(--color-text-muted)] opacity-70"
-            title={`Element id: ${id}`}
-          >
-            {id}
-          </span>
-        </div>
       </div>
       <button
         type="button"

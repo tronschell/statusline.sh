@@ -1,20 +1,18 @@
 import { useEffect, useId, useState } from "react";
-import { X } from "@phosphor-icons/react";
 import { useDesignStore } from "../../store/designStore";
 import { THEME_PRESETS, type ThemePreset } from "../../themes/presets";
 
 interface ThemePresetsProps {
-  /** When provided, called after a preset is applied. Also enables the
-   *  header close affordance (×) which invokes it on click. */
+  /** Called after a preset is applied (typically to close the host modal). */
   onClose?: () => void;
 }
 
 /**
- * Theme-preset picker. Renders a two-column card grid of curated color
- * schemes; clicking a card opens a minimal confirm modal warning that
- * every element's foreground color will be overwritten. Apply goes
- * through `applyThemePreset` (wrapped in `withHistory` so Cmd/Ctrl+Z
- * restores prior colors).
+ * Theme-preset picker. Renders a card grid of curated color schemes;
+ * clicking a card opens a minimal confirm modal warning that every
+ * element's foreground color will be overwritten. Apply goes through
+ * `applyThemePreset` (wrapped in `withHistory` so Cmd/Ctrl+Z restores
+ * prior colors).
  */
 export default function ThemePresets({ onClose }: ThemePresetsProps) {
   const applyThemePreset = useDesignStore((s) => s.applyThemePreset);
@@ -45,27 +43,10 @@ export default function ThemePresets({ onClose }: ThemePresetsProps) {
   }, [pending]);
 
   return (
-    <section aria-label="Theme presets" className="flex flex-col gap-3 px-3">
-      <header className="flex items-start justify-between gap-3">
-        <div className="flex flex-col gap-1">
-          <h2 className="m-0 text-[11px] font-medium uppercase tracking-[0.08em] text-[var(--color-text-muted)]">
-            Theme presets
-          </h2>
-          <p className="m-0 text-[11px] leading-snug text-[var(--color-text-muted)]/80">
-            Recolors every element. Use Cmd/Ctrl+Z to revert.
-          </p>
-        </div>
-        {onClose && (
-          <button
-            type="button"
-            onClick={onClose}
-            aria-label="Close theme presets"
-            className="-mr-1 -mt-1 flex h-6 w-6 shrink-0 items-center justify-center rounded-[6px] text-[var(--color-text-muted)] transition-colors hover:bg-[var(--color-surface-2)] hover:text-[var(--color-text)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#8FB8DA]/40"
-          >
-            <X size={12} weight="bold" />
-          </button>
-        )}
-      </header>
+    <section aria-label="Theme presets" className="flex flex-col gap-3">
+      <p className="m-0 text-[12px] leading-snug text-[var(--color-text-muted)]">
+        Recolors every element. Use Cmd/Ctrl+Z to revert.
+      </p>
 
       {disabled && (
         <p className="m-0 text-[11px] leading-snug text-[var(--color-text-muted)]/80">
@@ -75,8 +56,7 @@ export default function ThemePresets({ onClose }: ThemePresetsProps) {
 
       <div
         className={[
-          "grid gap-2",
-          "grid-cols-1 [@media(min-width:280px)]:grid-cols-2",
+          "grid gap-2 grid-cols-1 sm:grid-cols-2",
           disabled ? "pointer-events-none opacity-50" : "",
         ].join(" ")}
       >

@@ -16,6 +16,8 @@ import { PrivacyPage } from "./frontend/components/Legal/PrivacyPage";
 import { TermsPage } from "./frontend/components/Legal/TermsPage";
 import InstallDrawer from "./frontend/components/Install/InstallDrawer";
 import PublishDialog from "./frontend/components/Community/PublishDialog";
+import Modal from "./frontend/components/Modal/Modal";
+import ThemePresets from "./frontend/components/Inspector/ThemePresets";
 import { CommunityPage } from "./frontend/components/Community/CommunityPage";
 import { CommunityDetailPage } from "./frontend/components/Community/CommunityDetailPage";
 import { ClaudeCodeStatuslineGuidePage } from "./frontend/components/Guides/ClaudeCodeStatuslineGuidePage";
@@ -88,6 +90,7 @@ function BuilderRoute() {
 
   const [installOpen, setInstallOpen] = useState(false);
   const [publishOpen, setPublishOpen] = useState(false);
+  const [themesOpen, setThemesOpen] = useState(false);
   const [inspectorCollapsed, setInspectorCollapsed] = useState(true);
   const selectedId = useDesignStore((s) => s.selectedId);
 
@@ -107,6 +110,7 @@ function BuilderRoute() {
               slug={slug}
               onOpenInstall={() => setInstallOpen(true)}
               onOpenPublish={() => setPublishOpen(true)}
+              onOpenThemes={() => setThemesOpen(true)}
             />
           }
           palette={<ElementPalette />}
@@ -138,6 +142,15 @@ function BuilderRoute() {
         onClose={() => setPublishOpen(false)}
         onPublished={(s) => setSlug(s)}
       />
+
+      <Modal
+        isOpen={themesOpen}
+        onClose={() => setThemesOpen(false)}
+        title="Theme presets"
+        widthClass="max-w-lg"
+      >
+        <ThemePresets onClose={() => setThemesOpen(false)} />
+      </Modal>
     </BuilderPage>
   );
 }
