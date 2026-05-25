@@ -192,10 +192,7 @@ function Toolbar({
   onToggleThemes: () => void;
 }) {
   return (
-    <div className="flex items-center justify-between gap-2 px-3 pt-4 pb-3">
-      <span className="text-[10px] uppercase tracking-[0.18em] text-[var(--color-text-muted)]">
-        Inspector
-      </span>
+    <div className="flex items-center justify-end gap-2 px-3 pt-4 pb-3">
       <button
         type="button"
         onClick={onToggleThemes}
@@ -261,7 +258,6 @@ function ElementEditor({
           <StyleEditor
             style={element.style}
             onChange={setStyle}
-            title="Appearance"
           />
         </div>
       </section>

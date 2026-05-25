@@ -106,7 +106,7 @@ function SwatchChip({ channel, label, color, active, onClick }: SwatchChipProps)
 export default function StyleEditor({
   style,
   onChange,
-  title = "Appearance",
+  title,
 }: StyleEditorProps) {
   const [active, setActive] = useState<Channel | null>(null);
 
@@ -121,9 +121,11 @@ export default function StyleEditor({
 
   return (
     <section className="flex flex-col gap-3">
-      <h3 className="text-xs uppercase tracking-wider text-[var(--color-text-muted)]">
-        {title}
-      </h3>
+      {title && (
+        <h3 className="text-xs uppercase tracking-wider text-[var(--color-text-muted)]">
+          {title}
+        </h3>
+      )}
 
       <div className="flex items-stretch gap-2">
         <SwatchChip
