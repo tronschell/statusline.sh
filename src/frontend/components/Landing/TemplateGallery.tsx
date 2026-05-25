@@ -56,7 +56,7 @@ export function TemplateGallery() {
             className={`${colSpan} min-w-0 fade-up`}
             style={{ transitionDelay: `${delay}ms` }}
           >
-            <TemplateCard template={t} />
+            <TemplateCard template={t} index={i} />
           </div>
         );
       })}

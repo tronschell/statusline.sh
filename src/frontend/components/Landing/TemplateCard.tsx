@@ -1,11 +1,16 @@
 import { CaretRight } from "@phosphor-icons/react";
 import type { TemplateMeta } from "@statusline/shared/types";
 import { Link } from "../../router";
-import { StaticPreview } from "../Preview/StaticPreview";
+import { AnimatedPreview } from "../Preview/AnimatedPreview";
 
 export interface TemplateCardProps {
   template: TemplateMeta;
   className?: string;
+  /**
+   * Card position in the gallery. Used purely to stagger the animation start
+   * offset so adjacent cards don't tick on the same frame.
+   */
+  index?: number;
 }
 
 /**
@@ -16,8 +21,11 @@ export interface TemplateCardProps {
  * description. Footer (`mt-auto`): "Use template" CTA with an arrow that
  * slides on hover.
  */
-export function TemplateCard({ template, className }: TemplateCardProps) {
+export function TemplateCard({ template, className, index = 0 }: TemplateCardProps) {
   const href = `/builder?template=${encodeURIComponent(template.id)}`;
+  // 437ms is coprime with each rotation period in galleryMock so adjacent
+  // cards land on different branch/model/style frames at any moment.
+  const startOffsetMs = (index * 437) % 12000;
   return (
     <Link
       href={href}
@@ -37,7 +45,11 @@ export function TemplateCard({ template, className }: TemplateCardProps) {
       />
 
       <div className="overflow-hidden">
-        <StaticPreview design={template.design} className="text-[12px]" />
+        <AnimatedPreview
+          design={template.design}
+          className="text-[12px]"
+          startOffsetMs={startOffsetMs}
+        />
       </div>
 
       <div className="mt-5">

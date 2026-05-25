@@ -55,3 +55,18 @@ bun --cwd worker exec wrangler d1 execute statusline-community --remote --file=/
 
 The seed uses `INSERT OR IGNORE`, so re-running it is safe — it won't duplicate
 rows or overwrite existing data.
+
+### Seeding only specific templates
+
+When adding new templates to a DB that already has the originals, pass
+`--only=<ids>` to skip the existing rows:
+
+```sh
+bun worker/scripts/seed.ts --only=vital-signs,two-line-cockpit,mode-switcher,neon-pulse,ocean-wave > /tmp/new.sql
+bun --cwd worker exec wrangler d1 execute statusline-community --remote --file=/tmp/new.sql
+```
+
+Invoke the script directly — `bun run seed -- --only=…` doesn't forward
+flags, but `bun worker/scripts/seed.ts --only=…` does. Template ids match
+`TEMPLATES[*].id` in `packages/shared/src/templates.ts`. Unknown ids cause
+the script to exit non-zero before producing any output.

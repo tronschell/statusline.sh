@@ -39,6 +39,10 @@ data/*.db-shm
 data/*.db-wal
 data/*.sqlite
 data/*.sqlite3
+# Generated seed / D1-upload SQL at repo root (worker/migrations/*.sql stays tracked)
+/*.sql
+new-templates.sql
+seed.sql
 
 # --- OS files ---
 .DS_Store

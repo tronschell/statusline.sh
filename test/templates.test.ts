@@ -7,8 +7,8 @@ import { tweenMock } from "../src/shared/animatedMocks";
 import { stripAnsi } from "@statusline/shared/ansi";
 
 describe("templates: catalogue", () => {
-  test("ships exactly 8 templates with unique ids", () => {
-    expect(TEMPLATES.length).toBe(8);
+  test("ships exactly 14 templates with unique ids", () => {
+    expect(TEMPLATES.length).toBe(14);
     const ids = TEMPLATES.map((t) => t.id);
     expect(new Set(ids).size).toBe(ids.length);
     const expected = [
@@ -20,6 +20,12 @@ describe("templates: catalogue", () => {
       "two-tone-path",
       "pastel-dashboard",
       "just-the-bar",
+      "vital-signs",
+      "two-line-cockpit",
+      "mode-switcher",
+      "neon-pulse",
+      "ocean-wave",
+      "triptych",
     ];
     for (const id of expected) {
       expect(ids).toContain(id);
