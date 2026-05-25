@@ -1,9 +1,6 @@
 import { Fragment, useCallback, useRef } from "react";
 import { useDroppable } from "@dnd-kit/core";
-import {
-  SortableContext,
-  horizontalListSortingStrategy,
-} from "@dnd-kit/sortable";
+import { SortableContext, type SortingStrategy } from "@dnd-kit/sortable";
 import type { Element } from "@statusline/shared/types";
 import { useDesignStore } from "../../store/designStore";
 import {
@@ -15,6 +12,15 @@ import {
   type InsertionResolver,
 } from "../../hooks/useDnd";
 import { ElementChip } from "./ElementChip";
+
+// Freeze every sortable chip in place during a drag. The default strategies
+// (horizontal/rect) apply CSS transforms to non-dragged items to preview the
+// reorder; with a full-width `lineBreak` chip in the list, that transform makes
+// the line break visibly lurch sideways and — worse — shifts its live
+// getBoundingClientRect(), which is exactly what `resolveInsertion` reads to
+// compute seam positions. The skeleton placeholder is the sole drop indicator,
+// so frozen chips give the resolver stable rects and keep placement predictable.
+const FROZEN_SORTING_STRATEGY: SortingStrategy = () => null;
 
 /**
  * Split a flat element list into stacked rows at each lineBreak boundary.
@@ -284,7 +290,7 @@ export function StatuslineCanvas() {
         </span>
       </div>
 
-      <SortableContext items={sortableIds} strategy={horizontalListSortingStrategy}>
+      <SortableContext items={sortableIds} strategy={FROZEN_SORTING_STRATEGY}>
         <div
           ref={setRootRef}
           className={[

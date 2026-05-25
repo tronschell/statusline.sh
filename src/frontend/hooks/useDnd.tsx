@@ -269,23 +269,38 @@ export function DndProvider({ children }: DndProviderProps) {
   }
 
   /**
-   * Pointer-driven side computation. Called on every move when a palette item
-   * is being dragged. Both the canvas and the live-preview register
-   * pointer-aware resolvers; the first one whose surface contains the pointer
-   * wins. The over-id heuristic is a last-resort fallback for the rare case
-   * where dnd-kit reports an over target but the pointer math fails (e.g.
-   * scroll snapshot lag).
+   * Pointer-driven side computation. Called on every move while a drag is
+   * active. Both the canvas and the live-preview register pointer-aware
+   * resolvers; the first one whose surface contains the pointer wins. The
+   * over-id heuristic is a last-resort fallback for the rare case where
+   * dnd-kit reports an over target but the pointer math fails (e.g. scroll
+   * snapshot lag).
+   *
+   * `excludeId` is set for canvas-to-canvas drags so we can suppress the
+   * skeleton at the dragged chip's own slot — inserting at `fromIdx` or
+   * `fromIdx + 1` is a no-op, and rendering a placeholder right next to the
+   * source chip just looks like a bug.
    */
   function recomputePending(
     type: ElementType,
     pointer: { x: number; y: number } | null,
     overId: string | number | null | undefined,
+    excludeId: string | null,
   ): void {
     const els = useDesignStore.getState().design.elements;
+    const fromIdx = excludeId
+      ? els.findIndex((el) => el.id === excludeId)
+      : -1;
+    const isNoOp = (idx: number): boolean =>
+      fromIdx !== -1 && (idx === fromIdx || idx === fromIdx + 1);
 
     // 1) Pointer-aware resolvers (the precise path).
     const resolved = runResolvers(pointer);
     if (resolved) {
+      if (isNoOp(resolved.index)) {
+        clearPending();
+        return;
+      }
       updatePending({ type, index: resolved.index, rowIndex: resolved.rowIndex });
       return;
     }
@@ -296,6 +311,10 @@ export function DndProvider({ children }: DndProviderProps) {
       return;
     }
     if (overId === CANVAS_ROOT_DROPPABLE || overId === PREVIEW_ROOT_DROPPABLE) {
+      if (isNoOp(els.length)) {
+        clearPending();
+        return;
+      }
       updatePending({ type, index: els.length, rowIndex: null });
       return;
     }
@@ -310,7 +329,7 @@ export function DndProvider({ children }: DndProviderProps) {
       return;
     }
     const hovered = els.findIndex((el) => el.id === targetId);
-    if (hovered < 0) {
+    if (hovered < 0 || isNoOp(hovered)) {
       clearPending();
       return;
     }
@@ -319,20 +338,39 @@ export function DndProvider({ children }: DndProviderProps) {
 
   function scheduleRecompute(event: DragMoveEvent | DragOverEvent): void {
     const activeId = event.active?.id;
-    if (typeof activeId !== "string" || !activeId.startsWith(PALETTE_PREFIX)) {
+    if (typeof activeId !== "string") {
       clearPending();
       return;
     }
-    const type = activeId.slice(PALETTE_PREFIX.length) as ElementType;
+    let type: ElementType | null = null;
+    let excludeId: string | null = null;
+    if (activeId.startsWith(PALETTE_PREFIX)) {
+      type = activeId.slice(PALETTE_PREFIX.length) as ElementType;
+    } else if (activeId.startsWith(CANVAS_PREFIX)) {
+      const id = activeId.slice(CANVAS_PREFIX.length);
+      const el = useDesignStore
+        .getState()
+        .design.elements.find((e) => e.id === id);
+      if (el) {
+        type = el.type;
+        excludeId = id;
+      }
+    }
+    if (!type) {
+      clearPending();
+      return;
+    }
     const pointer =
       livePointerRef.current ??
       getPointerFromEvent(event.activatorEvent, event.delta);
     const overId = event.over?.id ?? null;
+    const finalType = type;
+    const finalExcludeId = excludeId;
 
     if (rafRef.current !== null) cancelAnimationFrame(rafRef.current);
     rafRef.current = requestAnimationFrame(() => {
       rafRef.current = null;
-      recomputePending(type, pointer, overId);
+      recomputePending(finalType, pointer, overId, finalExcludeId);
     });
   }
 
@@ -354,15 +392,14 @@ export function DndProvider({ children }: DndProviderProps) {
     // drop index reflects the exact release position, not the last RAF tick.
     let dropPending = pendingRef.current;
     let finalResolved: InsertionResolution | null = null;
-    if (activeParsed?.kind === "palette") {
-      const type = activeParsed.type;
+    if (activeParsed) {
       const pointer =
         livePointerRef.current ??
         getPointerFromEvent(event.activatorEvent, event.delta);
       finalResolved = runResolvers(pointer);
-      if (finalResolved) {
+      if (finalResolved && activeParsed.kind === "palette") {
         dropPending = {
-          type,
+          type: activeParsed.type,
           index: finalResolved.index,
           rowIndex: finalResolved.rowIndex,
         };
@@ -390,15 +427,41 @@ export function DndProvider({ children }: DndProviderProps) {
 
     // Canvas-to-canvas reorder. Preview spans intentionally do NOT accept
     // chip reorders — that lives inside the SortableContext of the canvas.
-    if (!event.over) return;
-    const overParsed = parseDragId(event.over.id as string);
-    if (!overParsed || overParsed.kind !== "canvas") return;
-    if (overParsed.id === activeParsed.id) return;
+    // Gate the resolver-driven path on `event.over` pointing at a canvas
+    // surface; otherwise a chip dragged over the LivePreview's resolver
+    // would silently trigger a reorder.
+    const overId = typeof event.over?.id === "string" ? event.over.id : null;
+    const overIsCanvas =
+      overId !== null &&
+      (overId === CANVAS_ROOT_DROPPABLE || overId.startsWith(CANVAS_PREFIX));
+    if (!overIsCanvas) return;
 
     const els = useDesignStore.getState().design.elements;
     const fromIdx = els.findIndex((el) => el.id === activeParsed.id);
+    if (fromIdx === -1) return;
+
+    // Prefer the pointer resolver: it returns the SAME insertion index the
+    // skeleton previewed, so the chip lands exactly where the user saw it.
+    // The resolver index is into the pre-removal array, so translate it into
+    // a post-removal target slot for `reorder`.
+    if (finalResolved) {
+      const rawIdx = finalResolved.index;
+      if (rawIdx === fromIdx || rawIdx === fromIdx + 1) return;
+      let toIdx = rawIdx > fromIdx ? rawIdx - 1 : rawIdx;
+      toIdx = Math.max(0, Math.min(toIdx, els.length - 1));
+      if (toIdx === fromIdx) return;
+      reorder(fromIdx, toIdx);
+      return;
+    }
+
+    // Fallback: dnd-kit's collision-based over-id. This path runs only when
+    // the resolver couldn't place the pointer inside any registered surface
+    // (e.g. release just outside the canvas with no live pointermove yet).
+    const overParsed = parseDragId(overId);
+    if (!overParsed || overParsed.kind !== "canvas") return;
+    if (overParsed.id === activeParsed.id) return;
     const toIdx = els.findIndex((el) => el.id === overParsed.id);
-    if (fromIdx === -1 || toIdx === -1) return;
+    if (toIdx === -1) return;
     reorder(fromIdx, toIdx);
   }
 
@@ -504,6 +567,23 @@ export function SkeletonChip({ type }: { type: ElementType }) {
 
   const Icon = ELEMENT_ICONS[type];
   const label = ELEMENT_LABELS[type] ?? type;
+
+  // Line breaks render full-width in the canvas; the placeholder mirrors that
+  // shape so the drop preview reads as the row divider it will become rather
+  // than a tiny chip parked inside another row.
+  if (type === "lineBreak") {
+    return (
+      <span
+        aria-hidden="true"
+        className="flex w-full items-center gap-2 px-2 py-1 rounded-[8px] border border-dashed border-[#8FB8DA]/60 bg-[#8FB8DA]/[0.07] text-[11px] text-[#8FB8DA] transition-opacity duration-150 ease-out"
+        style={{ opacity: shown ? 1 : 0 }}
+      >
+        <Icon size={12} weight="bold" />
+        <span className="font-medium uppercase tracking-wider">{label}</span>
+        <span aria-hidden="true" className="flex-1 h-px bg-[#8FB8DA]/30" />
+      </span>
+    );
+  }
 
   return (
     <span
