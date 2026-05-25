@@ -137,13 +137,22 @@ export function useRegisterInsertionResolver(resolver: InsertionResolver | null)
   }, [resolver, registerResolver]);
 }
 
+/**
+ * Fallback pointer reconstruction from dnd-kit's activator + delta. Only used
+ * before the first live pointermove has fired (the brief window between
+ * onDragStart and the next pointermove). `delta` is `scrollAdjustedTranslate`
+ * — translate plus the scroll delta of the active node's scrollable ancestors
+ * — so this value can be off by tens of pixels when a scrolled palette
+ * <aside> is the active node's ancestor and `scrollableAncestors` flips as
+ * the cursor crosses droppable boundaries. The live pointer tracker
+ * (`livePointerRef` in DndProvider) is the authoritative source once a move
+ * has happened.
+ */
 function getPointerFromEvent(
   activatorEvent: Event | null,
   delta: { x: number; y: number },
 ): { x: number; y: number } | null {
   if (!activatorEvent) return null;
-  // Pointer / mouse / touch — read the start coordinates from the activator,
-  // then add the cumulative delta dnd-kit tracks.
   let startX: number | null = null;
   let startY: number | null = null;
   if ("clientX" in activatorEvent && "clientY" in activatorEvent) {
@@ -180,6 +189,17 @@ export function DndProvider({ children }: DndProviderProps) {
   // overlap in iteration order does not matter in practice.
   const resolversRef = useRef<Set<InsertionResolver>>(new Set());
   const rafRef = useRef<number | null>(null);
+  // Authoritative pointer position during a drag. Tracked via a window-level
+  // pointermove listener installed at dragStart and torn down at dragEnd. We
+  // do NOT derive the pointer from dnd-kit's `event.delta` because that value
+  // is `scrollAdjustedTranslate`, which adds the scroll delta of the active
+  // node's scrollable ancestors. The palette is rendered inside a scrollable
+  // <aside>; when the cursor crosses between the palette and the canvas
+  // during a drag, `scrollableAncestors` flips and the scroll-adjustment
+  // term spikes for a render, shifting our resolved drop index by the
+  // palette's scrollTop. Reading clientX/clientY straight from the live
+  // pointer event sidesteps the entire delta-arithmetic path.
+  const livePointerRef = useRef<{ x: number; y: number } | null>(null);
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 4 } }),
@@ -234,6 +254,17 @@ export function DndProvider({ children }: DndProviderProps) {
   }
 
   function handleDragStart(event: DragStartEvent): void {
+    // Seed the live pointer with the activator coordinates so the very first
+    // recompute (before any pointermove fires) has a non-null value to work
+    // with. After the next move, the listener overwrites this with the real
+    // viewport position.
+    const activator = event.activatorEvent;
+    if (activator && "clientX" in activator && "clientY" in activator) {
+      const e = activator as MouseEvent;
+      if (typeof e.clientX === "number" && typeof e.clientY === "number") {
+        livePointerRef.current = { x: e.clientX, y: e.clientY };
+      }
+    }
     setActive(parseDragId(event.active.id as string));
   }
 
@@ -293,7 +324,9 @@ export function DndProvider({ children }: DndProviderProps) {
       return;
     }
     const type = activeId.slice(PALETTE_PREFIX.length) as ElementType;
-    const pointer = getPointerFromEvent(event.activatorEvent, event.delta);
+    const pointer =
+      livePointerRef.current ??
+      getPointerFromEvent(event.activatorEvent, event.delta);
     const overId = event.over?.id ?? null;
 
     if (rafRef.current !== null) cancelAnimationFrame(rafRef.current);
@@ -323,7 +356,9 @@ export function DndProvider({ children }: DndProviderProps) {
     let finalResolved: InsertionResolution | null = null;
     if (activeParsed?.kind === "palette") {
       const type = activeParsed.type;
-      const pointer = getPointerFromEvent(event.activatorEvent, event.delta);
+      const pointer =
+        livePointerRef.current ??
+        getPointerFromEvent(event.activatorEvent, event.delta);
       finalResolved = runResolvers(pointer);
       if (finalResolved) {
         dropPending = {
@@ -337,6 +372,7 @@ export function DndProvider({ children }: DndProviderProps) {
     setActive(null);
     pendingRef.current = null;
     setPending(null);
+    livePointerRef.current = null;
 
     if (!activeParsed) return;
 
@@ -374,6 +410,7 @@ export function DndProvider({ children }: DndProviderProps) {
     setActive(null);
     pendingRef.current = null;
     setPending(null);
+    livePointerRef.current = null;
   }
 
   useEffect(() => {
@@ -381,6 +418,25 @@ export function DndProvider({ children }: DndProviderProps) {
       if (rafRef.current !== null) cancelAnimationFrame(rafRef.current);
     };
   }, []);
+
+  // While a drag is active, track the live pointer via a capture-phase
+  // pointermove/pointerup listener on the window. Capture-phase runs before
+  // dnd-kit's own document-bubble listener, so we always observe the
+  // unmodified PointerEvent clientX/clientY. pointerup also updates the ref
+  // so handleDragEnd sees the precise release position. See livePointerRef
+  // declaration above for why we don't trust event.delta.
+  useEffect(() => {
+    if (!active) return;
+    function onMove(e: PointerEvent) {
+      livePointerRef.current = { x: e.clientX, y: e.clientY };
+    }
+    window.addEventListener("pointermove", onMove, { capture: true });
+    window.addEventListener("pointerup", onMove, { capture: true });
+    return () => {
+      window.removeEventListener("pointermove", onMove, { capture: true });
+      window.removeEventListener("pointerup", onMove, { capture: true });
+    };
+  }, [active]);
 
   let overlay: ReactNode = null;
   if (active?.kind === "palette") {
@@ -432,13 +488,17 @@ export function DndProvider({ children }: DndProviderProps) {
 
 /**
  * Dashed inline placeholder used by both the canvas and the mock-terminal
- * preview to show where a palette item will land on drop. Slides open from
- * zero width so flex siblings smoothly shift instead of snapping.
+ * preview to show where a palette item will land on drop. Renders at its
+ * natural width immediately — no width animation. The earlier "slide-open"
+ * effect caused neighbouring chip rects to keep shifting during a drag, which
+ * made the seam math oscillate and the skeleton chase the cursor instead of
+ * locking to it. A fade-in is kept (opacity only — no layout impact) so the
+ * placeholder still feels like it appears rather than pops.
  */
 export function SkeletonChip({ type }: { type: ElementType }) {
-  const [open, setOpen] = useState(false);
+  const [shown, setShown] = useState(false);
   useEffect(() => {
-    const id = requestAnimationFrame(() => setOpen(true));
+    const id = requestAnimationFrame(() => setShown(true));
     return () => cancelAnimationFrame(id);
   }, []);
 
@@ -448,16 +508,11 @@ export function SkeletonChip({ type }: { type: ElementType }) {
   return (
     <span
       aria-hidden="true"
-      className="inline-block align-middle overflow-hidden transition-[max-width,opacity] duration-200 ease-out"
-      style={{
-        maxWidth: open ? 220 : 0,
-        opacity: open ? 1 : 0,
-      }}
+      className="inline-flex items-center gap-2 px-2.5 py-1 rounded-[8px] border border-dashed border-[#8FB8DA]/60 bg-[#8FB8DA]/[0.07] text-[12px] text-[#8FB8DA] whitespace-nowrap align-middle transition-opacity duration-150 ease-out"
+      style={{ opacity: shown ? 1 : 0 }}
     >
-      <span className="inline-flex items-center gap-2 px-2.5 py-1 rounded-[8px] border border-dashed border-[#8FB8DA]/60 bg-[#8FB8DA]/[0.07] text-[12px] text-[#8FB8DA] whitespace-nowrap align-middle">
-        <Icon size={13} weight="bold" />
-        <span className="font-medium">{label}</span>
-      </span>
+      <Icon size={13} weight="bold" />
+      <span className="font-medium">{label}</span>
     </span>
   );
 }
