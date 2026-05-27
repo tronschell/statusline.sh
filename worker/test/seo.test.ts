@@ -23,6 +23,7 @@ interface FakeDesignRow {
   published_at: number;
   views?: number;
   forks?: number;
+  installs?: number;
 }
 
 function makeCtx(): ExecutionContext {
@@ -62,7 +63,7 @@ function makeEnv(rows: FakeDesignRow[]): Env {
         async first<T = unknown>(): Promise<T | null> {
           if (
             norm ===
-            "SELECT slug, name, author_name, description, published_at, views, forks FROM designs WHERE slug = ?"
+            "SELECT slug, name, author_name, description, published_at, views, forks, installs FROM designs WHERE slug = ?"
           ) {
             const slug = stmt.args[0];
             const row = rows.find((candidate) => candidate.slug === slug);
@@ -71,6 +72,7 @@ function makeEnv(rows: FakeDesignRow[]): Env {
               author_name: "Anonymous",
               views: 0,
               forks: 0,
+              installs: 0,
               ...row,
             } as T;
           }
@@ -230,6 +232,7 @@ describe("SEO worker routes", () => {
           published_at: Date.UTC(2026, 0, 2, 3, 4, 5),
           views: 1234,
           forks: 56,
+          installs: 789,
         },
       ]),
       makeCtx(),
@@ -244,7 +247,7 @@ describe("SEO worker routes", () => {
     expect(svg).toContain("<svg xmlns=\"http://www.w3.org/2000/svg\"");
     expect(svg).toContain("Quiet &lt;Prompt&gt;");
     expect(svg).toContain("by Taylor &amp; Co");
-    expect(svg).toContain("1,234 views / 56 forks");
+    expect(svg).toContain("789 installs / 1,234 views / 56 forks");
     expect(svg).toContain("Muted borders &amp; careful spacing");
     expect(svg).toContain("statusline.sh/community/quiet-prompt-abcd");
     expect(svg).not.toContain("Quiet <Prompt>");
@@ -272,6 +275,7 @@ describe("Open Graph SVG renderer", () => {
       published_at: 1_767_225_600_000,
       views: 12,
       forks: 3,
+      installs: 7,
     });
 
     expect(svg).toBe(
@@ -283,6 +287,7 @@ describe("Open Graph SVG renderer", () => {
         published_at: 1_767_225_600_000,
         views: 12,
         forks: 3,
+        installs: 7,
       }),
     );
     expect(svg).toContain("#0d0c0b");

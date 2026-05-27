@@ -22,6 +22,7 @@ export interface CommunityCardSummary {
   published_at: number;
   views: number;
   forks: number;
+  installs: number;
 }
 
 export interface CommunityListResponse {

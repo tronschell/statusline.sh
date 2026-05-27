@@ -27,10 +27,15 @@ function makeDesign(): Design {
   };
 }
 
-// Minimal in-memory D1 stub. We only model the two queries `getInstallTarget`
-// runs: `SELECT json FROM designs WHERE id = ?` and the install_records
-// fallback. Everything else throws so a regression doesn't silently pass.
-function makeD1Env(rows: Map<string, string>): InstallerEnv {
+// Minimal in-memory D1 stub. Models the queries `getInstallTarget` runs
+// (`SELECT json FROM designs WHERE id = ?` + install_records fallback) and
+// the `UPDATE designs SET installs = installs + 1 WHERE id = ?` we issue from
+// the installer handler. Everything else throws so a regression doesn't
+// silently pass.
+function makeD1Env(
+  rows: Map<string, string>,
+  installs?: Map<string, number>,
+): InstallerEnv {
   const prepare = (sql: string) => ({
     bind: (id: string) => ({
       async first(): Promise<{ json: string } | null> {
@@ -44,6 +49,17 @@ function makeD1Env(rows: Map<string, string>): InstallerEnv {
         }
         throw new Error("unexpected SQL: " + sql);
       },
+      async run(): Promise<{ success: boolean; meta: { changes: number } }> {
+        if (
+          sql === "UPDATE designs SET installs = installs + 1 WHERE id = ?"
+        ) {
+          if (installs) {
+            installs.set(id, (installs.get(id) ?? 0) + 1);
+          }
+          return { success: true, meta: { changes: 1 } };
+        }
+        throw new Error("unexpected run() SQL: " + sql);
+      },
     }),
   });
   return {
@@ -51,6 +67,17 @@ function makeD1Env(rows: Map<string, string>): InstallerEnv {
       prepare,
     } as unknown as D1Database,
   };
+}
+
+// Inline ExecutionContext stub. waitUntil runs the promise synchronously so
+// tests can assert the increment landed without juggling microtasks.
+function makeCtx(): ExecutionContext {
+  return {
+    waitUntil(p: Promise<unknown>): void {
+      void p;
+    },
+    passThroughOnException(): void {},
+  } as unknown as ExecutionContext;
 }
 
 describe("renderInstaller (bash)", () => {
@@ -181,6 +208,7 @@ describe("handleInstaller (DB-backed)", () => {
     const res = await handleInstaller(
       new Request("https://example.com/i/known.sh"),
       env,
+      makeCtx(),
       { id: "known", ext: "sh" },
     );
     expect(res.status).toBe(200);
@@ -198,6 +226,7 @@ describe("handleInstaller (DB-backed)", () => {
     const res = await handleInstaller(
       new Request("https://example.com/i/known.ps1"),
       env,
+      makeCtx(),
       { id: "known", ext: "ps1" },
     );
     expect(res.status).toBe(200);
@@ -213,6 +242,7 @@ describe("handleInstaller (DB-backed)", () => {
     const res = await handleInstaller(
       new Request("https://example.com/i/missing.sh"),
       env,
+      makeCtx(),
       { id: "missing", ext: "sh" },
     );
     expect(res.status).toBe(404);
@@ -225,10 +255,90 @@ describe("handleInstaller (DB-backed)", () => {
     const res = await handleInstaller(
       new Request("https://example.com/i/tmp1.sh"),
       env,
+      makeCtx(),
       { id: "tmp1", ext: "sh" },
     );
     expect(res.status).toBe(200);
     const body = await res.text();
     expect(body).toContain("STATUSLINE_EOF");
+  });
+});
+
+describe("handleInstaller increments the install counter", () => {
+  test("bumps installs for a published design", async () => {
+    const installs = new Map<string, number>();
+    const env = makeD1Env(
+      new Map([["designs:known", JSON.stringify(makeDesign())]]),
+      installs,
+    );
+    const waited: Promise<unknown>[] = [];
+    const ctx = {
+      waitUntil(p: Promise<unknown>): void {
+        waited.push(p);
+      },
+      passThroughOnException(): void {},
+    } as unknown as ExecutionContext;
+
+    const res = await handleInstaller(
+      new Request("https://example.com/i/known.sh"),
+      env,
+      ctx,
+      { id: "known", ext: "sh" },
+    );
+    expect(res.status).toBe(200);
+    await Promise.all(waited);
+    expect(installs.get("known")).toBe(1);
+  });
+
+  test("does NOT bump installs when ?preview=1 is set", async () => {
+    const installs = new Map<string, number>();
+    const env = makeD1Env(
+      new Map([["designs:known", JSON.stringify(makeDesign())]]),
+      installs,
+    );
+    const waited: Promise<unknown>[] = [];
+    const ctx = {
+      waitUntil(p: Promise<unknown>): void {
+        waited.push(p);
+      },
+      passThroughOnException(): void {},
+    } as unknown as ExecutionContext;
+
+    const res = await handleInstaller(
+      new Request("https://example.com/i/known.sh?preview=1"),
+      env,
+      ctx,
+      { id: "known", ext: "sh" },
+    );
+    expect(res.status).toBe(200);
+    await Promise.all(waited);
+    expect(installs.get("known")).toBeUndefined();
+    expect(waited.length).toBe(0);
+  });
+
+  test("does NOT bump installs for anonymous install_records targets", async () => {
+    const installs = new Map<string, number>();
+    const env = makeD1Env(
+      new Map([["install_records:tmp1", JSON.stringify(makeDesign())]]),
+      installs,
+    );
+    const waited: Promise<unknown>[] = [];
+    const ctx = {
+      waitUntil(p: Promise<unknown>): void {
+        waited.push(p);
+      },
+      passThroughOnException(): void {},
+    } as unknown as ExecutionContext;
+
+    const res = await handleInstaller(
+      new Request("https://example.com/i/tmp1.sh"),
+      env,
+      ctx,
+      { id: "tmp1", ext: "sh" },
+    );
+    expect(res.status).toBe(200);
+    await Promise.all(waited);
+    expect(installs.size).toBe(0);
+    expect(waited.length).toBe(0);
   });
 });

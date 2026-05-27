@@ -1,4 +1,4 @@
-import { GitForkIcon, EyeIcon, ArrowRightIcon } from "@phosphor-icons/react";
+import { GitForkIcon, EyeIcon, ArrowRightIcon, DownloadSimpleIcon } from "@phosphor-icons/react";
 import type { CommunityCardSummary } from "@statusline/shared/types";
 import { Link } from "../../router";
 import { StaticPreview } from "../Preview/StaticPreview";
@@ -84,11 +84,15 @@ export function CommunityDesignCard({ summary }: CommunityDesignCardProps) {
         {/* Footer pinned with mt-auto so cards line up vertically */}
         <div className="mt-auto flex items-center justify-between gap-3 border-t border-white/[0.04] pt-3">
           <div className="flex items-center gap-3 text-[11px] text-[#6F6F6B]">
-            <span className="inline-flex items-center gap-1">
+            <span className="inline-flex items-center gap-1" title="Installs">
+              <DownloadSimpleIcon size={11} weight="bold" />
+              {summary.installs}
+            </span>
+            <span className="inline-flex items-center gap-1" title="Forks">
               <GitForkIcon size={11} weight="bold" />
               {summary.forks}
             </span>
-            <span className="inline-flex items-center gap-1">
+            <span className="inline-flex items-center gap-1" title="Views">
               <EyeIcon size={11} weight="bold" />
               {summary.views}
             </span>

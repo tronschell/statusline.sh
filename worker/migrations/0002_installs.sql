@@ -1,0 +1,2 @@
+ALTER TABLE designs
+  ADD COLUMN installs INTEGER NOT NULL DEFAULT 0 CHECK (installs >= 0);

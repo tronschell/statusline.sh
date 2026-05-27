@@ -92,7 +92,7 @@ for (const tpl of selected) {
   // does the same; metadata like name/description live in their own columns.
   const json = JSON.stringify(tpl.design);
   stmts.push(
-    `INSERT OR IGNORE INTO designs (id, json, slug, name, author_name, description, forked_from, published_at, views, forks) VALUES (` +
+    `INSERT OR IGNORE INTO designs (id, json, slug, name, author_name, description, forked_from, published_at, views, forks, installs) VALUES (` +
       [
         sqlEscape(id),
         sqlEscape(json),
@@ -102,6 +102,7 @@ for (const tpl of selected) {
         sqlEscape(tpl.description),
         "NULL",
         String(now),
+        "0",
         "0",
         "0",
       ].join(", ") +

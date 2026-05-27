@@ -74,17 +74,17 @@ route("POST", "/designs", (req, env, _ctx, params) =>
 route("POST", "/install", (req, env, _ctx, params) =>
   handleInstallAnonymous(req, env as Env, params),
 );
-route("GET", "/i/:id.sh", async (req, env, _ctx, params) => {
+route("GET", "/i/:id.sh", async (req, env, ctx, params) => {
   const ip = getClientIp(req) ?? "anon";
   const rl = await checkRateLimit(env as Env, "installer", ip);
   if (rl) return rl;
-  return handleInstaller(req, env as Env, { id: params.id!, ext: "sh" });
+  return handleInstaller(req, env as Env, ctx, { id: params.id!, ext: "sh" });
 });
-route("GET", "/i/:id.ps1", async (req, env, _ctx, params) => {
+route("GET", "/i/:id.ps1", async (req, env, ctx, params) => {
   const ip = getClientIp(req) ?? "anon";
   const rl = await checkRateLimit(env as Env, "installer", ip);
   if (rl) return rl;
-  return handleInstaller(req, env as Env, { id: params.id!, ext: "ps1" });
+  return handleInstaller(req, env as Env, ctx, { id: params.id!, ext: "ps1" });
 });
 
 export default {

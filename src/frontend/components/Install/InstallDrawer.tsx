@@ -114,10 +114,13 @@ export default function InstallDrawer({
   }, [directUrl]);
 
   // Lazy-fetch the script body only when the user opens the inspector.
+  // `?preview=1` opts out of the per-design install counter so peeking at the
+  // script doesn't get counted as an install.
   useEffect(() => {
     if (!scriptOpen || !directUrl || scriptContent !== null) return;
+    const previewUrl = directUrl + (directUrl.includes("?") ? "&" : "?") + "preview=1";
     let cancelled = false;
-    fetch(directUrl)
+    fetch(previewUrl)
       .then((r) => (r.ok ? r.text() : Promise.reject(new Error(`HTTP ${r.status}`))))
       .then((t) => {
         if (!cancelled) setScriptContent(t);

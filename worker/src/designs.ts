@@ -23,6 +23,7 @@ export interface DesignRow {
   published_at: number;
   views: number;
   forks: number;
+  installs: number;
 }
 
 export interface CommunityCardSummary {
@@ -36,6 +37,7 @@ export interface CommunityCardSummary {
   published_at: number;
   views: number;
   forks: number;
+  installs: number;
 }
 
 export interface PublishInput {
@@ -70,6 +72,7 @@ export interface CommunitySeoRow {
   published_at: number;
   views: number;
   forks: number;
+  installs: number;
 }
 
 interface RawDesignRow {
@@ -83,6 +86,7 @@ interface RawDesignRow {
   published_at: number;
   views: number;
   forks: number;
+  installs: number;
 }
 
 interface RecentCursor {
@@ -97,7 +101,7 @@ interface PopularCursor {
 }
 
 const DESIGN_COLS =
-  "id, json, slug, name, author_name, description, forked_from, published_at, views, forks";
+  "id, json, slug, name, author_name, description, forked_from, published_at, views, forks, installs";
 
 function rowToDesignRow(r: RawDesignRow): DesignRow {
   return {
@@ -111,6 +115,7 @@ function rowToDesignRow(r: RawDesignRow): DesignRow {
     published_at: r.published_at,
     views: r.views,
     forks: r.forks,
+    installs: r.installs,
   };
 }
 
@@ -333,6 +338,7 @@ export async function listCommunity(
       published_at: row.published_at,
       views: row.views,
       forks: row.forks,
+      installs: row.installs,
     };
   });
 
@@ -358,7 +364,7 @@ export async function getCommunitySeoBySlug(
 ): Promise<CommunitySeoRow | null> {
   return (await env.DB
     .prepare(
-      `SELECT slug, name, author_name, description, published_at, views, forks
+      `SELECT slug, name, author_name, description, published_at, views, forks, installs
        FROM designs
        WHERE slug = ?`,
     )
@@ -376,6 +382,16 @@ export async function forkBump(
     .run();
   if (!res.meta || res.meta.changes === 0) return null;
   return { ok: true };
+}
+
+export async function incrementInstalls(
+  env: DbEnv,
+  id: string,
+): Promise<void> {
+  await env.DB
+    .prepare("UPDATE designs SET installs = installs + 1 WHERE id = ?")
+    .bind(id)
+    .run();
 }
 
 export async function insertInstallRecord(

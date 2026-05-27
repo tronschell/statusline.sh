@@ -55,6 +55,7 @@ interface FakeDesignRow {
   published_at: number;
   views: number;
   forks: number;
+  installs: number;
 }
 
 interface FakeInstallRecord {
@@ -165,6 +166,7 @@ function makeD1(db: FakeDb): D1Database {
             published_at,
             views: 0,
             forks: 0,
+            installs: 0,
           });
           return {
             success: true,
@@ -191,6 +193,22 @@ function makeD1(db: FakeDb): D1Database {
             } as unknown as D1Response;
           }
           row.forks += 1;
+          return {
+            success: true,
+            meta: { changes: 1 } as D1Meta,
+          } as unknown as D1Response;
+        }
+        // UPDATE designs SET installs = installs + 1 WHERE id = ?
+        if (norm === "UPDATE designs SET installs = installs + 1 WHERE id = ?") {
+          const id = boundArgs[0] as string;
+          const row = db.designs.find((r) => r.id === id);
+          if (!row) {
+            return {
+              success: true,
+              meta: { changes: 0 } as D1Meta,
+            } as unknown as D1Response;
+          }
+          row.installs += 1;
           return {
             success: true,
             meta: { changes: 1 } as D1Meta,
@@ -269,11 +287,15 @@ function makeEnv(db: FakeDb): Env {
   };
 }
 
-function makeCtx(): ExecutionContext {
+function makeCtx(): ExecutionContext & { _waited: Promise<unknown>[] } {
+  const waited: Promise<unknown>[] = [];
   return {
-    waitUntil() {},
+    waitUntil(p: Promise<unknown>) {
+      waited.push(p);
+    },
     passThroughOnException() {},
-  } as unknown as ExecutionContext;
+    _waited: waited,
+  } as unknown as ExecutionContext & { _waited: Promise<unknown>[] };
 }
 
 // ---------------------------------------------------------------------------
@@ -569,6 +591,74 @@ describe("worker fetch dispatch", () => {
     expect(body).toContain("STATUSLINE_EOF");
   });
 
+  test("GET /i/:id.sh increments the design's install counter", async () => {
+    const publishRes = await worker.fetch(
+      new Request("https://worker.example.com/designs", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          turnstile_token: "tok",
+          design: minimalDesign(),
+          name: "Counted",
+          author_name: "Author",
+          description: "",
+        }),
+      }),
+      env,
+      makeCtx(),
+    );
+    const { id } = (await publishRes.json()) as { id: string };
+    expect(db.designs[0]!.installs).toBe(0);
+
+    const ctx1 = makeCtx();
+    await worker.fetch(
+      new Request(`https://worker.example.com/i/${id}.sh`),
+      env,
+      ctx1,
+    );
+    await Promise.all(ctx1._waited);
+
+    const ctx2 = makeCtx();
+    await worker.fetch(
+      new Request(`https://worker.example.com/i/${id}.ps1`),
+      env,
+      ctx2,
+    );
+    await Promise.all(ctx2._waited);
+
+    expect(db.designs[0]!.installs).toBe(2);
+  });
+
+  test("GET /i/:id.sh?preview=1 does not increment installs", async () => {
+    const publishRes = await worker.fetch(
+      new Request("https://worker.example.com/designs", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          turnstile_token: "tok",
+          design: minimalDesign(),
+          name: "Inspectable",
+          author_name: "Author",
+          description: "",
+        }),
+      }),
+      env,
+      makeCtx(),
+    );
+    const { id } = (await publishRes.json()) as { id: string };
+
+    const ctx = makeCtx();
+    await worker.fetch(
+      new Request(`https://worker.example.com/i/${id}.sh?preview=1`),
+      env,
+      ctx,
+    );
+    await Promise.all(ctx._waited);
+
+    expect(db.designs[0]!.installs).toBe(0);
+    expect(ctx._waited.length).toBe(0);
+  });
+
   test("scheduled() reaps stale install_records", async () => {
     // Insert one fresh and one stale install_record.
     const now = Date.now();
@@ -599,6 +689,7 @@ describe("Analytics Engine view write", () => {
       published_at: Date.now(),
       views: 0,
       forks: 0,
+      installs: 0,
     });
 
     const writes: unknown[] = [];

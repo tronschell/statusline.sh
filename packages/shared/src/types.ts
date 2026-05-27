@@ -209,6 +209,7 @@ export interface CommunityCardSummary {
   description: string | null;
   forks: number;
   views: number;
+  installs: number;
   published_at: number;
   forked_from: string | null;
   design: Design;

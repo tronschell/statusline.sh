@@ -140,6 +140,8 @@ export function CommunityDetailPage({ slug: slugProp }: CommunityDetailPageProps
               ) : null}
 
               <div className="flex items-center gap-4 text-[12px] text-[#6F6F6B] mt-2">
+                <span>{data.installs} install{data.installs === 1 ? "" : "s"}</span>
+                <span>·</span>
                 <span>{data.forks} fork{data.forks === 1 ? "" : "s"}</span>
                 <span>·</span>
                 <span>{data.views} view{data.views === 1 ? "" : "s"}</span>

@@ -57,7 +57,7 @@ export function renderCommunityOgSvg(row: CommunitySeoRow): string {
   const descriptionLines = wrapText(communityDescription(row), 82, 3);
   const date = formatPublishedDate(row.published_at);
   const slug = clampText(row.slug, 64);
-  const stats = `${row.views.toLocaleString("en-US")} views / ${row.forks.toLocaleString("en-US")} forks`;
+  const stats = `${row.installs.toLocaleString("en-US")} installs / ${row.views.toLocaleString("en-US")} views / ${row.forks.toLocaleString("en-US")} forks`;
 
   const descriptionTspans = descriptionLines
     .map(

@@ -3,7 +3,7 @@ import { compileToBash } from "@statusline/shared/compiler/bash";
 import { compileToPS } from "@statusline/shared/compiler/powershell";
 import { bashInstallerTemplate } from "../install/bashTemplate";
 import { psInstallerTemplate } from "../install/psTemplate";
-import { getInstallTarget, type DbEnv } from "../designs";
+import { getInstallTarget, incrementInstalls, type DbEnv } from "../designs";
 
 export type InstallerEnv = DbEnv;
 
@@ -51,6 +51,7 @@ export function renderInstaller(
 export async function handleInstaller(
   req: Request,
   env: InstallerEnv,
+  ctx: ExecutionContext,
   params: { id: string; ext: string },
 ): Promise<Response> {
   const target = await getInstallTarget(env, params.id);
@@ -67,5 +68,22 @@ export async function handleInstaller(
       headers: { "content-type": "text/plain; charset=utf-8" },
     });
   }
+
+  // Bump the per-design install counter for published community designs only.
+  // Anonymous one-time drafts in `install_records` get no counter (they're
+  // ephemeral). `?preview=1` opts out — the InstallDrawer inspector uses it
+  // when fetching the script body for display so opening the inspector
+  // doesn't inflate install counts.
+  if (target.source === "designs") {
+    const url = new URL(req.url);
+    if (url.searchParams.get("preview") !== "1") {
+      ctx.waitUntil(
+        incrementInstalls(env, params.id).catch((e) => {
+          console.warn("installs increment failed", e);
+        }),
+      );
+    }
+  }
+
   return res;
 }
