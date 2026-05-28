@@ -166,6 +166,94 @@ export function buildGuideFaqJsonLd(): JsonLdObject {
   };
 }
 
+/**
+ * Programmatic SEO landing pages — one per Claude Code statusline element.
+ *
+ * Each page targets a long-tail keyword like "claude code statusline with
+ * git branch" and links back to the builder. The shared page component
+ * lives in `components/Programmatic/`; this module owns the route metadata
+ * (title, description, JSON-LD) so it stays in lockstep with build.ts and
+ * the static HTML shells.
+ */
+export interface ProgrammaticRouteMeta {
+  path: string;
+  title: string;
+  description: string;
+  h1: string;
+}
+
+export const PROGRAMMATIC_ROUTE_META: ProgrammaticRouteMeta[] = [
+  {
+    path: "/claude-code-statusline-git-branch",
+    title: "Claude Code Statusline with Git Branch | statusline.sh",
+    description:
+      "Add a live git branch indicator to your Claude Code statusline. Visual builder, live preview, one-command install on macOS, Linux, and Windows.",
+    h1: "Claude Code statusline with git branch",
+  },
+  {
+    path: "/claude-code-statusline-token-usage",
+    title: "Claude Code Statusline with Token Usage | statusline.sh",
+    description:
+      "Render the Claude Code context window as a progress bar or percentage in your statusline. Threshold colors warn before you hit the cap.",
+    h1: "Claude Code statusline with token usage",
+  },
+  {
+    path: "/claude-code-statusline-cost",
+    title: "Claude Code Statusline with Cost Display | statusline.sh",
+    description:
+      "Show the running USD cost of your Claude Code session in the statusline. Configurable precision, color-coded styling, and one-command install.",
+    h1: "Claude Code statusline with cost display",
+  },
+  {
+    path: "/claude-code-statusline-model",
+    title: "Claude Code Statusline with Model Name | statusline.sh",
+    description:
+      "Add the active Claude model to your terminal statusline. Visual builder, live preview, and a one-command install that preserves the rest of settings.json.",
+    h1: "Claude Code statusline with model name",
+  },
+  {
+    path: "/claude-code-statusline-duration",
+    title: "Claude Code Statusline with Session Duration | statusline.sh",
+    description:
+      "Add elapsed session time to your Claude Code statusline. Choose human-readable or HH:MM:SS formatting and style it with any ANSI color.",
+    h1: "Claude Code statusline with session duration",
+  },
+  {
+    path: "/claude-code-statusline-rate-limit",
+    title: "Claude Code Statusline with Rate Limit | statusline.sh",
+    description:
+      "Add the 5h and 7d Claude Code rate limit bars or percentages to your terminal statusline. Two element variants, configurable width, one-command install.",
+    h1: "Claude Code statusline with rate limit",
+  },
+];
+
+function buildProgrammaticRouteMeta(): Record<string, RouteMeta> {
+  const entries: Record<string, RouteMeta> = {};
+  for (const item of PROGRAMMATIC_ROUTE_META) {
+    entries[item.path] = {
+      title: item.title,
+      description: item.description,
+      canonicalPath: item.path,
+      jsonLd: [
+        buildBreadcrumbJsonLd([
+          { name: "Home", path: "/" },
+          { name: item.h1, path: item.path },
+        ]),
+        {
+          "@context": "https://schema.org",
+          "@type": "Article",
+          headline: item.h1,
+          description: item.description,
+          mainEntityOfPage: canonicalUrl(item.path),
+          author: { "@type": "Organization", name: SITE_NAME },
+          publisher: { "@type": "Organization", name: SITE_NAME },
+        },
+      ],
+    };
+  }
+  return entries;
+}
+
 export const STATIC_ROUTE_META: Record<string, RouteMeta> = {
   "/": {
     title: "Claude Code Statusline Builder | statusline.sh",
@@ -218,6 +306,7 @@ export const STATIC_ROUTE_META: Record<string, RouteMeta> = {
       "Terms of service for statusline.sh, the open-source Claude Code statusline builder.",
     canonicalPath: "/terms",
   },
+  ...buildProgrammaticRouteMeta(),
 };
 
 export function metaForPath(path: string): RouteMeta {

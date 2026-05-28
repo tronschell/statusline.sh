@@ -3,6 +3,7 @@ import { copyFile, mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
 import {
   DEFAULT_OG_IMAGE,
+  PROGRAMMATIC_ROUTE_META,
   SITE_NAME,
   SITE_URL,
   STATIC_ROUTE_META,
@@ -25,6 +26,13 @@ export const STATIC_SITEMAP_ROUTES: StaticSitemapRoute[] = [
   { path: "/builder", priority: "0.9", changefreq: "weekly" },
   { path: "/community", priority: "0.8", changefreq: "daily" },
   { path: STATUSLINE_GUIDE_PATH, priority: "0.7", changefreq: "monthly" },
+  ...PROGRAMMATIC_ROUTE_META.map(
+    (item): StaticSitemapRoute => ({
+      path: item.path,
+      priority: "0.6",
+      changefreq: "monthly",
+    }),
+  ),
   { path: "/privacy", priority: "0.2", changefreq: "yearly" },
   { path: "/terms", priority: "0.2", changefreq: "yearly" },
 ];
@@ -33,6 +41,7 @@ const STATIC_HTML_ROUTES = [
   "/builder",
   "/community",
   STATUSLINE_GUIDE_PATH,
+  ...PROGRAMMATIC_ROUTE_META.map((item) => item.path),
   "/privacy",
   "/terms",
 ];

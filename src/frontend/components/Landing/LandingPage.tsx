@@ -72,6 +72,57 @@ export function LandingPage() {
           <TemplateGallery />
         </section>
 
+        {/* Element guides — programmatic SEO landing pages, one per element */}
+        <section className="py-24 md:py-32 border-t border-white/[0.06]">
+          <div className="flex items-end justify-between gap-6 mb-12">
+            <h2
+              className="font-serif text-3xl md:text-4xl text-[#E8E8E6] tracking-tight"
+              style={{
+                fontFamily:
+                  "var(--font-serif, 'Instrument Serif', Georgia, serif)",
+              }}
+            >
+              Element guides.
+            </h2>
+            <p className="text-[14px] text-[#8A8A86] max-w-[40ch] text-right">
+              Short explainers for the most common Claude Code statusline
+              elements.
+            </p>
+          </div>
+          <ul className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+            <ElementGuideLink
+              href="/claude-code-statusline-git-branch"
+              title="Git branch"
+              body="Show the active branch in the statusline."
+            />
+            <ElementGuideLink
+              href="/claude-code-statusline-token-usage"
+              title="Token usage"
+              body="Render context-window usage as a bar or percent."
+            />
+            <ElementGuideLink
+              href="/claude-code-statusline-cost"
+              title="Cost"
+              body="Track session cost in USD with configurable precision."
+            />
+            <ElementGuideLink
+              href="/claude-code-statusline-model"
+              title="Model name"
+              body="Pin the active Claude model to the terminal."
+            />
+            <ElementGuideLink
+              href="/claude-code-statusline-duration"
+              title="Session duration"
+              body="Display elapsed time, human or HH:MM:SS."
+            />
+            <ElementGuideLink
+              href="/claude-code-statusline-rate-limit"
+              title="Rate limit"
+              body="Visualize 5-hour and 7-day rate-limit usage."
+            />
+          </ul>
+        </section>
+
         {/* How it works */}
         <section className="py-24 md:py-32 border-t border-white/[0.06]">
           <h2
@@ -173,6 +224,30 @@ function TypewriterHeadline() {
         {done && <span className="period-blink">.</span>}
       </span>
     </h1>
+  );
+}
+
+function ElementGuideLink({
+  href,
+  title,
+  body,
+}: {
+  href: string;
+  title: string;
+  body: string;
+}) {
+  return (
+    <li>
+      <Link
+        href={href}
+        className="flex h-full flex-col gap-2 rounded-[10px] border border-white/[0.06] bg-[#161618] p-5 no-underline transition-colors hover:border-white/[0.12] hover:bg-[#1C1C1F]"
+      >
+        <span className="text-[14px] font-medium text-[#E8E8E6]">{title}</span>
+        <span className="text-[13px] text-[#8A8A86] leading-relaxed">
+          {body}
+        </span>
+      </Link>
+    </li>
   );
 }
 
