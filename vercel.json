@@ -15,6 +15,30 @@
       "source": "/how-to-make-a-claude-code-statusline",
       "destination": "/how-to-make-a-claude-code-statusline.html"
     },
+    {
+      "source": "/claude-code-statusline-git-branch",
+      "destination": "/claude-code-statusline-git-branch.html"
+    },
+    {
+      "source": "/claude-code-statusline-token-usage",
+      "destination": "/claude-code-statusline-token-usage.html"
+    },
+    {
+      "source": "/claude-code-statusline-cost",
+      "destination": "/claude-code-statusline-cost.html"
+    },
+    {
+      "source": "/claude-code-statusline-model",
+      "destination": "/claude-code-statusline-model.html"
+    },
+    {
+      "source": "/claude-code-statusline-duration",
+      "destination": "/claude-code-statusline-duration.html"
+    },
+    {
+      "source": "/claude-code-statusline-rate-limit",
+      "destination": "/claude-code-statusline-rate-limit.html"
+    },
     { "source": "/privacy", "destination": "/privacy.html" },
     { "source": "/terms", "destination": "/terms.html" },
     { "source": "/((?!_next|assets|.*\\..*).*)", "destination": "/index.html" }
