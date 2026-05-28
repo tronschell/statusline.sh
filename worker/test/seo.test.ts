@@ -157,8 +157,9 @@ describe("SEO render helpers", () => {
     ]);
 
     const urlBlocks = xml.match(/<url>[\s\S]*?<\/url>/g) ?? [];
-    // 6 static routes (homepage, builder, community, guide, privacy, terms) + 2 entries
-    expect(urlBlocks.length).toBe(8);
+    // 12 static routes (homepage, builder, community, guide, 6 programmatic
+    // element pages, privacy, terms) + 2 community entries.
+    expect(urlBlocks.length).toBe(14);
     for (const block of urlBlocks) {
       expect(block).toMatch(/<lastmod>[^<]+<\/lastmod>/);
     }

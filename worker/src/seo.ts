@@ -21,6 +21,36 @@ export const STATIC_SITEMAP_ROUTES: StaticSitemapRoute[] = [
     priority: "0.7",
     changefreq: "monthly",
   },
+  {
+    path: "/claude-code-statusline-git-branch",
+    priority: "0.6",
+    changefreq: "monthly",
+  },
+  {
+    path: "/claude-code-statusline-token-usage",
+    priority: "0.6",
+    changefreq: "monthly",
+  },
+  {
+    path: "/claude-code-statusline-cost",
+    priority: "0.6",
+    changefreq: "monthly",
+  },
+  {
+    path: "/claude-code-statusline-model",
+    priority: "0.6",
+    changefreq: "monthly",
+  },
+  {
+    path: "/claude-code-statusline-duration",
+    priority: "0.6",
+    changefreq: "monthly",
+  },
+  {
+    path: "/claude-code-statusline-rate-limit",
+    priority: "0.6",
+    changefreq: "monthly",
+  },
   { path: "/privacy", priority: "0.2", changefreq: "yearly" },
   { path: "/terms", priority: "0.2", changefreq: "yearly" },
 ];
