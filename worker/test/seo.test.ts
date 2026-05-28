@@ -7,12 +7,14 @@ import worker, {
 } from "../src/index";
 import { match, route } from "../src/router";
 import {
+  STATIC_SITEMAP_ROUTES,
   communityCanonicalUrl,
   communityDescription,
   escapeXml,
   renderRobotsTxt,
   renderSitemapXml,
 } from "../src/seo";
+import { STATIC_SITEMAP_ROUTES as BUILD_STATIC_SITEMAP_ROUTES } from "../../build";
 import { renderCommunityOgSvg } from "../src/og";
 
 interface FakeDesignRow {
@@ -138,6 +140,28 @@ describe("SEO render helpers", () => {
     );
     expect(xml).toContain("<lastmod>2026-01-02T03:04:05.000Z</lastmod>");
     expect(xml).not.toContain("quiet&prompt");
+  });
+
+  test("sitemap includes all six canonical static SPA routes", () => {
+    const xml = renderSitemapXml([]);
+
+    expect(xml).toContain("<loc>https://statusline.sh</loc>");
+    expect(xml).toContain("<loc>https://statusline.sh/builder</loc>");
+    expect(xml).toContain("<loc>https://statusline.sh/community</loc>");
+    expect(xml).toContain(
+      "<loc>https://statusline.sh/how-to-make-a-claude-code-statusline</loc>",
+    );
+    expect(xml).toContain("<loc>https://statusline.sh/privacy</loc>");
+    expect(xml).toContain("<loc>https://statusline.sh/terms</loc>");
+    expect(xml).toContain("<priority>1.0</priority>");
+    expect(xml).toContain("<priority>0.9</priority>");
+    expect(xml).toContain("<priority>0.8</priority>");
+    expect(xml).toContain("<priority>0.7</priority>");
+    expect(xml).toContain("<priority>0.2</priority>");
+  });
+
+  test("worker STATIC_SITEMAP_ROUTES stays in sync with build.ts [[seo-routes-mirror]]", () => {
+    expect(STATIC_SITEMAP_ROUTES).toEqual(BUILD_STATIC_SITEMAP_ROUTES);
   });
 });
 

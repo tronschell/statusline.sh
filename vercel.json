@@ -7,6 +7,8 @@
   "cleanUrls": true,
   "trailingSlash": false,
   "rewrites": [
+    { "source": "/sitemap.xml", "destination": "https://api.statusline.sh/sitemap.xml" },
+    { "source": "/robots.txt", "destination": "https://api.statusline.sh/robots.txt" },
     { "source": "/community", "destination": "/community.html" },
     { "source": "/builder", "destination": "/builder.html" },
     {
