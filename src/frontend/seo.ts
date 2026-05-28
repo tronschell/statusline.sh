@@ -360,7 +360,8 @@ export interface CommunityDetailMetaInput {
  * `metaForPath` (slug only), the title falls back to a slug-derived label and
  * the description is generic. When called from the detail page after the
  * design row has loaded, the real name + author + description flow into the
- * `<title>`, meta description, and BreadcrumbList JSON-LD.
+ * `<title>`, meta description, and BreadcrumbList JSON-LD so search engines
+ * and social previews pick up the actual design name + author.
  */
 export function buildCommunityDetailMeta(
   input: CommunityDetailMetaInput,

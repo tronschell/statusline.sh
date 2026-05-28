@@ -5,10 +5,10 @@ import {
   describeElements,
 } from "../src/frontend/lib/describeElements";
 
-// Tiny factory that builds a minimally-valid Element of the requested type by
-// stamping required type-specific fields onto a base. We cast through unknown
-// so the tests stay readable — the helper purposely doesn't care about the
-// rest of the element shape.
+// Tiny factory that builds a minimally-shaped Element of the requested type
+// by stamping required type-specific fields onto a base. We cast through
+// unknown so the tests stay readable — the helper purposely doesn't validate
+// the rest of the element shape.
 function makeEl<T extends Element["type"]>(
   type: T,
   extras: Record<string, unknown> = {},

@@ -94,7 +94,8 @@ export function CommunityDetailPage({ slug: slugProp }: CommunityDetailPageProps
   }, [slug]);
 
   // Related designs — fetch the top popular and filter out the current slug.
-  // We fetch 4 so that if the current page is in the top-3, we still surface 3.
+  // We request 4 so that if the current page is itself in the top-3, we still
+  // surface 3 alternatives.
   useEffect(() => {
     let cancelled = false;
     api
@@ -105,7 +106,7 @@ export function CommunityDetailPage({ slug: slugProp }: CommunityDetailPageProps
         setRelated(filtered);
       })
       .catch(() => {
-        /* non-blocking */
+        /* non-blocking — related designs are nice-to-have, not load-blocking */
       });
     return () => {
       cancelled = true;
@@ -171,7 +172,9 @@ export function CommunityDetailPage({ slug: slugProp }: CommunityDetailPageProps
   return (
     <div className="min-h-screen w-full bg-[#0E0E10] text-[#E8E8E6]">
       <div className="mx-auto max-w-[1100px] px-6 py-10 md:px-8">
-        {/* Breadcrumb nav — visible counterpart to the BreadcrumbList JSON-LD. */}
+        {/* Breadcrumb nav — visible counterpart to the BreadcrumbList JSON-LD
+            emitted by `buildCommunityDetailMeta`. Mirrors the same trail of
+            Home → Community → {design name}. */}
         <nav
           aria-label="Breadcrumb"
           className="mb-8 text-[12px] text-[#6F6F6B]"
@@ -268,7 +271,11 @@ export function CommunityDetailPage({ slug: slugProp }: CommunityDetailPageProps
               </dl>
             </section>
 
-            {/* Element breakdown — keyword-rich crawlable body content */}
+            {/* Element breakdown — keyword-rich crawlable body content. The
+                list of distinct elements puts Claude Code statusline keyword
+                variants into the page body (git branch, context usage bar,
+                session cost, etc.) instead of being trapped inside the ANSI
+                preview SVG-style element. */}
             {elementSummary.length > 0 ? (
               <section
                 aria-labelledby="contains-heading"
@@ -301,7 +308,8 @@ export function CommunityDetailPage({ slug: slugProp }: CommunityDetailPageProps
               </section>
             ) : null}
 
-            {/* Install — inline commands (bash + PowerShell) */}
+            {/* Install — inline commands (bash + PowerShell) so a user can copy
+                without opening the drawer. */}
             <section
               aria-labelledby="install-heading"
               className="flex flex-col gap-4 border-t border-white/[0.06] pt-8"
@@ -351,7 +359,8 @@ export function CommunityDetailPage({ slug: slugProp }: CommunityDetailPageProps
               </div>
             </section>
 
-            {/* Raw design JSON — collapsed for power users */}
+            {/* Raw design JSON — collapsed for power users who want to inspect
+                or hand-edit the underlying schema. */}
             <section className="border-t border-white/[0.06] pt-8">
               <details className="group">
                 <summary className="cursor-pointer text-[14px] text-[#A8A8A4] outline-none transition-colors hover:text-[#E8E8E6] focus-visible:rounded focus-visible:ring-2 focus-visible:ring-white/40">
@@ -363,7 +372,7 @@ export function CommunityDetailPage({ slug: slugProp }: CommunityDetailPageProps
               </details>
             </section>
 
-            {/* Related designs */}
+            {/* Related designs — top 3 popular, excluding the current slug. */}
             {related.length > 0 ? (
               <section
                 aria-labelledby="related-heading"
