@@ -67,10 +67,15 @@ interface FakeInstallRecord {
 interface FakeDb {
   designs: FakeDesignRow[];
   install_records: FakeInstallRecord[];
+  view_rollup_state: { last_rollup_at: number };
 }
 
 function makeDb(): FakeDb {
-  return { designs: [], install_records: [] };
+  return {
+    designs: [],
+    install_records: [],
+    view_rollup_state: { last_rollup_at: 0 },
+  };
 }
 
 function makeD1(db: FakeDb): D1Database {
@@ -101,6 +106,15 @@ function makeD1(db: FakeDb): D1Database {
           const id = boundArgs[0] as string;
           const row = db.install_records.find((r) => r.id === id);
           return row ? ({ json: row.json } as unknown as T) : null;
+        }
+        // SELECT last_rollup_at FROM view_rollup_state WHERE id = 1
+        if (
+          norm ===
+          "SELECT last_rollup_at FROM view_rollup_state WHERE id = 1"
+        ) {
+          return {
+            last_rollup_at: db.view_rollup_state.last_rollup_at,
+          } as unknown as T;
         }
         throw new Error("unexpected first() SQL: " + norm);
       },
@@ -214,6 +228,33 @@ function makeD1(db: FakeDb): D1Database {
             meta: { changes: 1 } as D1Meta,
           } as unknown as D1Response;
         }
+        // UPDATE designs SET views = views + ? WHERE slug = ?
+        if (norm === "UPDATE designs SET views = views + ? WHERE slug = ?") {
+          const [delta, slug] = boundArgs as [number, string];
+          const row = db.designs.find((r) => r.slug === slug);
+          if (!row) {
+            return {
+              success: true,
+              meta: { changes: 0 } as D1Meta,
+            } as unknown as D1Response;
+          }
+          row.views += delta;
+          return {
+            success: true,
+            meta: { changes: 1 } as D1Meta,
+          } as unknown as D1Response;
+        }
+        // UPDATE view_rollup_state SET last_rollup_at = ? WHERE id = 1
+        if (
+          norm ===
+          "UPDATE view_rollup_state SET last_rollup_at = ? WHERE id = 1"
+        ) {
+          db.view_rollup_state.last_rollup_at = boundArgs[0] as number;
+          return {
+            success: true,
+            meta: { changes: 1 } as D1Meta,
+          } as unknown as D1Response;
+        }
         // DELETE FROM install_records WHERE created_at < ?
         if (norm === "DELETE FROM install_records WHERE created_at < ?") {
           const threshold = boundArgs[0] as number;
@@ -235,8 +276,15 @@ function makeD1(db: FakeDb): D1Database {
 
   return {
     prepare,
-    async batch() {
-      throw new Error("batch not implemented in test stub");
+    async batch(stmts: Array<{ run(): Promise<D1Response> }>) {
+      // Real D1 `batch()` is atomic; the stub executes sequentially. That's
+      // enough for our purposes because the stubbed statements never throw
+      // independently — atomicity isn't exercised here.
+      const results: D1Response[] = [];
+      for (const stmt of stmts) {
+        results.push(await stmt.run());
+      }
+      return results;
     },
   } as unknown as D1Database;
 }
@@ -251,6 +299,13 @@ function makeD1(db: FakeDb): D1Database {
 const realFetch = globalThis.fetch;
 let turnstileShouldSucceed = true;
 
+interface AeCall {
+  url: string;
+  body: string;
+}
+const aeCalls: AeCall[] = [];
+let aeResponder: ((sql: string) => Response | Promise<Response>) | null = null;
+
 function installTurnstileMock(): void {
   globalThis.fetch = (async (
     input: RequestInfo | URL,
@@ -262,6 +317,12 @@ function installTurnstileMock(): void {
         JSON.stringify({ success: turnstileShouldSucceed }),
         { status: 200, headers: { "content-type": "application/json" } },
       );
+    }
+    if (url.includes("/analytics_engine/sql")) {
+      const body = typeof init?.body === "string" ? init.body : "";
+      aeCalls.push({ url, body });
+      if (aeResponder) return aeResponder(body);
+      return new Response(JSON.stringify({ data: [] }), { status: 200 });
     }
     return realFetch(input as RequestInfo, init);
   }) as typeof fetch;
@@ -712,5 +773,134 @@ describe("Analytics Engine view write", () => {
     expect((writes[0] as { blobs: string[] }).blobs).toEqual([
       "viewable-abcd",
     ]);
+  });
+});
+
+describe("Hourly view rollup cron", () => {
+  let db: FakeDb;
+
+  beforeEach(() => {
+    db = makeDb();
+    aeCalls.length = 0;
+    aeResponder = null;
+  });
+
+  function seedDesign(slug: string, views = 0): void {
+    db.designs.push({
+      id: `id-${slug}`,
+      json: JSON.stringify(minimalDesign()),
+      slug,
+      name: "x",
+      author_name: "y",
+      description: "",
+      forked_from: null,
+      published_at: Date.now(),
+      views,
+      forks: 0,
+      installs: 0,
+    });
+  }
+
+  test("applies AE counts to designs.views and advances cursor", async () => {
+    seedDesign("alpha-aaaa", 3);
+    seedDesign("beta-bbbb", 0);
+
+    aeResponder = () =>
+      new Response(
+        JSON.stringify({
+          data: [
+            { slug: "alpha-aaaa", count: 7 },
+            { slug: "beta-bbbb", count: 12 },
+            { slug: "ghost-cccc", count: 99 }, // slug not in designs — silently dropped
+          ],
+        }),
+        { status: 200 },
+      );
+
+    const env: Env = {
+      ...makeEnv(db),
+      CF_ACCOUNT_ID: "acct123",
+      CF_ANALYTICS_TOKEN: "tok-xyz",
+    };
+
+    const before = Date.now();
+    await worker.scheduled(
+      { scheduledTime: before, cron: "0 * * * *" } as ScheduledEvent,
+      env,
+      makeCtx(),
+    );
+
+    expect(aeCalls.length).toBe(1);
+    expect(aeCalls[0]!.url).toContain("/accounts/acct123/analytics_engine/sql");
+    expect(aeCalls[0]!.body).toContain("FROM statusline_views");
+    expect(aeCalls[0]!.body).toContain("SUM(_sample_interval)");
+
+    const alpha = db.designs.find((d) => d.slug === "alpha-aaaa")!;
+    const beta = db.designs.find((d) => d.slug === "beta-bbbb")!;
+    expect(alpha.views).toBe(3 + 7);
+    expect(beta.views).toBe(12);
+    // Cursor lands at now - INGESTION_BUFFER_MS (5 min). We only assert
+    // monotonic advance — the exact value is timing-dependent.
+    expect(db.view_rollup_state.last_rollup_at).toBeGreaterThan(0);
+    expect(db.view_rollup_state.last_rollup_at).toBeLessThanOrEqual(Date.now());
+  });
+
+  test("no AE credentials → silent no-op, no fetch, cursor unchanged", async () => {
+    seedDesign("alpha-aaaa", 5);
+    const env = makeEnv(db); // no CF_ACCOUNT_ID / CF_ANALYTICS_TOKEN
+
+    await worker.scheduled(
+      { scheduledTime: Date.now(), cron: "0 * * * *" } as ScheduledEvent,
+      env,
+      makeCtx(),
+    );
+
+    expect(aeCalls.length).toBe(0);
+    expect(db.designs[0]!.views).toBe(5);
+    expect(db.view_rollup_state.last_rollup_at).toBe(0);
+  });
+
+  test("empty AE response still advances the cursor", async () => {
+    seedDesign("alpha-aaaa", 4);
+    aeResponder = () =>
+      new Response(JSON.stringify({ data: [] }), { status: 200 });
+
+    const env: Env = {
+      ...makeEnv(db),
+      CF_ACCOUNT_ID: "acct123",
+      CF_ANALYTICS_TOKEN: "tok-xyz",
+    };
+
+    await worker.scheduled(
+      { scheduledTime: Date.now(), cron: "0 * * * *" } as ScheduledEvent,
+      env,
+      makeCtx(),
+    );
+
+    expect(db.designs[0]!.views).toBe(4);
+    expect(db.view_rollup_state.last_rollup_at).toBeGreaterThan(0);
+  });
+
+  test("daily cron still runs the install_records reaper, not the rollup", async () => {
+    db.install_records.push({
+      id: "stale",
+      json: "{}",
+      created_at: Date.now() - 30 * 24 * 60 * 60 * 1000,
+    });
+    const env: Env = {
+      ...makeEnv(db),
+      CF_ACCOUNT_ID: "acct123",
+      CF_ANALYTICS_TOKEN: "tok-xyz",
+    };
+
+    await worker.scheduled(
+      { scheduledTime: Date.now(), cron: "0 4 * * *" } as ScheduledEvent,
+      env,
+      makeCtx(),
+    );
+
+    expect(aeCalls.length).toBe(0);
+    expect(db.install_records.length).toBe(0);
+    expect(db.view_rollup_state.last_rollup_at).toBe(0);
   });
 });

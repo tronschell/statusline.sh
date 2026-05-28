@@ -1,5 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import worker, {
+  handleCommunityOgPng,
   handleCommunityOgSvg,
   handleRobotsTxt,
   handleSitemapXml,
@@ -156,6 +157,11 @@ describe("SEO worker routes", () => {
         handleCommunityOgSvg(env as Env, params),
       );
     }
+    if (!match("GET", "/og/community/example.png")) {
+      route("GET", "/og/community/:slug.png", (_req, env, _ctx, params) =>
+        handleCommunityOgPng(env as Env, params),
+      );
+    }
   }
 
   test("GET /robots.txt returns text/plain robots policy", async () => {
@@ -257,6 +263,62 @@ describe("SEO worker routes", () => {
     ensureSeoRoutes();
     const res = await worker.fetch(
       new Request("https://worker.example.com/og/community/missing.svg"),
+      makeEnv([]),
+      makeCtx(),
+    );
+
+    expect(res.status).toBe(404);
+  });
+
+  test("GET /og/community/:slug.png rasterises the SVG to a real PNG", async () => {
+    ensureSeoRoutes();
+    const res = await worker.fetch(
+      new Request("https://worker.example.com/og/community/quiet-prompt-abcd.png"),
+      makeEnv([
+        {
+          slug: "quiet-prompt-abcd",
+          name: "Quiet Prompt",
+          author_name: "Taylor",
+          description: "Muted borders, careful spacing",
+          published_at: Date.UTC(2026, 0, 2, 3, 4, 5),
+          views: 1234,
+          forks: 56,
+          installs: 789,
+        },
+      ]),
+      makeCtx(),
+    );
+
+    expect(res.status).toBe(200);
+    expect(res.headers.get("content-type")).toBe("image/png");
+    expect(res.headers.get("cache-control")).toBe(
+      "public, max-age=3600, s-maxage=86400",
+    );
+
+    const bytes = new Uint8Array(await res.arrayBuffer());
+    // PNG magic header (\x89PNG\r\n\x1a\n).
+    expect(Array.from(bytes.slice(0, 8))).toEqual([
+      0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a,
+    ]);
+    // Sanity-check size — anything smaller is empty, anything bigger is a
+    // sign resvg is emitting an uncompressed pixel buffer.
+    expect(bytes.length).toBeGreaterThan(10_000);
+    expect(bytes.length).toBeLessThan(500_000);
+
+    // IHDR chunk: bytes 16..23 are width, height as big-endian uint32.
+    const view = new DataView(
+      bytes.buffer,
+      bytes.byteOffset,
+      bytes.byteLength,
+    );
+    expect(view.getUint32(16, false)).toBe(1200);
+    expect(view.getUint32(20, false)).toBe(630);
+  });
+
+  test("GET /og/community/:slug.png returns 404 for a missing slug", async () => {
+    ensureSeoRoutes();
+    const res = await worker.fetch(
+      new Request("https://worker.example.com/og/community/missing.png"),
       makeEnv([]),
       makeCtx(),
     );

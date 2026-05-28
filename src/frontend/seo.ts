@@ -1,7 +1,26 @@
 export const SITE_NAME = "statusline.sh";
 export const SITE_URL = "https://statusline.sh";
-export const DEFAULT_OG_IMAGE = "/og-default.svg";
+// Social link previewers (Twitter/X, Slack, Discord, iMessage, LinkedIn,
+// Facebook, …) refuse to render SVG `og:image` URLs and just show a blank
+// card. The PNG is the actual share asset; the SVG is kept around as a
+// fallback for Google's crawler and any pre-existing hotlinks. Build step:
+// `writeStaticSeoAssets` in build.ts rasterises the canonical SVG to PNG.
+export const DEFAULT_OG_IMAGE = "/og-default.png";
+// Origin of the OG image renderer (Worker). Hard-coded to the production
+// Worker rather than `WORKER_URL` from lib/config: social crawlers fetch
+// these URLs themselves from somewhere remote, so a localhost dev override
+// would be useless to them. Per-design OG URLs always need to be absolute.
+export const OG_IMAGE_ORIGIN = "https://api.statusline.sh";
 export const STATUSLINE_GUIDE_PATH = "/how-to-make-a-claude-code-statusline";
+
+/**
+ * Build the per-design OG share image URL. Returns the `.png` Worker
+ * endpoint (the `.svg` endpoint still exists for Google + legacy hotlinks
+ * but most chat apps refuse to render SVG).
+ */
+export function communityOgImageUrl(slug: string): string {
+  return `${OG_IMAGE_ORIGIN}/og/community/${encodeURIComponent(slug)}.png`;
+}
 
 export interface RouteMeta {
   title: string;
@@ -228,21 +247,8 @@ export function metaForPath(path: string): RouteMeta {
   const segments = normalized.split("/");
   if (normalized.startsWith("/community/") && segments.length === 3) {
     const slug = safeDecode(segments[2] ?? "");
-    const canonicalPath = `/community/${encodeURIComponent(slug)}`;
     const label = titleFromSlug(slug);
-    return {
-      title: `${label} | Community Statusline | ${SITE_NAME}`,
-      description:
-        "Preview and fork this community-published Claude Code statusline design on statusline.sh.",
-      canonicalPath,
-      jsonLd: [
-        buildBreadcrumbJsonLd([
-          { name: "Home", path: "/" },
-          { name: "Community", path: "/community" },
-          { name: label, path: canonicalPath },
-        ]),
-      ],
-    };
+    return buildCommunityDetailMeta({ slug, name: label });
   }
 
   return {
@@ -250,6 +256,52 @@ export function metaForPath(path: string): RouteMeta {
     description:
       "Design, preview, share, and install Claude Code statuslines from a browser-based builder.",
     canonicalPath: normalized,
+  };
+}
+
+export interface CommunityDetailMetaInput {
+  slug: string;
+  name: string;
+  description?: string | null;
+  author_name?: string | null;
+}
+
+/**
+ * Builds RouteMeta for a community design detail page. When called from
+ * `metaForPath` (slug only), the title falls back to a slug-derived label and
+ * the description is generic. When called from the detail page after the
+ * design row has loaded, the real name + author + description flow into the
+ * `<title>`, meta description, and BreadcrumbList JSON-LD.
+ */
+export function buildCommunityDetailMeta(
+  input: CommunityDetailMetaInput,
+): RouteMeta {
+  const canonicalPath = `/community/${encodeURIComponent(input.slug)}`;
+  const trimmedName = input.name.trim();
+  const displayName = trimmedName.length > 0 ? trimmedName : "Community Design";
+  const author = (input.author_name ?? "").trim();
+  const rawDescription = (input.description ?? "").trim();
+  const description = rawDescription.length > 0
+    ? rawDescription
+    : author.length > 0
+      ? `A Claude Code statusline design by ${author}. Preview and fork it into your own builder on ${SITE_NAME}.`
+      : `A community-published Claude Code statusline design. Preview and fork it into your own builder on ${SITE_NAME}.`;
+
+  return {
+    title: `${displayName} | Community Statusline | ${SITE_NAME}`,
+    description,
+    canonicalPath,
+    // Per-design rasterised OG card — the Worker renders SVG → PNG so the
+    // share preview shows the actual design name + author rather than the
+    // generic default card.
+    image: communityOgImageUrl(input.slug),
+    jsonLd: [
+      buildBreadcrumbJsonLd([
+        { name: "Home", path: "/" },
+        { name: "Community", path: "/community" },
+        { name: displayName, path: canonicalPath },
+      ]),
+    ],
   };
 }
 

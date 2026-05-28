@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { CommunityCardSummary } from "@statusline/shared/types";
+import { Link } from "../../router";
 import { api } from "../../lib/api";
 import { CommunityDesignCard } from "./CommunityDesignCard";
 
@@ -135,6 +136,24 @@ export function CommunityPage() {
             <p className="mt-4 max-w-[52ch] text-[15px] leading-relaxed text-[#8A8A86]">
               Designs published by the community. Open any of them to see the
               live preview, or fork into your own builder.
+            </p>
+            <p className="mt-3 max-w-[60ch] text-[14px] leading-relaxed text-[#8A8A86]">
+              <Link
+                href="/builder"
+                title="Claude Code Statusline Builder"
+                className="text-[#E8E8E6] underline decoration-white/20 underline-offset-[4px] hover:decoration-white/50"
+              >
+                Start building your own Claude Code statusline
+              </Link>
+              , or read{" "}
+              <Link
+                href="/how-to-make-a-claude-code-statusline"
+                title="How to make a Claude Code statusline"
+                className="text-[#E8E8E6] underline decoration-white/20 underline-offset-[4px] hover:decoration-white/50"
+              >
+                How to make a Claude Code statusline
+              </Link>{" "}
+              first.
             </p>
           </div>
 

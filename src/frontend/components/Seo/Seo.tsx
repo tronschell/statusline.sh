@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useSyncExternalStore } from "react";
 import { usePath } from "../../router";
 import {
   DEFAULT_OG_IMAGE,
@@ -6,13 +6,69 @@ import {
   absoluteUrl,
   canonicalUrl,
   metaForPath,
+  type RouteMeta,
 } from "../../seo";
+
+/**
+ * Tiny external store so route-aware pages (e.g. CommunityDetailPage) can push
+ * a refined meta override once their data loads, without having to lift state
+ * into a Context wrapping the whole router tree.
+ *
+ * Pattern: page calls `setRouteMetaOverride(path, meta)` after fetch; clears
+ * on unmount with `clearRouteMetaOverride(path)`. The `Seo` component
+ * subscribes and re-applies meta whenever either path or override changes.
+ *
+ * Overrides are keyed by canonical pathname so a stale override from a
+ * previously-visited slug doesn't leak onto a new slug page.
+ */
+const overrideStore = (() => {
+  const listeners = new Set<() => void>();
+  let state: { path: string; meta: RouteMeta } | null = null;
+  return {
+    get(): { path: string; meta: RouteMeta } | null {
+      return state;
+    },
+    set(path: string, meta: RouteMeta): void {
+      state = { path, meta };
+      for (const l of listeners) l();
+    },
+    clear(path: string): void {
+      if (state && state.path === path) {
+        state = null;
+        for (const l of listeners) l();
+      }
+    },
+    subscribe(listener: () => void): () => void {
+      listeners.add(listener);
+      return () => listeners.delete(listener);
+    },
+  };
+})();
+
+export function setRouteMetaOverride(path: string, meta: RouteMeta): void {
+  overrideStore.set(path, meta);
+}
+
+export function clearRouteMetaOverride(path: string): void {
+  overrideStore.clear(path);
+}
+
+function useRouteMetaOverride(): { path: string; meta: RouteMeta } | null {
+  return useSyncExternalStore(
+    overrideStore.subscribe,
+    overrideStore.get,
+    overrideStore.get,
+  );
+}
 
 export function Seo() {
   const path = usePath();
+  const override = useRouteMetaOverride();
 
   useEffect(() => {
-    const meta = metaForPath(path);
+    const meta = override && override.path === path
+      ? override.meta
+      : metaForPath(path);
     const canonical = canonicalUrl(meta.canonicalPath);
     const image = absoluteUrl(meta.image ?? DEFAULT_OG_IMAGE);
 
@@ -31,7 +87,7 @@ export function Seo() {
     setMeta("name", "twitter:image", image);
     setCanonical(canonical);
     setJsonLd(meta.jsonLd ?? []);
-  }, [path]);
+  }, [path, override]);
 
   return null;
 }

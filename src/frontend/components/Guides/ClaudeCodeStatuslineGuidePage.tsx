@@ -39,18 +39,30 @@ export function ClaudeCodeStatuslineGuidePage() {
           <div className="mt-10 flex flex-wrap gap-3">
             <Link
               href="/builder"
+              title="Claude Code Statusline Builder"
               className="inline-flex items-center gap-1.5 rounded-[6px] bg-[#E8E8E6] px-5 py-3 text-[14px] font-medium text-[#0E0E10] no-underline transition-transform duration-150 ease-out hover:scale-[0.98] active:scale-[0.96]"
             >
-              Open the builder
+              Claude Code statusline builder
               <CaretRight size={14} weight="bold" />
             </Link>
             <Link
               href="/community"
+              title="Community-published Claude Code statusline designs"
               className="inline-flex items-center gap-1.5 rounded-[6px] border border-white/[0.08] bg-[#161618] px-5 py-3 text-[14px] text-[#E8E8E6] no-underline transition-colors hover:border-white/[0.16] hover:bg-[#1C1C1F]"
             >
-              Browse examples
+              See real examples
             </Link>
           </div>
+          <p className="mt-6 max-w-[68ch] text-[14px] leading-relaxed text-[#8A8A86]">
+            Prefer to learn by example?{" "}
+            <Link
+              href="/community"
+              className="text-[#E8E8E6] underline decoration-white/20 underline-offset-[4px] hover:decoration-white/50"
+            >
+              Browse community-published Claude Code statusline designs
+            </Link>{" "}
+            and fork any of them into the builder.
+          </p>
         </section>
 
         <section className="mt-20 grid gap-5 md:grid-cols-3">
@@ -180,21 +192,96 @@ export function ClaudeCodeStatuslineGuidePage() {
           <div className="mt-7 flex flex-wrap gap-3">
             <Link
               href="/builder"
+              title="Claude Code Statusline Builder"
               className="inline-flex items-center gap-1.5 rounded-[6px] bg-[#E8E8E6] px-4 py-2.5 text-[13px] font-medium text-[#0E0E10] no-underline transition-transform duration-150 ease-out hover:scale-[0.98] active:scale-[0.96]"
             >
-              Build a statusline
+              Open the Claude Code statusline builder
               <CaretRight size={14} weight="bold" />
             </Link>
             <Link
               href="/community"
+              title="Browse Claude Code statusline examples"
               className="inline-flex items-center rounded-[6px] border border-white/[0.08] px-4 py-2.5 text-[13px] text-[#E8E8E6] no-underline transition-colors hover:border-white/[0.16] hover:bg-white/[0.02]"
             >
-              View examples
+              Browse community-published statusline examples
             </Link>
           </div>
         </section>
+
+        <ContinueReading />
       </main>
     </div>
+  );
+}
+
+/**
+ * Forward-navigation block at the foot of the guide. Two cards: "Try the
+ * builder" → /builder and "Browse examples" → /community. The anchor text is
+ * keyword-rich on purpose — these are the two highest-value internal links a
+ * reader of the guide can follow.
+ */
+function ContinueReading() {
+  return (
+    <section className="mt-16 border-t border-white/[0.06] pt-12">
+      <div className="text-[12px] uppercase tracking-[0.14em] text-[#8A8A86]">
+        Continue reading
+      </div>
+      <div className="mt-6 grid gap-4 md:grid-cols-2">
+        <Link
+          href="/builder"
+          title="Claude Code Statusline Builder"
+          className="group flex flex-col gap-3 rounded-[10px] border border-white/[0.08] bg-[#161618] p-6 no-underline transition-colors hover:border-white/[0.16] hover:bg-[#1C1C1F]"
+        >
+          <div className="text-[11px] uppercase tracking-[0.14em] text-[#6F6F6B]">
+            Try the builder
+          </div>
+          <h3
+            className="font-serif text-2xl tracking-[-0.03em] text-[#E8E8E6]"
+            style={{
+              fontFamily:
+                "var(--font-serif, 'Instrument Serif', Georgia, serif)",
+            }}
+          >
+            Open the Claude Code statusline builder.
+          </h3>
+          <p className="text-[14px] leading-relaxed text-[#8A8A86]">
+            Drag elements, style them, and generate a one-line installer for
+            macOS, Linux, or Windows.
+          </p>
+          <div className="mt-1 inline-flex items-center gap-1.5 text-[13px] text-[#E8E8E6]">
+            Start building
+            <CaretRight size={12} weight="bold" />
+          </div>
+        </Link>
+
+        <Link
+          href="/community"
+          title="Community-published Claude Code statusline designs"
+          className="group flex flex-col gap-3 rounded-[10px] border border-white/[0.08] bg-[#161618] p-6 no-underline transition-colors hover:border-white/[0.16] hover:bg-[#1C1C1F]"
+        >
+          <div className="text-[11px] uppercase tracking-[0.14em] text-[#6F6F6B]">
+            Browse examples
+          </div>
+          <h3
+            className="font-serif text-2xl tracking-[-0.03em] text-[#E8E8E6]"
+            style={{
+              fontFamily:
+                "var(--font-serif, 'Instrument Serif', Georgia, serif)",
+            }}
+          >
+            See real Claude Code statusline designs.
+          </h3>
+          <p className="text-[14px] leading-relaxed text-[#8A8A86]">
+            Community-published statuslines you can preview, install with one
+            command, or fork into the builder.
+          </p>
+          <div className="mt-1 inline-flex items-center gap-1.5 text-[13px] text-[#E8E8E6]">
+            Browse community gallery
+            <CaretRight size={12} weight="bold" />
+          </div>
+        </Link>
+      </div>
+    </section>
   );
 }
 

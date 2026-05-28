@@ -1,9 +1,12 @@
 import { useEffect, useState } from "react";
 import { CaretRight } from "@phosphor-icons/react";
+import type { CommunityCardSummary } from "@statusline/shared/types";
 import { Link } from "../../router";
+import { api } from "../../lib/api";
 import { HeroStatusline } from "./HeroStatusline";
 import { TemplateGallery } from "./TemplateGallery";
 import { ClaudeCodeLogo } from "../ClaudeCodeLogo";
+import { StaticPreview } from "../Preview/StaticPreview";
 
 /**
  * Landing page for the Claude Code Statusline Builder.
@@ -29,6 +32,24 @@ export function LandingPage() {
           <p className="mt-6 text-[17px] md:text-[18px] text-[#8A8A86] max-w-[60ch] leading-relaxed">
             Drag-and-drop builder for the bar at the bottom of your Claude
             Code. Save it, share it, install it with one terminal command.
+          </p>
+
+          <p className="mt-4 text-[15px] md:text-[16px] text-[#8A8A86] max-w-[60ch] leading-relaxed">
+            New here? Read{" "}
+            <Link
+              href="/how-to-make-a-claude-code-statusline"
+              className="text-[#E8E8E6] underline decoration-white/20 underline-offset-[4px] transition-colors hover:decoration-white/50"
+            >
+              How to make a Claude Code statusline
+            </Link>
+            , or{" "}
+            <Link
+              href="/community"
+              className="text-[#E8E8E6] underline decoration-white/20 underline-offset-[4px] transition-colors hover:decoration-white/50"
+            >
+              browse Claude Code statusline examples
+            </Link>{" "}
+            published by the community.
           </p>
 
           <div className="mt-12">
@@ -71,6 +92,9 @@ export function LandingPage() {
           </div>
           <TemplateGallery />
         </section>
+
+        {/* Featured community designs */}
+        <FeaturedDesigns />
 
         {/* How it works */}
         <section className="py-24 md:py-32 border-t border-white/[0.06]">
@@ -203,6 +227,114 @@ function Step({
         {body}
       </p>
     </div>
+  );
+}
+
+/**
+ * Featured community designs. Renders 3-4 link cards that point at popular
+ * community designs by name — useful internal-linking signal for search
+ * crawlers (anchor text = design name) and a path into the gallery for
+ * humans. Fails silent: if the fetch errors or returns 0, we render a single
+ * static CTA pointing at /community rather than a broken section.
+ */
+function FeaturedDesigns() {
+  const [items, setItems] = useState<CommunityCardSummary[] | null>(null);
+  const [errored, setErrored] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    api
+      .listCommunity({ sort: "popular", limit: 4 })
+      .then((res) => {
+        if (cancelled) return;
+        setItems(res.items);
+      })
+      .catch(() => {
+        if (cancelled) return;
+        setErrored(true);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  // Loading: render nothing rather than a skeleton — keeps the landing page
+  // calm. The section appears once data is back.
+  if (items === null && !errored) return null;
+
+  const designs = items ?? [];
+  if (errored || designs.length === 0) {
+    return (
+      <section className="py-24 md:py-32 border-t border-white/[0.06]">
+        <h2
+          className="font-serif text-3xl md:text-4xl text-[#E8E8E6] tracking-tight"
+          style={{
+            fontFamily: "var(--font-serif, 'Instrument Serif', Georgia, serif)",
+          }}
+        >
+          Featured designs.
+        </h2>
+        <p className="mt-4 max-w-[52ch] text-[15px] text-[#8A8A86] leading-relaxed">
+          <Link
+            href="/community"
+            className="text-[#E8E8E6] underline decoration-white/20 underline-offset-[4px] transition-colors hover:decoration-white/50"
+          >
+            Browse the Claude Code statusline community gallery
+          </Link>{" "}
+          to see designs published by other developers.
+        </p>
+      </section>
+    );
+  }
+
+  return (
+    <section className="py-24 md:py-32 border-t border-white/[0.06]">
+      <div className="flex items-end justify-between gap-6 mb-12">
+        <h2
+          className="font-serif text-3xl md:text-4xl text-[#E8E8E6] tracking-tight"
+          style={{
+            fontFamily: "var(--font-serif, 'Instrument Serif', Georgia, serif)",
+          }}
+        >
+          Featured designs.
+        </h2>
+        <p className="text-[14px] text-[#8A8A86] max-w-[40ch] text-right">
+          Popular community-published Claude Code statuslines.{" "}
+          <Link
+            href="/community"
+            className="text-[#E8E8E6] underline decoration-white/20 underline-offset-[4px] hover:decoration-white/50"
+          >
+            See all
+          </Link>
+          .
+        </p>
+      </div>
+      <ul className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        {designs.map((d) => (
+          <li key={d.id}>
+            <Link
+              href={`/community/${d.slug}`}
+              title={`${d.name} — Claude Code statusline by ${d.author_name ?? "anonymous"}`}
+              className="group flex h-full flex-col overflow-hidden rounded-[10px] border border-white/[0.06] bg-[#161618] no-underline transition-colors hover:border-white/[0.14] hover:bg-[#19191B]"
+            >
+              <div className="flex h-[100px] items-center justify-center overflow-hidden border-b border-white/[0.06] bg-[#0E0E10] px-4">
+                <div className="w-full overflow-hidden">
+                  <StaticPreview design={d.design} />
+                </div>
+              </div>
+              <div className="flex flex-1 flex-col gap-1 p-4">
+                <span className="truncate text-[14px] font-medium text-[#E8E8E6] group-hover:text-white">
+                  {d.name}
+                </span>
+                <span className="text-[12px] text-[#8A8A86]">
+                  by {d.author_name ?? "anonymous"}
+                </span>
+              </div>
+            </Link>
+          </li>
+        ))}
+      </ul>
+    </section>
   );
 }
 

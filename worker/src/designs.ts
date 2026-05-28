@@ -445,20 +445,41 @@ export async function reapInstallRecords(
   return { deleted: res.meta?.changes ?? 0 };
 }
 
-export async function rollupViews(
+export async function getLastRollupAt(env: DbEnv): Promise<number> {
+  const row = (await env.DB
+    .prepare("SELECT last_rollup_at FROM view_rollup_state WHERE id = 1")
+    .first()) as { last_rollup_at: number } | null;
+  return row?.last_rollup_at ?? 0;
+}
+
+/**
+ * Atomically apply a batch of view-count deltas and advance the rollup cursor.
+ *
+ * Both halves of the work share one D1 `batch()` so a partial failure can't
+ * leave us in a state where the cursor moved forward but the increments
+ * didn't land (or vice versa) — re-running the cron would otherwise either
+ * double-count or skip a window. The cursor is advanced unconditionally,
+ * even when `updates` is empty, so an idle hour doesn't pin the window
+ * forever.
+ */
+export async function applyViewRollup(
   env: DbEnv,
   updates: Map<string, number>,
+  newLastRollupAt: number,
 ): Promise<void> {
-  if (updates.size === 0) return;
   const stmts: D1PreparedStatement[] = [];
   for (const [slug, delta] of updates) {
-    if (delta === 0) continue;
+    if (delta <= 0) continue;
     stmts.push(
       env.DB
         .prepare("UPDATE designs SET views = views + ? WHERE slug = ?")
         .bind(delta, slug),
     );
   }
-  if (stmts.length === 0) return;
+  stmts.push(
+    env.DB
+      .prepare("UPDATE view_rollup_state SET last_rollup_at = ? WHERE id = 1")
+      .bind(newLastRollupAt),
+  );
   await env.DB.batch(stmts);
 }

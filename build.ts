@@ -1,6 +1,7 @@
 import tailwind from "bun-plugin-tailwind";
 import { copyFile, mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
+import { Resvg } from "@resvg/resvg-js";
 import {
   DEFAULT_OG_IMAGE,
   SITE_NAME,
@@ -277,6 +278,7 @@ function replaceFirst(
 
 async function writeStaticSeoAssets(): Promise<void> {
   await mkdir(outdir, { recursive: true });
+  const ogSvgPath = path.join(process.cwd(), "src", "static", "og-default.svg");
   await Promise.all([
     writeFile(path.join(outdir, "robots.txt"), renderRobotsTxt(), "utf8"),
     writeFile(
@@ -289,15 +291,44 @@ async function writeStaticSeoAssets(): Promise<void> {
       renderWebManifest(),
       "utf8",
     ),
-    copyFile(
-      path.join(process.cwd(), "src", "static", "og-default.svg"),
-      path.join(outdir, "og-default.svg"),
-    ),
+    // Keep the SVG around for crawlers / hotlinks (Google indexes it fine).
+    copyFile(ogSvgPath, path.join(outdir, "og-default.svg")),
+    // Most chat apps refuse to render SVG `og:image`. Rasterise the SVG to
+    // PNG once at build time so link previews actually appear.
+    renderOgDefaultPng(ogSvgPath, path.join(outdir, "og-default.png")),
     copyFile(
       path.join(process.cwd(), "src", "logo.svg"),
       path.join(outdir, "logo.svg"),
     ),
   ]);
+}
+
+/**
+ * Rasterise the default OG SVG to a 1200×630 PNG. We pin via `fitTo: width`
+ * (the canvas viewBox is already 1200×630, so the height comes out right).
+ *
+ * Bun runs `@resvg/resvg-js` natively — Vercel's build environment also
+ * supports the prebuilt napi binary, so no extra setup is required.
+ */
+async function renderOgDefaultPng(svgPath: string, pngPath: string): Promise<void> {
+  const svg = await readFile(svgPath, "utf8");
+  const resvg = new Resvg(svg, {
+    fitTo: { mode: "width", value: 1200 },
+    background: "#0E0E10",
+    font: {
+      // System fonts are needed here so the SVG's text nodes ("Claude Code",
+      // "statusline.sh", element labels) actually render. Build runs on
+      // Vercel's Linux image / a local dev box — both ship with the fallback
+      // families the SVG declares (Georgia/serif, Arial/sans, monospace).
+      loadSystemFonts: true,
+      defaultFontFamily: "DejaVu Serif",
+      serifFamily: "DejaVu Serif",
+      sansSerifFamily: "DejaVu Sans",
+      monospaceFamily: "DejaVu Sans Mono",
+    },
+  });
+  const png = resvg.render().asPng();
+  await writeFile(pngPath, png);
 }
 
 function escapeXml(value: string): string {

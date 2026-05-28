@@ -18,7 +18,9 @@ import {
 } from "./designs";
 import { handleInstaller } from "./handlers/installer";
 import { renderCommunityOgSvg } from "./og";
+import { renderOgPng } from "./og-png";
 import { renderRobotsTxt, renderSitemapXml } from "./seo";
+import { rollupViewsFromAE } from "./views";
 
 export interface RateLimitBinding {
   limit(opts: { key: string }): Promise<{ success: boolean }>;
@@ -42,6 +44,10 @@ export interface Env {
   TURNSTILE_SECRET_KEY: string;
   ALLOWED_ORIGINS: string;
   VIEWS?: AnalyticsEngineDataset;
+  // Set via `wrangler secret put` — without both, the hourly rollup cron
+  // silently no-ops and views remain at 0. See worker/src/views.ts.
+  CF_ACCOUNT_ID?: string;
+  CF_ANALYTICS_TOKEN?: string;
   RATE_LIMITER_PUBLISH?: RateLimitBinding;
   RATE_LIMITER_FORK?: RateLimitBinding;
   RATE_LIMITER_INSTALL?: RateLimitBinding;
@@ -49,6 +55,10 @@ export interface Env {
   RATE_LIMITER_DETAIL?: RateLimitBinding;
   RATE_LIMITER_INSTALLER?: RateLimitBinding;
 }
+
+// Cron schedule strings must match wrangler.toml's `[triggers] crons` list
+// exactly — `event.cron` arrives verbatim and we dispatch on it.
+const HOURLY_ROLLUP_CRON = "0 * * * *";
 
 // ===== Route registration (executed at module load) =====
 // Note: the router escapes regex metacharacters in the literal pattern before
@@ -61,6 +71,13 @@ route("GET", "/robots.txt", () => handleRobotsTxt());
 route("GET", "/sitemap.xml", (_req, env) => handleSitemapXml(env as Env));
 route("GET", "/og/community/:slug.svg", (_req, env, _ctx, params) =>
   handleCommunityOgSvg(env as Env, params),
+);
+// Keep the .svg route above intact for backwards compat (Google still indexes
+// it fine, and any hotlinks shouldn't 404). The .png variant is what social
+// link previewers — Twitter/X, Slack, Discord, iMessage, LinkedIn, Facebook
+// — actually consume, since they refuse to render SVG `og:image` URLs.
+route("GET", "/og/community/:slug.png", (_req, env, _ctx, params) =>
+  handleCommunityOgPng(env as Env, params),
 );
 route("GET", "/community/:slug", (req, env, _ctx, params) =>
   handleGetCommunityBySlug(req, env as Env, params),
@@ -137,14 +154,23 @@ export default {
   },
 
   async scheduled(
-    _event: ScheduledEvent,
+    event: ScheduledEvent,
     env: Env,
     _ctx: ExecutionContext,
   ): Promise<void> {
-    // Daily cron — reaps install_records older than 7 days. View rollup
-    // happens elsewhere (Analytics Engine writes are live; the rollup-to-D1
-    // task can be added once we have real Analytics Engine query usage to
-    // inform a sane cadence).
+    if (event.cron === HOURLY_ROLLUP_CRON) {
+      const result = await rollupViewsFromAE(env);
+      if (result === null) {
+        console.log("view rollup: AE credentials not configured, skipping");
+      } else {
+        console.log(
+          `view rollup: applied ${result.applied} slug deltas, ` +
+            `window ${new Date(result.windowStart).toISOString()} -> ` +
+            new Date(result.windowEnd).toISOString(),
+        );
+      }
+      return;
+    }
     const { deleted } = await reapInstallRecords(env);
     console.log(`reaper: deleted ${deleted} install_records`);
   },
@@ -271,6 +297,25 @@ async function handleCommunityOgSvg(
   return new Response(renderCommunityOgSvg(row), {
     headers: {
       "content-type": "image/svg+xml; charset=utf-8",
+      "cache-control": "public, max-age=3600, s-maxage=86400",
+    },
+  });
+}
+
+async function handleCommunityOgPng(
+  env: Env,
+  params: Record<string, string>,
+): Promise<Response> {
+  const row = await getCommunitySeoBySlug(env, params.slug!);
+  if (!row) return new Response("not found", { status: 404 });
+
+  // SVG is the source of truth — rasterise it on demand. Edge-cache TTL
+  // mirrors the SVG endpoint (1h browser, 24h CF) so a viral design only
+  // pays the resvg cost once per PoP per day.
+  const png = await renderOgPng(renderCommunityOgSvg(row));
+  return new Response(png, {
+    headers: {
+      "content-type": "image/png",
       "cache-control": "public, max-age=3600, s-maxage=86400",
     },
   });
@@ -481,4 +526,5 @@ export {
   handleRobotsTxt,
   handleSitemapXml,
   handleCommunityOgSvg,
+  handleCommunityOgPng,
 };

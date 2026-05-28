@@ -56,10 +56,10 @@ describe("static SEO assets", () => {
     ]);
   });
 
-  test("uses the generated default OG SVG", () => {
-    expect(DEFAULT_OG_IMAGE).toBe("/og-default.svg");
+  test("uses the rasterised default OG PNG", () => {
+    expect(DEFAULT_OG_IMAGE).toBe("/og-default.png");
     expect(absoluteUrl(DEFAULT_OG_IMAGE)).toBe(
-      "https://statusline.sh/og-default.svg",
+      "https://statusline.sh/og-default.png",
     );
   });
 
@@ -78,6 +78,9 @@ describe("static SEO assets", () => {
     expect(metaForPath("/community/example-statusline")).toMatchObject({
       title: "Example Statusline | Community Statusline | statusline.sh",
       canonicalPath: "/community/example-statusline",
+      // Per-design OG image points at the Worker PNG endpoint so social
+      // crawlers see a card with the design's actual name + author.
+      image: "https://api.statusline.sh/og/community/example-statusline.png",
     });
     expect(metaForPath(STATUSLINE_GUIDE_PATH)).toMatchObject({
       title: "How to Make a Claude Code Status Line | statusline.sh",
@@ -115,10 +118,10 @@ describe("static SEO assets", () => {
         '<meta property="og:title" content="Home" />',
         '<meta property="og:description" content="Home" />',
         '<meta property="og:url" content="https://statusline.sh/" />',
-        '<meta property="og:image" content="https://statusline.sh/og-default.svg" />',
+        '<meta property="og:image" content="https://statusline.sh/og-default.png" />',
         '<meta name="twitter:title" content="Home" />',
         '<meta name="twitter:description" content="Home" />',
-        '<meta name="twitter:image" content="https://statusline.sh/og-default.svg" />',
+        '<meta name="twitter:image" content="https://statusline.sh/og-default.png" />',
         '<link rel="canonical" href="https://statusline.sh/" />',
         "<title>Home</title>",
         '<script type="application/ld+json">{}</script>',
@@ -148,10 +151,10 @@ describe("static SEO assets", () => {
         '<meta property="og:title" content="Home" />',
         '<meta property="og:description" content="Home" />',
         '<meta property="og:url" content="https://statusline.sh/" />',
-        '<meta property="og:image" content="https://statusline.sh/og-default.svg" />',
+        '<meta property="og:image" content="https://statusline.sh/og-default.png" />',
         '<meta name="twitter:title" content="Home" />',
         '<meta name="twitter:description" content="Home" />',
-        '<meta name="twitter:image" content="https://statusline.sh/og-default.svg" />',
+        '<meta name="twitter:image" content="https://statusline.sh/og-default.png" />',
         '<link rel="canonical" href="https://statusline.sh/" />',
         "<title>Home</title>",
         '<script type="application/ld+json">{}</script>',

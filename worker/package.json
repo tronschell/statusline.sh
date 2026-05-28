@@ -10,6 +10,7 @@
     "seed": "bun run scripts/seed.ts"
   },
   "dependencies": {
+    "@resvg/resvg-wasm": "^2.6.2",
     "@statusline/shared": "workspace:*",
     "nanoid": "^5.0.0"
   },

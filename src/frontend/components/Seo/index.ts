@@ -1,1 +1,5 @@
-export { Seo } from "./Seo";
+export {
+  Seo,
+  setRouteMetaOverride,
+  clearRouteMetaOverride,
+} from "./Seo";

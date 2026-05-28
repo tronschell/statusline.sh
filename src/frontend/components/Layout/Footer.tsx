@@ -36,12 +36,27 @@ export function Footer() {
           </div>
 
           <FooterColumn title="Product">
-            <FooterLink href="/builder">Builder</FooterLink>
-            <FooterLink href="/community">Community</FooterLink>
-            <FooterLink href="/how-to-make-a-claude-code-statusline">
-              Statusline guide
+            <FooterLink
+              href="/builder"
+              title="Claude Code Statusline Builder"
+            >
+              Statusline Builder
             </FooterLink>
-            <FooterLink href="/">Templates</FooterLink>
+            <FooterLink
+              href="/community"
+              title="Browse Claude Code statusline examples"
+            >
+              Statusline Examples
+            </FooterLink>
+            <FooterLink
+              href="/how-to-make-a-claude-code-statusline"
+              title="How to make a Claude Code statusline"
+            >
+              Claude Code Statusline Guide
+            </FooterLink>
+            <FooterLink href="/" title="Claude Code statusline templates">
+              Statusline Templates
+            </FooterLink>
           </FooterColumn>
 
           <FooterColumn title="Project">
@@ -110,14 +125,17 @@ function FooterColumn({
 function FooterLink({
   href,
   children,
+  title,
 }: {
   href: string;
   children: React.ReactNode;
+  title?: string;
 }) {
   return (
     <li>
       <Link
         href={href}
+        title={title}
         className="text-[#8A8A86] no-underline transition-colors hover:text-[#E8E8E6]"
       >
         {children}

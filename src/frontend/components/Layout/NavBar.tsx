@@ -26,16 +26,25 @@ export function NavBar() {
           <NavLink
             href="/community"
             active={isActive(pathname, "/community")}
+            title="Browse Claude Code statusline examples"
           >
             Community
           </NavLink>
-          <ExternalNavLink href={DOCS_URL}>
+          <NavLink
+            href="/how-to-make-a-claude-code-statusline"
+            active={isActive(pathname, "/how-to-make-a-claude-code-statusline")}
+            title="How to make a Claude Code statusline"
+          >
+            Guide
+          </NavLink>
+          <ExternalNavLink href={DOCS_URL} title="Claude Code statusline docs">
             Docs
           </ExternalNavLink>
         </nav>
 
         <Link
           href="/builder"
+          title="Claude Code Statusline Builder"
           className="inline-flex items-center gap-1.5 rounded-[6px] bg-[#E8E8E6] px-4 py-2 text-[13px] font-medium text-[#0E0E10] no-underline transition-transform duration-150 ease-out hover:scale-[0.98] active:scale-[0.96]"
         >
           Build
@@ -55,12 +64,14 @@ interface NavLinkProps {
   href: string;
   active: boolean;
   children: React.ReactNode;
+  title?: string;
 }
 
-function NavLink({ href, active, children }: NavLinkProps) {
+function NavLink({ href, active, children, title }: NavLinkProps) {
   return (
     <Link
       href={href}
+      title={title}
       className={
         "no-underline transition-colors " +
         (active
@@ -76,15 +87,18 @@ function NavLink({ href, active, children }: NavLinkProps) {
 function ExternalNavLink({
   href,
   children,
+  title,
 }: {
   href: string;
   children: React.ReactNode;
+  title?: string;
 }) {
   return (
     <a
       href={href}
       target="_blank"
       rel="noopener noreferrer"
+      title={title}
       className="text-[#8A8A86] no-underline transition-colors hover:text-[#E8E8E6]"
     >
       {children}

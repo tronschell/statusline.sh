@@ -23,6 +23,11 @@ TURNSTILE_SITE_KEY = "0x4AAAAAADVg_EZkr8VbHhOf"
 # from the local Worker at :8787. The production deploy's ALLOWED_ORIGINS should
 # be overridden in the Cloudflare dashboard to drop the localhost entries.
 ALLOWED_ORIGINS = "https://statusline.sh,https://www.statusline.sh,https://statusline-maker.vercel.app,http://localhost:3001,http://127.0.0.1:3001"
+# Cloudflare account that hosts the statusline_views Analytics Engine dataset.
+# Not sensitive — it's visible in every Cloudflare dashboard URL — so it lives
+# here instead of as a Worker secret. The companion CF_ANALYTICS_TOKEN IS
+# sensitive and is set via `wrangler secret put CF_ANALYTICS_TOKEN`.
+CF_ACCOUNT_ID = "c3db244a3ef73d57f3b5f06fa5f88fb9"
 
 # Rate limiting bindings (added in S2).
 # Each endpoint gets its own namespace_id so counters don't share. Limits are
@@ -65,17 +70,19 @@ namespace_id = "1006"
 simple = { limit = 60, period = 60 }
 
 # Workers Analytics Engine binding — community-detail view tracking. Writes
-# are best-effort and never block the response.
-#
-# Disabled by default because Analytics Engine requires a one-click opt-in per
-# account at https://dash.cloudflare.com/?to=/:account/workers/analytics-engine
-# Uncomment after enabling. The handler in src/index.ts guards on `env.VIEWS`
-# being defined, so views are simply not tracked while this binding is absent.
-#
-# [[analytics_engine_datasets]]
-# binding = "VIEWS"
-# dataset = "statusline_views"
+# are best-effort and never block the response. The handler in src/index.ts
+# guards on `env.VIEWS` being defined, so writes are simply skipped if the
+# binding is ever removed.
+[[analytics_engine_datasets]]
+binding = "VIEWS"
+dataset = "statusline_views"
 
-# Cron Triggers — daily reaper for install_records older than 7 days.
+# Cron Triggers.
+#   "0 4 * * *"  daily 04:00 UTC — reap install_records older than 7 days.
+#   "0 * * * *"  hourly         — roll up Analytics Engine view counts into
+#                                  designs.views (idempotent, requires the
+#                                  CF_ACCOUNT_ID + CF_ANALYTICS_TOKEN secrets
+#                                  set via `wrangler secret put`; without them
+#                                  the cron silently no-ops).
 [triggers]
-crons = ["0 4 * * *"]
+crons = ["0 4 * * *", "0 * * * *"]
