@@ -41,7 +41,7 @@ describe("static SEO assets", () => {
       "<loc>https://statusline.sh/sitemap-pages.xml</loc>",
     );
     expect(xml).toContain(
-      "<loc>https://statusline-community.zoniixyt.workers.dev/sitemap.xml</loc>",
+      "<loc>https://statusline.sh/sitemap-community.xml</loc>",
     );
     // It's an index, not a urlset — no per-page <url> entries here.
     expect(xml).not.toContain("<url>");

@@ -54,11 +54,16 @@ const STATIC_HTML_ROUTES = [
 // The Worker host (the `workers.dev` URL) can be down independently of the
 // primary Vercel domain, so `robots.txt` and the sitemap index are served as
 // STATIC Vercel assets and never depend on the Worker being healthy. The
-// sitemap index references two children:
-//   1. `sitemap-pages.xml` — the static routes, always served by Vercel.
-//   2. the Worker's `/sitemap.xml` — community designs, graceful degradation.
+// sitemap index references two children, BOTH on the statusline.sh host so
+// Google accepts them (a sitemap may only list URLs on the host that serves
+// it; a cross-host child served from workers.dev would be silently ignored):
+//   1. `sitemap-pages.xml` — the static routes, served directly by Vercel.
+//   2. `sitemap-community.xml` — community designs, proxied by Vercel to the
+//      Worker's `/sitemap.xml` (see the rewrite in vercel.json). If the Worker
+//      is down this child 404s and GSC warns on it, but the index and the
+//      static-pages child still work — graceful degradation.
 const STATIC_SITEMAP_PAGES_URL = `${SITE_URL}/sitemap-pages.xml`;
-const WORKER_SITEMAP_URL = "https://statusline-community.zoniixyt.workers.dev/sitemap.xml";
+const WORKER_SITEMAP_URL = `${SITE_URL}/sitemap-community.xml`;
 
 // Deterministic lastmod for the static page routes — kept in lockstep with
 // `STATIC_ROUTES_LASTMOD` in `worker/src/seo.ts`. Bump manually when the

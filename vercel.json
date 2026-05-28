@@ -40,6 +40,10 @@
     { "source": "/privacy", "destination": "/privacy.html" },
     { "source": "/terms", "destination": "/terms.html" },
     {
+      "source": "/sitemap-community.xml",
+      "destination": "https://statusline-community.zoniixyt.workers.dev/sitemap.xml"
+    },
+    {
       "source": "/community/:slug",
       "destination": "https://statusline-community.zoniixyt.workers.dev/ssr/community/:slug"
     },
