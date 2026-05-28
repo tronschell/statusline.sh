@@ -1,11 +1,12 @@
 import { useEffect, useState } from "react";
 import { CaretRight } from "@phosphor-icons/react";
-import type { CommunityCardSummary } from "@statusline/shared/types";
+import type { CommunityCardSummary, Design } from "@statusline/shared/types";
 import { Link } from "../../router";
 import { api } from "../../lib/api";
 import { HeroStatusline } from "./HeroStatusline";
 import { TemplateGallery } from "./TemplateGallery";
 import { ClaudeCodeLogo } from "../ClaudeCodeLogo";
+import { AnimatedPreview } from "../Preview/AnimatedPreview";
 import { StaticPreview } from "../Preview/StaticPreview";
 
 /**
@@ -118,31 +119,43 @@ export function LandingPage() {
               href="/claude-code-statusline-git-branch"
               title="Git branch"
               body="Show the active branch in the statusline."
+              design={ELEMENT_DESIGNS.gitBranch}
+              startOffsetMs={0}
             />
             <ElementGuideLink
               href="/claude-code-statusline-token-usage"
               title="Token usage"
               body="Render context-window usage as a bar or percent."
+              design={ELEMENT_DESIGNS.tokenUsage}
+              startOffsetMs={700}
             />
             <ElementGuideLink
               href="/claude-code-statusline-cost"
               title="Cost"
               body="Track session cost in USD with configurable precision."
+              design={ELEMENT_DESIGNS.cost}
+              startOffsetMs={1400}
             />
             <ElementGuideLink
               href="/claude-code-statusline-model"
               title="Model name"
               body="Pin the active Claude model to the terminal."
+              design={ELEMENT_DESIGNS.model}
+              startOffsetMs={2100}
             />
             <ElementGuideLink
               href="/claude-code-statusline-duration"
               title="Session duration"
               body="Display elapsed time, human or HH:MM:SS."
+              design={ELEMENT_DESIGNS.duration}
+              startOffsetMs={2800}
             />
             <ElementGuideLink
               href="/claude-code-statusline-rate-limit"
               title="Rate limit"
               body="Visualize 5-hour and 7-day rate-limit usage."
+              design={ELEMENT_DESIGNS.rateLimit}
+              startOffsetMs={3500}
             />
           </ul>
         </section>
@@ -251,14 +264,78 @@ function TypewriterHeadline() {
   );
 }
 
+/**
+ * One live, self-animating statusline per element-guide card. Each design is a
+ * single-element snippet themed to that guide, rendered through
+ * `AnimatedPreview` so the underlying field drifts on its own — the branch
+ * rotates, the context bar fills, cost ramps, the model name swaps, duration
+ * ticks up, and the rate-limit bar sweeps.
+ */
+const ELEMENT_DESIGNS = {
+  gitBranch: {
+    version: 1,
+    name: "Git branch",
+    elements: [
+      { id: "gb_lbl", type: "static", text: "on", style: { dim: true, fg: { kind: "ansi16", index: 8 } }, suffix: " " },
+      { id: "gb", type: "gitBranch", style: { bold: true, fg: { kind: "ansi16", index: 5 } } },
+    ],
+  },
+  tokenUsage: {
+    version: 1,
+    name: "Token usage",
+    elements: [
+      { id: "tu_lbl", type: "static", text: "ctx", style: { dim: true, fg: { kind: "ansi16", index: 8 } }, suffix: " " },
+      { id: "tu_bar", type: "contextBar", width: 12, filledChar: "█", emptyChar: "░", colorMode: "absolute", style: { fg: { kind: "ansi16", index: 2 } } },
+      { id: "tu_pct", type: "contextPct", colorMode: "percentage", style: { fg: { kind: "ansi16", index: 7 } }, prefix: " ", suffix: "%" },
+    ],
+  },
+  cost: {
+    version: 1,
+    name: "Cost",
+    elements: [
+      { id: "co_lbl", type: "static", text: "cost", style: { dim: true, fg: { kind: "ansi16", index: 8 } }, suffix: " " },
+      { id: "co", type: "cost", precision: 2, style: { bold: true, fg: { kind: "ansi16", index: 2 } } },
+    ],
+  },
+  model: {
+    version: 1,
+    name: "Model name",
+    elements: [
+      { id: "mo_g", type: "glyph", char: "✦", style: { fg: { kind: "ansi16", index: 13 } }, suffix: " " },
+      { id: "mo", type: "model", style: { bold: true, fg: { kind: "ansi16", index: 6 } } },
+    ],
+  },
+  duration: {
+    version: 1,
+    name: "Session duration",
+    elements: [
+      { id: "du_lbl", type: "static", text: "up", style: { dim: true, fg: { kind: "ansi16", index: 8 } }, suffix: " " },
+      { id: "du", type: "sessionDuration", format: "hms", style: { fg: { kind: "ansi16", index: 4 } } },
+    ],
+  },
+  rateLimit: {
+    version: 1,
+    name: "Rate limit",
+    elements: [
+      { id: "rl_lbl", type: "static", text: "5h", style: { dim: true, fg: { kind: "ansi16", index: 8 } }, suffix: " " },
+      { id: "rl_bar", type: "rateLimit5h", variant: "bar", width: 10, filledChar: "█", emptyChar: "░", style: { fg: { kind: "ansi16", index: 3 } } },
+      { id: "rl_pct", type: "rateLimit5h", variant: "pct", width: 0, filledChar: "█", emptyChar: "░", style: { fg: { kind: "ansi16", index: 7 } }, prefix: " ", suffix: "%" },
+    ],
+  },
+} satisfies Record<string, Design>;
+
 function ElementGuideLink({
   href,
   title,
   body,
+  design,
+  startOffsetMs = 0,
 }: {
   href: string;
   title: string;
   body: string;
+  design: Design;
+  startOffsetMs?: number;
 }) {
   return (
     <li>
@@ -270,6 +347,14 @@ function ElementGuideLink({
         <span className="text-[13px] text-[#8A8A86] leading-relaxed">
           {body}
         </span>
+        {/* Live, self-animating example of this element. */}
+        <div className="mt-2 overflow-hidden">
+          <AnimatedPreview
+            design={design}
+            className="text-[11px]"
+            startOffsetMs={startOffsetMs}
+          />
+        </div>
       </Link>
     </li>
   );

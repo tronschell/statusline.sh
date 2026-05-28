@@ -1,196 +1,58 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { CaretRight, Pause, Play } from "@phosphor-icons/react";
 import { renderToAnsi } from "@statusline/shared/compiler/interpret";
 import { DEFAULT_MOCK_STDIN } from "@statusline/shared/mockStdin";
 import { getTemplate } from "@statusline/shared/templates";
-import type {
-  AnsiStyle,
-  Design,
-  Element,
-  TemplateMeta,
-} from "@statusline/shared/types";
+import type { Design, TemplateMeta } from "@statusline/shared/types";
 import { goToBuilder } from "../../lib/navigate";
 import { useAnimatedMock } from "../../hooks/useAnimatedMock";
 import { AnsiToHtml } from "../Preview/AnsiToHtml";
 import { TerminalFrame } from "../Layout/TerminalFrame";
 
-const TICK_MS = 1400;
-const MORPH_FADE_MS = 520;
-// Every Nth tick, shuffle the entire element order instead of morphing a single
-// slot. ~5 → roughly every 7s the bar fully rearranges.
-const SHUFFLE_EVERY = 5;
+// How long each example holds on screen before it swipes away, plus the two
+// transition phase durations. EXIT_MS / ENTER_MS must match the CSS animation
+// durations below or the swap will flash.
+const DWELL_MS = 4200;
+const EXIT_MS = 560;
+const ENTER_MS = 460;
 
-// Variant pools per slot. Each variant is a partial Element merged on top of
-// the verbose-dev baseline element with the same id, so the surrounding
-// elements stay stable while one slot mutates in place.
-type Slot =
-  | "vd_model"
-  | "vd_dir"
-  | "vd_branch"
-  | "vd_la"
-  | "vd_lr"
-  | "vd_bar"
-  | "vd_cost"
-  | "vd_dur";
+// Curated rotation of shipped templates. verbose-dev leads (it's the one the
+// hero used to be stuck on); the list deliberately mixes single-line and
+// multi-line (two-line-cockpit, triptych) designs so the swipe handles both.
+const CYCLE_TEMPLATE_IDS = [
+  "verbose-dev",
+  "pastel-dashboard",
+  "two-line-cockpit",
+  "neon-pulse",
+  "triptych",
+  "powerline",
+] as const;
 
-type Variant = Partial<Element> & { style?: AnsiStyle };
-
-const VARIANTS: Record<Slot, Variant[]> = {
-  vd_model: [
-    { style: { bold: true, fg: { kind: "ansi16", index: 14 } }, suffix: " " },
-    { style: { bold: true, fg: { kind: "ansi16", index: 13 } }, suffix: " " },
-    { style: { bold: true, fg: { kind: "ansi16", index: 11 } }, suffix: " " },
-    { style: { dim: true, fg: { kind: "ansi16", index: 15 } }, suffix: " · " },
-  ],
-  vd_dir: [
-    { style: { fg: { kind: "ansi16", index: 7 } }, suffix: " " },
-    { style: { italic: true, fg: { kind: "ansi16", index: 15 } }, suffix: " " },
-    { style: { dim: true, fg: { kind: "ansi16", index: 8 } }, suffix: " " },
-  ],
-  vd_branch: [
-    {
-      style: { italic: true, fg: { kind: "ansi16", index: 13 } },
-      prefix: " ",
-      suffix: " ",
-    },
-    {
-      style: { bold: true, fg: { kind: "ansi16", index: 10 } },
-      prefix: " ",
-      suffix: " ",
-    },
-    {
-      style: { italic: true, fg: { kind: "ansi16", index: 11 } },
-      prefix: "(",
-      suffix: ") ",
-    },
-  ],
-  vd_la: [
-    { style: { fg: { kind: "ansi16", index: 10 } }, prefix: "+", suffix: " " },
-    { style: { bold: true, fg: { kind: "ansi16", index: 10 } }, prefix: "▲", suffix: " " },
-    { style: { fg: { kind: "ansi16", index: 10 } }, prefix: "+", suffix: "/" },
-  ],
-  vd_lr: [
-    { style: { fg: { kind: "ansi16", index: 9 } }, prefix: "-", suffix: " " },
-    { style: { bold: true, fg: { kind: "ansi16", index: 9 } }, prefix: "▼", suffix: " " },
-    { style: { fg: { kind: "ansi16", index: 9 } }, prefix: "-", suffix: " " },
-  ],
-  vd_bar: [
-    {
-      style: { fg: { kind: "ansi16", index: 11 } },
-      prefix: "[",
-      suffix: "] ",
-    },
-    {
-      style: { fg: { kind: "ansi16", index: 14 } },
-      prefix: "▏",
-      suffix: "▕ ",
-    },
-    {
-      style: { fg: { kind: "ansi16", index: 10 } },
-      prefix: "⟨",
-      suffix: "⟩ ",
-    },
-  ],
-  vd_cost: [
-    { style: { fg: { kind: "ansi16", index: 3 } }, suffix: " " },
-    { style: { fg: { kind: "ansi16", index: 11 } }, prefix: "$", suffix: " " },
-    { style: { dim: true, fg: { kind: "ansi16", index: 7 } }, prefix: "$", suffix: " " },
-  ],
-  vd_dur: [
-    { style: { dim: true, fg: { kind: "ansi16", index: 8 } } },
-    { style: { italic: true, fg: { kind: "ansi16", index: 8 } } },
-    { style: { dim: true, fg: { kind: "ansi16", index: 15 } } },
-  ],
-};
-
-const SLOTS = Object.keys(VARIANTS) as Slot[];
-
-const BASELINE: Design = (() => {
-  const tpl: TemplateMeta | undefined = getTemplate("verbose-dev");
-  if (!tpl) {
-    // Defensive: should never fire — verbose-dev is shipped in TEMPLATES.
-    return { version: 1, name: "Verbose Dev", elements: [] };
-  }
-  return structuredClone(tpl.design);
-})();
-
-function applyOverrides(
-  base: Design,
-  overrides: Partial<Record<Slot, Variant>>,
-): Design {
-  return {
-    ...base,
-    elements: base.elements.map((el) => {
-      const slot = el.id as Slot;
-      const ov = overrides[slot];
-      if (!ov) return el;
-      // Merge top-level fields (style/prefix/suffix). Cast keeps type narrow.
-      return { ...el, ...ov, style: ov.style ?? el.style } as Element;
-    }),
-  };
-}
-
-function pickRandom<T>(items: ReadonlyArray<T>, exclude?: T): T {
-  if (items.length === 1) return items[0]!;
-  for (let i = 0; i < 6; i++) {
-    const c = items[Math.floor(Math.random() * items.length)]!;
-    if (c !== exclude) return c;
-  }
-  return items[0]!;
-}
-
-function shuffled<T>(arr: ReadonlyArray<T>): T[] {
-  const a = arr.slice();
-  for (let i = a.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    const tmp = a[i]!;
-    a[i] = a[j]!;
-    a[j] = tmp;
-  }
-  return a;
-}
-
-function reshuffleOrder(prev: ReadonlyArray<string>): string[] {
-  if (prev.length < 2) return prev.slice();
-  // Try a few Fisher–Yates passes until the result actually differs from prev,
-  // so a tick visibly rearranges. Falls back to a guaranteed swap of two
-  // distinct indices.
-  for (let attempt = 0; attempt < 4; attempt++) {
-    const next = shuffled(prev);
-    if (next.some((id, i) => id !== prev[i])) return next;
-  }
-  const next = prev.slice();
-  const i = Math.floor(Math.random() * next.length);
-  let j = Math.floor(Math.random() * next.length);
-  while (j === i) j = Math.floor(Math.random() * next.length);
-  const tmp = next[i]!;
-  next[i] = next[j]!;
-  next[j] = tmp;
-  return next;
-}
+type Phase = "idle" | "exiting" | "entering";
 
 /**
- * Verbose-Dev baseline that mutates one slot at a time on a fixed cadence.
+ * Hero terminal that cycles through example templates.
  *
- * Each element is rendered separately so React can keep stable identity per
- * slot. When a slot's variant changes its `sig` flips, the keyed wrapper
- * remounts, and only THAT slot plays the swipe-down. Slots that didn't
- * change stay perfectly still — no re-animation of the whole bar.
+ * Each example renders live (the mock data drifts via `useAnimatedMock`), and
+ * on a fixed cadence the whole bar swipes off to the right, then the next
+ * template fades in. Multi-line templates are handled natively: the rendered
+ * ANSI keeps its newlines and `whitespace-pre` lays them out, while the stage
+ * reserves a stable min-height so the frame doesn't jump between 1- and
+ * 2-line designs.
  */
 export function HeroStatusline() {
+  const templates = useMemo(
+    () =>
+      CYCLE_TEMPLATE_IDS.map((id) => getTemplate(id)).filter(
+        (t): t is TemplateMeta => Boolean(t),
+      ),
+    [],
+  );
+
+  const [index, setIndex] = useState(0);
+  const [phase, setPhase] = useState<Phase>("idle");
   const [isHovered, setIsHovered] = useState(false);
   const [isPaused, setIsPaused] = useState(false);
-  const [overrides, setOverrides] = useState<Partial<Record<Slot, Variant>>>(
-    () => ({}),
-  );
-  const [lastSlot, setLastSlot] = useState<Slot | null>(null);
-  const [order, setOrder] = useState<string[]>(() =>
-    BASELINE.elements.map((e) => e.id),
-  );
-  // Bumped on every shuffle so all slot keys flip and React replays the
-  // swipe-down on each element (not just the morphed one).
-  const [shuffleNonce, setShuffleNonce] = useState(0);
-  const tickCountRef = useRef(0);
 
   const paused = isHovered || isPaused;
   const mock = useAnimatedMock({
@@ -199,54 +61,52 @@ export function HeroStatusline() {
     durationMs: 6000,
   });
 
-  // Periodically morph one slot, and every SHUFFLE_EVERY-th tick reorder the
-  // whole bar instead.
+  const current: TemplateMeta | undefined = templates[index] ?? templates[0];
+
+  // Transition state machine:
+  //   idle --(dwell, unless paused)--> exiting
+  //   exiting --(EXIT_MS, advance index)--> entering
+  //   entering --(ENTER_MS)--> idle
+  // The index only advances when we leave `exiting`, so the old template is
+  // what swipes out and the new one is what fades in.
   useEffect(() => {
-    if (paused) return;
-    const id = setInterval(() => {
-      tickCountRef.current += 1;
-      if (tickCountRef.current % SHUFFLE_EVERY === 0) {
-        setOrder((prev) => reshuffleOrder(prev));
-        setShuffleNonce((n) => n + 1);
-        setLastSlot(null);
-        return;
-      }
-      setOverrides((prev) => {
-        const slot = pickRandom(SLOTS, lastSlot ?? undefined);
-        const currentVariant = prev[slot];
-        const variant = pickRandom(VARIANTS[slot], currentVariant);
-        setLastSlot(slot);
-        return { ...prev, [slot]: variant };
-      });
-    }, TICK_MS);
-    return () => clearInterval(id);
-  }, [paused, lastSlot]);
-
-  const design = useMemo(
-    () => applyOverrides(BASELINE, overrides),
-    [overrides],
-  );
-
-  // Render each element individually so per-slot remounts only re-animate
-  // the changed piece. `sig` captures the merged element struct (style,
-  // prefix, suffix, ...), so mock-only data changes don't flip the key.
-  // Elements are emitted in `order`, which the shuffle tick rotates.
-  const slotRenders = useMemo(() => {
-    const byId = new Map(design.elements.map((el) => [el.id, el] as const));
-    const out: { id: string; sig: string; ansi: string }[] = [];
-    for (const id of order) {
-      const el = byId.get(id);
-      if (!el) continue;
-      const sig = JSON.stringify(el);
-      const subDesign: Design = { ...design, elements: [el] };
-      out.push({ id: el.id, sig, ansi: safeRender(subDesign, mock) });
+    if (templates.length < 2) return;
+    if (phase === "idle") {
+      if (paused) return;
+      const t = setTimeout(() => setPhase("exiting"), DWELL_MS);
+      return () => clearTimeout(t);
     }
-    return out;
-  }, [design, mock, order]);
+    if (phase === "exiting") {
+      const t = setTimeout(() => {
+        setIndex((i) => (i + 1) % templates.length);
+        setPhase("entering");
+      }, EXIT_MS);
+      return () => clearTimeout(t);
+    }
+    // entering
+    const t = setTimeout(() => setPhase("idle"), ENTER_MS);
+    return () => clearTimeout(t);
+  }, [phase, paused, templates.length]);
+
+  const design: Design = current?.design ?? {
+    version: 1,
+    name: "Verbose Dev",
+    elements: [],
+  };
+  const ansi = useMemo(() => safeRender(design, mock), [design, mock]);
 
   const onUseTemplate = () => {
-    goToBuilder({ templateId: "verbose-dev" });
+    goToBuilder({ templateId: current?.id ?? "verbose-dev" });
   };
+
+  const stageClass =
+    "hero-stage" +
+    (phase === "exiting"
+      ? " hero-stage--out"
+      : phase === "entering"
+        ? " hero-stage--in"
+        : "");
+  const stageDuration = phase === "exiting" ? EXIT_MS : ENTER_MS;
 
   return (
     <div
@@ -257,16 +117,16 @@ export function HeroStatusline() {
       <div className="relative isolate">
         <HeroGlow />
         <TerminalFrame className="w-full">
-          <div className="relative h-[1.5em] overflow-hidden whitespace-nowrap">
-            {slotRenders.map(({ id, sig, ansi }) => (
-              <span
-                key={`${id}-${sig}-${shuffleNonce}`}
-                className="slot-swipe inline-block align-baseline"
-                style={{ animationDuration: `${MORPH_FADE_MS}ms` }}
-              >
-                <AnsiToHtml ansi={ansi} />
-              </span>
-            ))}
+          {/* Clips the swipe so content disappears at the right edge instead
+              of triggering the frame's horizontal scroll. min-height holds two
+              lines so single-line designs don't shrink the frame. */}
+          <div className="flex min-h-[3em] items-center overflow-hidden">
+            <span
+              className={stageClass}
+              style={{ animationDuration: `${stageDuration}ms` }}
+            >
+              <AnsiToHtml ansi={ansi} />
+            </span>
           </div>
         </TerminalFrame>
       </div>
@@ -276,7 +136,7 @@ export function HeroStatusline() {
           <button
             type="button"
             onClick={() => setIsPaused((v) => !v)}
-            aria-label={isPaused ? "Resume morphing" : "Pause morphing"}
+            aria-label={isPaused ? "Resume cycling" : "Pause cycling"}
             className="inline-flex h-6 w-6 items-center justify-center rounded-full text-[#8A8A86]/70 hover:text-[#E8E8E6] hover:bg-white/[0.04] transition-colors"
           >
             {isPaused ? (
@@ -286,9 +146,11 @@ export function HeroStatusline() {
             )}
           </button>
           <span>
-            <span className="text-[#E8E8E6]/80">Verbose Dev</span>
+            <span className="text-[#E8E8E6]/80">
+              {current?.name ?? "Verbose Dev"}
+            </span>
             <span className="ml-2 text-[#8A8A86]/60">
-              {isPaused ? "(paused)" : "morphing live"}
+              {isPaused ? "(paused)" : "cycling live"}
             </span>
           </span>
         </div>
@@ -304,32 +166,44 @@ export function HeroStatusline() {
       </div>
 
       <style>{`
-        @keyframes slot-swipe-down {
+        @keyframes hero-swipe-out {
           0% {
-            transform: translateY(-140%) scaleY(1.8);
+            transform: translateX(0) skewX(0deg);
+            opacity: 1;
+            filter: blur(0);
+          }
+          100% {
+            transform: translateX(80%) skewX(-7deg);
             opacity: 0;
-            filter: blur(8px);
+            filter: blur(7px);
           }
-          35% {
-            filter: blur(5px);
-            opacity: 0.85;
+        }
+        @keyframes hero-fade-in {
+          0% {
+            transform: translateX(-2%);
+            opacity: 0;
+            filter: blur(6px);
           }
-          70% {
-            filter: blur(1.5px);
+          55% {
             opacity: 1;
           }
           100% {
-            transform: translateY(0) scaleY(1);
+            transform: translateX(0);
             opacity: 1;
             filter: blur(0);
           }
         }
-        .slot-swipe {
-          transform-origin: top center;
-          animation-name: slot-swipe-down;
-          animation-timing-function: cubic-bezier(0.16, 1, 0.3, 1);
+        .hero-stage {
+          display: inline-block;
+          transform-origin: left center;
           animation-fill-mode: both;
+          animation-timing-function: cubic-bezier(0.16, 1, 0.3, 1);
           will-change: transform, opacity, filter;
+        }
+        .hero-stage--out { animation-name: hero-swipe-out; }
+        .hero-stage--in { animation-name: hero-fade-in; }
+        @media (prefers-reduced-motion: reduce) {
+          .hero-stage--out, .hero-stage--in { animation: none; }
         }
       `}</style>
     </div>
