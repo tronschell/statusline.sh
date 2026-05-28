@@ -228,21 +228,8 @@ export function metaForPath(path: string): RouteMeta {
   const segments = normalized.split("/");
   if (normalized.startsWith("/community/") && segments.length === 3) {
     const slug = safeDecode(segments[2] ?? "");
-    const canonicalPath = `/community/${encodeURIComponent(slug)}`;
     const label = titleFromSlug(slug);
-    return {
-      title: `${label} | Community Statusline | ${SITE_NAME}`,
-      description:
-        "Preview and fork this community-published Claude Code statusline design on statusline.sh.",
-      canonicalPath,
-      jsonLd: [
-        buildBreadcrumbJsonLd([
-          { name: "Home", path: "/" },
-          { name: "Community", path: "/community" },
-          { name: label, path: canonicalPath },
-        ]),
-      ],
-    };
+    return buildCommunityDetailMeta({ slug, name: label });
   }
 
   return {
@@ -250,6 +237,49 @@ export function metaForPath(path: string): RouteMeta {
     description:
       "Design, preview, share, and install Claude Code statuslines from a browser-based builder.",
     canonicalPath: normalized,
+  };
+}
+
+export interface CommunityDetailMetaInput {
+  slug: string;
+  name: string;
+  description?: string | null;
+  author_name?: string | null;
+}
+
+/**
+ * Builds RouteMeta for a community design detail page. When called from
+ * `metaForPath` (slug only), the title falls back to a slug-derived label and
+ * the description is generic. When called from the detail page after the
+ * design row has loaded, the real name + author + description flow into the
+ * `<title>`, meta description, and BreadcrumbList JSON-LD so search engines
+ * and social previews pick up the actual design name + author.
+ */
+export function buildCommunityDetailMeta(
+  input: CommunityDetailMetaInput,
+): RouteMeta {
+  const canonicalPath = `/community/${encodeURIComponent(input.slug)}`;
+  const trimmedName = input.name.trim();
+  const displayName = trimmedName.length > 0 ? trimmedName : "Community Design";
+  const author = (input.author_name ?? "").trim();
+  const rawDescription = (input.description ?? "").trim();
+  const description = rawDescription.length > 0
+    ? rawDescription
+    : author.length > 0
+      ? `A Claude Code statusline design by ${author}. Preview and fork it into your own builder on ${SITE_NAME}.`
+      : `A community-published Claude Code statusline design. Preview and fork it into your own builder on ${SITE_NAME}.`;
+
+  return {
+    title: `${displayName} | Community Statusline | ${SITE_NAME}`,
+    description,
+    canonicalPath,
+    jsonLd: [
+      buildBreadcrumbJsonLd([
+        { name: "Home", path: "/" },
+        { name: "Community", path: "/community" },
+        { name: displayName, path: canonicalPath },
+      ]),
+    ],
   };
 }
 
