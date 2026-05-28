@@ -44,10 +44,27 @@ export function renderRobotsTxt(): string {
   ].join("\n");
 }
 
+// Bump this manually when any of the static pages (homepage, builder, community
+// list, guide, privacy, terms) meaningfully change. Keeping it deterministic
+// avoids ticking lastmod on every deploy, which search engines interpret as
+// noisy churn.
+export const STATIC_ROUTES_LASTMOD = "2026-05-27T00:00:00.000Z";
+
+const STATIC_ROUTE_PATHS = [
+  "",
+  "/builder",
+  "/community",
+  "/how-to-make-a-claude-code-statusline",
+  "/privacy",
+  "/terms",
+] as const;
+
 export function renderSitemapXml(entries: CommunitySitemapEntry[]): string {
-  const urls = [
-    { loc: SITE_ORIGIN, lastmod: null },
-    { loc: `${SITE_ORIGIN}/community`, lastmod: null },
+  const urls: { loc: string; lastmod: string }[] = [
+    ...STATIC_ROUTE_PATHS.map((path) => ({
+      loc: `${SITE_ORIGIN}${path}`,
+      lastmod: STATIC_ROUTES_LASTMOD,
+    })),
     ...entries.map((entry) => ({
       loc: communityCanonicalUrl(entry.slug),
       lastmod: toLastMod(entry.published_at),
@@ -55,12 +72,10 @@ export function renderSitemapXml(entries: CommunitySitemapEntry[]): string {
   ];
 
   const body = urls
-    .map((url) => {
-      const lastmod = url.lastmod
-        ? `\n    <lastmod>${escapeXml(url.lastmod)}</lastmod>`
-        : "";
-      return `  <url>\n    <loc>${escapeXml(url.loc)}</loc>${lastmod}\n  </url>`;
-    })
+    .map(
+      (url) =>
+        `  <url>\n    <loc>${escapeXml(url.loc)}</loc>\n    <lastmod>${escapeXml(url.lastmod)}</lastmod>\n  </url>`,
+    )
     .join("\n");
 
   return `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${body}\n</urlset>\n`;
