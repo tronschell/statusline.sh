@@ -21,6 +21,7 @@ import { renderCommunityOgSvg } from "./og";
 import { renderOgPng } from "./og-png";
 import { renderRobotsTxt, renderSitemapXml } from "./seo";
 import { rollupViewsFromAE } from "./views";
+import { renderCommunityDetailHtml } from "./ssr";
 
 export interface RateLimitBinding {
   limit(opts: { key: string }): Promise<{ success: boolean }>;
@@ -81,6 +82,9 @@ route("GET", "/og/community/:slug.png", (_req, env, _ctx, params) =>
 );
 route("GET", "/community/:slug", (req, env, _ctx, params) =>
   handleGetCommunityBySlug(req, env as Env, params),
+);
+route("GET", "/ssr/community/:slug", (req, env, ctx, params) =>
+  handleSsrCommunityBySlug(req, env as Env, ctx, params),
 );
 route("POST", "/community/:slug/fork", (req, env, _ctx, params) =>
   handleForkBump(req, env as Env, params),
@@ -349,6 +353,69 @@ async function handleGetCommunityBySlug(
   return jsonResponse(row);
 }
 
+// Edge-cache TTL for the SSR detail HTML. Designs are immutable once
+// published (only views/forks/installs counters change, and those don't
+// show in the SSR shell), so we can afford a generous SWR window. 5 min
+// fresh + 1 hour stale-while-revalidate gives us crawl-friendly latency
+// without serving stale install counts longer than necessary if we later
+// add them to the SSR.
+const SSR_DETAIL_FRESH_SECONDS = 300;
+const SSR_DETAIL_SWR_SECONDS = 3600;
+
+async function handleSsrCommunityBySlug(
+  req: Request,
+  env: Env,
+  ctx: ExecutionContext,
+  params: Record<string, string>,
+): Promise<Response> {
+  const cacheKey = buildSsrCacheKey(params.slug!);
+  const edgeCache = getEdgeCache();
+
+  if (edgeCache) {
+    const hit = await edgeCache.match(cacheKey);
+    if (hit) {
+      const headers = new Headers(hit.headers);
+      headers.set("x-cache", "HIT");
+      return new Response(hit.body, { status: hit.status, headers });
+    }
+  }
+
+  // Cache miss — apply detail rate limit before touching D1, matching the
+  // JSON handler.
+  const ip = getClientIp(req) ?? "anon";
+  const rl = await checkRateLimit(env, "detail", ip);
+  if (rl) return rl;
+
+  const row = await getCommunityBySlug(env, params.slug!);
+  if (!row) {
+    return new Response("not found", {
+      status: 404,
+      headers: { "content-type": "text/plain; charset=utf-8" },
+    });
+  }
+
+  const html = renderCommunityDetailHtml({ row });
+  const response = new Response(html, {
+    status: 200,
+    headers: {
+      "content-type": "text/html; charset=utf-8",
+      "cache-control": `public, s-maxage=${SSR_DETAIL_FRESH_SECONDS}, stale-while-revalidate=${SSR_DETAIL_SWR_SECONDS}`,
+      "x-cache": "MISS",
+    },
+  });
+
+  if (edgeCache) {
+    ctx.waitUntil(edgeCache.put(cacheKey, response.clone()));
+  }
+  return response;
+}
+
+function buildSsrCacheKey(slug: string): Request {
+  const u = new URL("https://ssr-cache.invalid/community/");
+  u.pathname = `/community/${encodeURIComponent(slug)}`;
+  return new Request(u.toString());
+}
+
 async function handleForkBump(
   req: Request,
   env: Env,
@@ -520,6 +587,7 @@ async function readJson(req: Request): Promise<any | null> {
 export {
   handleListCommunity,
   handleGetCommunityBySlug,
+  handleSsrCommunityBySlug,
   handleForkBump,
   handlePublish,
   handleInstallAnonymous,
