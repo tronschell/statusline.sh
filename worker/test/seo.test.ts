@@ -13,6 +13,7 @@ import {
   escapeXml,
   renderRobotsTxt,
   renderSitemapXml,
+  STATIC_ROUTES_LASTMOD,
 } from "../src/seo";
 import { renderCommunityOgSvg } from "../src/og";
 
@@ -133,12 +134,44 @@ describe("SEO render helpers", () => {
 
     expect(xml).toContain("<?xml version=\"1.0\" encoding=\"UTF-8\"?>");
     expect(xml).toContain("<loc>https://statusline.sh</loc>");
+    expect(xml).toContain("<loc>https://statusline.sh/builder</loc>");
     expect(xml).toContain("<loc>https://statusline.sh/community</loc>");
+    expect(xml).toContain(
+      "<loc>https://statusline.sh/how-to-make-a-claude-code-statusline</loc>",
+    );
+    expect(xml).toContain("<loc>https://statusline.sh/privacy</loc>");
+    expect(xml).toContain("<loc>https://statusline.sh/terms</loc>");
     expect(xml).toContain(
       "<loc>https://statusline.sh/community/quiet%26prompt</loc>",
     );
     expect(xml).toContain("<lastmod>2026-01-02T03:04:05.000Z</lastmod>");
     expect(xml).not.toContain("quiet&prompt");
+  });
+
+  test("every <url> in the sitemap has a <lastmod>", () => {
+    const xml = renderSitemapXml([
+      { slug: "one-aaaa", published_at: Date.UTC(2026, 0, 2, 3, 4, 5) },
+      { slug: "two-bbbb", published_at: Date.UTC(2026, 1, 3, 4, 5, 6) },
+    ]);
+
+    const urlBlocks = xml.match(/<url>[\s\S]*?<\/url>/g) ?? [];
+    // 6 static routes (homepage, builder, community, guide, privacy, terms) + 2 entries
+    expect(urlBlocks.length).toBe(8);
+    for (const block of urlBlocks) {
+      expect(block).toMatch(/<lastmod>[^<]+<\/lastmod>/);
+    }
+  });
+
+  test("homepage entry carries the STATIC_ROUTES_LASTMOD value", () => {
+    const xml = renderSitemapXml([]);
+    expect(xml).toContain(
+      `  <url>\n    <loc>https://statusline.sh</loc>\n    <lastmod>${STATIC_ROUTES_LASTMOD}</lastmod>\n  </url>`,
+    );
+    // Sanity check on the constant — guards against an accidental edit that
+    // produces an invalid ISO-8601 string.
+    expect(new Date(STATIC_ROUTES_LASTMOD).toISOString()).toBe(
+      STATIC_ROUTES_LASTMOD,
+    );
   });
 });
 
