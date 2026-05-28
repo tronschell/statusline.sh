@@ -63,9 +63,18 @@ describe("templates: renderToAnsi", () => {
 });
 
 describe("templates: powerline metadata", () => {
-  test("powerline declares Nerd Font requirement", () => {
+  test("powerline uses a font-portable separator (no Nerd Font requirement)", () => {
     const pl = getTemplate("powerline");
-    expect(pl?.authorCredit).toBe("requires Nerd Font");
+    // The chevron is now U+25B6, which renders in plain monospace fonts, so we
+    // no longer warn that a Nerd Font is required.
+    expect(pl?.authorCredit).toBeUndefined();
+    const chevrons = pl?.design.elements.filter(
+      (e) => e.type === "separator",
+    );
+    expect(chevrons?.length).toBeGreaterThan(0);
+    for (const c of chevrons ?? []) {
+      expect((c as { text: string }).text).toBe("▶");
+    }
   });
 });
 

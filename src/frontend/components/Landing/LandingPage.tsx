@@ -88,7 +88,7 @@ export function LandingPage() {
               Templates.
             </h2>
             <p className="text-[14px] text-[#8A8A86] max-w-[40ch] text-right">
-              Eight starting points. Fork any of them in the builder.
+              Fork any of them in the builder.
             </p>
           </div>
           <TemplateGallery />
@@ -196,16 +196,44 @@ export function LandingPage() {
 
 const HEADLINE_PRE = "Design your";
 const HEADLINE_LINE1 = "Claude Code";
-const HEADLINE_LINE2 = "statusline";
+// The trailing word is a stable stem plus a suffix that the headline edits in
+// place after the intro types out. Suffixes cycle: "statusline" → "status line"
+// → "status bar" → "statusbar" → (loop). Each transition deletes the current
+// suffix one char at a time (like the delete key) and types the next.
+const HEADLINE_STEM = "status";
+const HEADLINE_SUFFIXES = ["line", " line", " bar", "bar"] as const;
+const HEADLINE_LINE2 = HEADLINE_STEM + HEADLINE_SUFFIXES[0]; // "statusline"
 const HEADLINE_TOTAL =
   HEADLINE_PRE.length + 1 + HEADLINE_LINE1.length + HEADLINE_LINE2.length;
 const TYPE_INTERVAL_MS = 55;
+const DELETE_INTERVAL_MS = 42;
+const SUFFIX_HOLD_MS = 1600;
+
+type CyclePhase = "hold" | "deleting" | "typing";
 
 function TypewriterHeadline() {
   const [count, setCount] = useState(0);
   const [spins, setSpins] = useState(0);
   const done = count >= HEADLINE_TOTAL;
 
+  // Suffix-cycling state, active only once the intro typing has finished.
+  const [sufIdx, setSufIdx] = useState(0);
+  const [sufChars, setSufChars] = useState(HEADLINE_SUFFIXES[0].length);
+  const [phase, setPhase] = useState<CyclePhase>("hold");
+  const [reducedMotion, setReducedMotion] = useState(false);
+
+  const activeSuffix = HEADLINE_SUFFIXES[sufIdx] ?? "";
+
+  useEffect(() => {
+    const mq = window.matchMedia?.("(prefers-reduced-motion: reduce)");
+    if (!mq) return;
+    setReducedMotion(mq.matches);
+    const onChange = () => setReducedMotion(mq.matches);
+    mq.addEventListener?.("change", onChange);
+    return () => mq.removeEventListener?.("change", onChange);
+  }, []);
+
+  // Intro typing: reveal the whole headline up through "statusline".
   useEffect(() => {
     if (done) return;
     const id = window.setTimeout(
@@ -214,6 +242,37 @@ function TypewriterHeadline() {
     );
     return () => window.clearTimeout(id);
   }, [count, done]);
+
+  // Suffix cycle: hold → delete the suffix to the stem → type the next suffix.
+  useEffect(() => {
+    if (!done || reducedMotion) return;
+    if (phase === "hold") {
+      const id = window.setTimeout(() => setPhase("deleting"), SUFFIX_HOLD_MS);
+      return () => window.clearTimeout(id);
+    }
+    if (phase === "deleting") {
+      if (sufChars === 0) {
+        setSufIdx((i) => (i + 1) % HEADLINE_SUFFIXES.length);
+        setPhase("typing");
+        return;
+      }
+      const id = window.setTimeout(
+        () => setSufChars((c) => c - 1),
+        DELETE_INTERVAL_MS,
+      );
+      return () => window.clearTimeout(id);
+    }
+    // typing
+    if (sufChars >= activeSuffix.length) {
+      setPhase("hold");
+      return;
+    }
+    const id = window.setTimeout(
+      () => setSufChars((c) => c + 1),
+      TYPE_INTERVAL_MS,
+    );
+    return () => window.clearTimeout(id);
+  }, [done, reducedMotion, phase, sufChars, activeSuffix.length]);
 
   const preTyped = HEADLINE_PRE.slice(0, Math.min(count, HEADLINE_PRE.length));
   const showLogo = count > HEADLINE_PRE.length;
@@ -224,7 +283,12 @@ function TypewriterHeadline() {
   );
   const line2Start = line1Start + HEADLINE_LINE1.length;
   const showBreak = count >= line2Start;
-  const line2Typed = HEADLINE_LINE2.slice(0, Math.max(0, count - line2Start));
+  // Before the intro finishes, reveal "statusline" character by character. After
+  // it finishes, render the stem plus however much of the active suffix is
+  // currently typed/deleted.
+  const line2Typed = done
+    ? HEADLINE_STEM + activeSuffix.slice(0, sufChars)
+    : HEADLINE_LINE2.slice(0, Math.max(0, count - line2Start));
 
   return (
     <h1
