@@ -38,6 +38,11 @@ const STATIC_HTML_ROUTES = [
   "/terms",
 ];
 
+// @deprecated — the primary domain now rewrites `/robots.txt` and
+// `/sitemap.xml` to the Worker (see `vercel.json`), so the build no longer
+// writes a static copy of either file. Kept exported only because tests in
+// `test/seo.test.ts` still reference these helpers; remove once those tests
+// are updated/removed.
 export function renderRobotsTxt(
   siteUrl = SITE_URL,
   workerSitemapUrl = "https://api.statusline.sh/sitemap.xml",
@@ -53,6 +58,8 @@ export function renderRobotsTxt(
   ].join("\n");
 }
 
+// @deprecated — see `renderRobotsTxt` above. The dynamic sitemap is served by
+// the Worker at `/sitemap.xml` (rewritten from the primary domain).
 export function renderStaticSitemapXml(
   routes = STATIC_SITEMAP_ROUTES,
   siteUrl = SITE_URL,
@@ -277,15 +284,12 @@ function replaceFirst(
 }
 
 async function writeStaticSeoAssets(): Promise<void> {
+  // Note: `robots.txt` and `sitemap.xml` are NOT written here. The primary
+  // domain rewrites both paths to the Worker (`vercel.json`), which serves
+  // them dynamically — including the live community-design slug list.
   await mkdir(outdir, { recursive: true });
   const ogSvgPath = path.join(process.cwd(), "src", "static", "og-default.svg");
   await Promise.all([
-    writeFile(path.join(outdir, "robots.txt"), renderRobotsTxt(), "utf8"),
-    writeFile(
-      path.join(outdir, "sitemap.xml"),
-      renderStaticSitemapXml(),
-      "utf8",
-    ),
     writeFile(
       path.join(outdir, "site.webmanifest"),
       renderWebManifest(),
