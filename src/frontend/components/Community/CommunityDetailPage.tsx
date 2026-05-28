@@ -127,6 +127,7 @@ export function CommunityDetailPage({ slug: slugProp }: CommunityDetailPageProps
         name: data.name,
         description: data.description,
         author_name: data.author_name,
+        published_at: data.published_at,
       }),
     );
     return () => clearRouteMetaOverride(canonicalPath);

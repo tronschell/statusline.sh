@@ -110,17 +110,12 @@ type SitemapUrl = {
   priority: string | null;
 };
 
+// The Worker sitemap now contains ONLY community-design URLs. The static
+// routes (homepage, builder, community list, guide, programmatic pages,
+// privacy, terms) live in `dist/sitemap-pages.xml`, served statically by
+// Vercel and referenced from the static `sitemap.xml` sitemap index. Keeping
+// them out of here avoids duplicate URLs across the two child sitemaps.
 export function renderSitemapXml(entries: CommunitySitemapEntry[]): string {
-  const staticUrls: SitemapUrl[] = STATIC_SITEMAP_ROUTES.map((route) => ({
-    loc:
-      route.path === "/"
-        ? SITE_ORIGIN
-        : `${SITE_ORIGIN}${route.path}`,
-    lastmod: STATIC_ROUTES_LASTMOD,
-    changefreq: route.changefreq,
-    priority: route.priority,
-  }));
-
   const communityUrls: SitemapUrl[] = entries.map((entry) => ({
     loc: communityCanonicalUrl(entry.slug),
     lastmod: toLastMod(entry.published_at),
@@ -128,7 +123,7 @@ export function renderSitemapXml(entries: CommunitySitemapEntry[]): string {
     priority: null,
   }));
 
-  const body = [...staticUrls, ...communityUrls]
+  const body = communityUrls
     .map((url) => {
       const parts = [`    <loc>${escapeXml(url.loc)}</loc>`];
       if (url.lastmod) {

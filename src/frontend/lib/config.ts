@@ -15,7 +15,7 @@ function inferWorkerUrl(): string {
     const h = window.location.hostname;
     if (h === "localhost" || h === "127.0.0.1") return "http://localhost:8787";
   }
-  return "https://api.statusline.sh"; // production fallback; maintainer overrides via env
+  return "https://statusline-community.zoniixyt.workers.dev"; // production fallback; maintainer overrides via env
 }
 
 function inferTurnstileSiteKey(): string {

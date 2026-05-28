@@ -7,8 +7,6 @@
   "cleanUrls": true,
   "trailingSlash": false,
   "rewrites": [
-    { "source": "/sitemap.xml", "destination": "https://api.statusline.sh/sitemap.xml" },
-    { "source": "/robots.txt", "destination": "https://api.statusline.sh/robots.txt" },
     { "source": "/community", "destination": "/community.html" },
     { "source": "/builder", "destination": "/builder.html" },
     {
@@ -43,7 +41,7 @@
     { "source": "/terms", "destination": "/terms.html" },
     {
       "source": "/community/:slug",
-      "destination": "https://api.statusline.sh/ssr/community/:slug"
+      "destination": "https://statusline-community.zoniixyt.workers.dev/ssr/community/:slug"
     },
     { "source": "/((?!_next|assets|.*\\..*).*)", "destination": "/index.html" }
   ],

@@ -1,13 +1,6 @@
 import { useEffect, useSyncExternalStore } from "react";
 import { usePath } from "../../router";
-import {
-  DEFAULT_OG_IMAGE,
-  SITE_NAME,
-  absoluteUrl,
-  canonicalUrl,
-  metaForPath,
-  type RouteMeta,
-} from "../../seo";
+import { applyHeadMeta, metaForPath, type RouteMeta } from "../../seo";
 
 /**
  * Tiny external store so route-aware pages (e.g. CommunityDetailPage) can push
@@ -66,68 +59,16 @@ export function Seo() {
   const override = useRouteMetaOverride();
 
   useEffect(() => {
-    const meta = override && override.path === path
-      ? override.meta
-      : metaForPath(path);
-    const canonical = canonicalUrl(meta.canonicalPath);
-    const image = absoluteUrl(meta.image ?? DEFAULT_OG_IMAGE);
-
-    document.title = meta.title;
-    setMeta("name", "description", meta.description);
-    setMeta("name", "robots", meta.robots ?? "index,follow");
-    setMeta("property", "og:site_name", SITE_NAME);
-    setMeta("property", "og:type", "website");
-    setMeta("property", "og:title", meta.title);
-    setMeta("property", "og:description", meta.description);
-    setMeta("property", "og:url", canonical);
-    setMeta("property", "og:image", image);
-    setMeta("name", "twitter:card", "summary_large_image");
-    setMeta("name", "twitter:title", meta.title);
-    setMeta("name", "twitter:description", meta.description);
-    setMeta("name", "twitter:image", image);
-    setCanonical(canonical);
-    setJsonLd(meta.jsonLd ?? []);
+    // Prefer a page-supplied override (e.g. the community detail page once its
+    // row loads), but only when it targets the *current* path — otherwise fall
+    // back to the route's static metadata. `applyHeadMeta` upserts every tag
+    // and the canonical, so client-side navigation never leaves a prior
+    // route's title/canonical/JSON-LD stale.
+    const meta = override && override.path === path ? override.meta : metaForPath(path);
+    applyHeadMeta(meta);
   }, [path, override]);
 
   return null;
-}
-
-function setMeta(attribute: "name" | "property", key: string, content: string) {
-  let element = document.head.querySelector<HTMLMetaElement>(
-    `meta[${attribute}="${key}"]`,
-  );
-  if (!element) {
-    element = document.createElement("meta");
-    element.setAttribute(attribute, key);
-    document.head.appendChild(element);
-  }
-  element.content = content;
-}
-
-function setCanonical(href: string) {
-  let element = document.head.querySelector<HTMLLinkElement>(
-    'link[rel="canonical"]',
-  );
-  if (!element) {
-    element = document.createElement("link");
-    element.rel = "canonical";
-    document.head.appendChild(element);
-  }
-  element.href = href;
-}
-
-function setJsonLd(items: Array<Record<string, unknown>>) {
-  document
-    .querySelectorAll('script[type="application/ld+json"][data-seo="route"]')
-    .forEach((element) => element.remove());
-
-  for (const item of items) {
-    const script = document.createElement("script");
-    script.type = "application/ld+json";
-    script.dataset.seo = "route";
-    script.text = JSON.stringify(item);
-    document.head.appendChild(script);
-  }
 }
 
 export default Seo;

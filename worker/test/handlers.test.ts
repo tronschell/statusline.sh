@@ -816,7 +816,7 @@ describe("GET /ssr/community/:slug", () => {
     expect(html).toContain(author);
     expect(html).toContain(description);
     expect(html).toContain(
-      `curl -fsSL https://api.statusline.sh/i/${id}.sh | bash`,
+      `curl -fsSL https://statusline-community.zoniixyt.workers.dev/i/${id}.sh | bash`,
     );
     expect(html).toContain(`/i/${id}.ps1`);
     expect(html).toContain(`<div id="root">`);
@@ -837,13 +837,13 @@ describe("GET /ssr/community/:slug", () => {
       `<meta property="og:url" content="https://statusline.sh/community/${slug}" />`,
     );
     expect(html).toContain(
-      `<meta property="og:image" content="https://api.statusline.sh/og/community/${slug}.svg" />`,
+      `<meta property="og:image" content="https://statusline-community.zoniixyt.workers.dev/og/community/${slug}.svg" />`,
     );
     expect(html).toContain(`<meta name="twitter:card" content="summary_large_image" />`);
     expect(html).toContain(name);
   });
 
-  test("HTML embeds SoftwareApplication + BreadcrumbList JSON-LD", async () => {
+  test("HTML embeds SoftwareApplication + CreativeWork + BreadcrumbList JSON-LD", async () => {
     const { slug, name, author } = seed();
     const res = await worker.fetch(
       new Request(`https://worker.example.com/ssr/community/${slug}`),
@@ -857,8 +857,13 @@ describe("GET /ssr/community/:slug", () => {
         /<script type="application\/ld\+json">([\s\S]*?)<\/script>/g,
       ),
     ].map((m) => JSON.parse(m[1]!.replace(/\\u003c/g, "<")));
+    const ogImage = `https://statusline-community.zoniixyt.workers.dev/og/community/${slug}.svg`;
+    const canonical = `https://statusline.sh/community/${slug}`;
     const software = scripts.find(
       (s) => (s as { "@type": string })["@type"] === "SoftwareApplication",
+    ) as Record<string, unknown> | undefined;
+    const creativeWork = scripts.find(
+      (s) => (s as { "@type": string })["@type"] === "CreativeWork",
     ) as Record<string, unknown> | undefined;
     const breadcrumbs = scripts.find(
       (s) => (s as { "@type": string })["@type"] === "BreadcrumbList",
@@ -866,16 +871,90 @@ describe("GET /ssr/community/:slug", () => {
     expect(software).toBeDefined();
     expect(software!["name"]).toBe(name);
     expect(software!["applicationCategory"]).toBe("DeveloperApplication");
+    expect(software!["image"]).toBe(ogImage);
+    expect(software!["url"]).toBe(canonical);
+    expect(software!["datePublished"]).toBe("2026-04-12T08:30:00.000Z");
     expect((software!["author"] as { name: string }).name).toBe(author);
+    // CreativeWork describes the same artefact with image + publish date.
+    expect(creativeWork).toBeDefined();
+    expect(creativeWork!["name"]).toBe(name);
+    expect(creativeWork!["url"]).toBe(canonical);
+    expect(creativeWork!["image"]).toBe(ogImage);
+    expect(creativeWork!["datePublished"]).toBe("2026-04-12T08:30:00.000Z");
+    expect((creativeWork!["author"] as { name: string }).name).toBe(author);
     expect(breadcrumbs).toBeDefined();
     expect(breadcrumbs!.itemListElement.map((i) => i.name)).toEqual([
       "Home",
       "Community",
       name,
     ]);
-    expect(breadcrumbs!.itemListElement[2]!.item).toBe(
-      `https://statusline.sh/community/${slug}`,
+    expect(breadcrumbs!.itemListElement[2]!.item).toBe(canonical);
+  });
+
+  test("HTML links to sibling designs + back to /community and /builder", async () => {
+    const { slug } = seed();
+    // Add two more designs to act as crawlable siblings.
+    db.designs.push({
+      id: "sibling0001",
+      json: JSON.stringify(minimalDesign()),
+      slug: "snazzy-bar-sib1",
+      name: "Snazzy Bar",
+      author_name: "Grace Hopper",
+      description: "",
+      forked_from: null,
+      published_at: Date.parse("2026-04-13T08:30:00.000Z"),
+      views: 0,
+      forks: 0,
+      installs: 0,
+    });
+    db.designs.push({
+      id: "sibling0002",
+      json: JSON.stringify(minimalDesign()),
+      slug: "tidy-line-sib2",
+      name: "Tidy Line",
+      author_name: "Alan Turing",
+      description: "",
+      forked_from: null,
+      published_at: Date.parse("2026-04-14T08:30:00.000Z"),
+      views: 0,
+      forks: 0,
+      installs: 0,
+    });
+    const res = await worker.fetch(
+      new Request(`https://worker.example.com/ssr/community/${slug}`),
+      env,
+      makeCtx(),
     );
+    const html = await res.text();
+    // Related sibling links (real anchors, absolute canonical URLs).
+    expect(html).toContain(
+      `<a href="https://statusline.sh/community/snazzy-bar-sib1">Snazzy Bar`,
+    );
+    expect(html).toContain(
+      `<a href="https://statusline.sh/community/tidy-line-sib2">Tidy Line`,
+    );
+    expect(html).toContain("Related statuslines");
+    // Must NOT link to itself in the related block.
+    expect(html).not.toContain(
+      `<a href="https://statusline.sh/community/${slug}">`,
+    );
+    // Back-links.
+    expect(html).toContain(`<a href="/community">Browse community</a>`);
+    expect(html).toContain(`<a href="/builder">Open builder</a>`);
+  });
+
+  test("related block is omitted when no siblings exist", async () => {
+    const { slug } = seed();
+    const res = await worker.fetch(
+      new Request(`https://worker.example.com/ssr/community/${slug}`),
+      env,
+      makeCtx(),
+    );
+    const html = await res.text();
+    // Only design present → no related block, but back-links remain.
+    expect(html).not.toContain("Related statuslines");
+    expect(html).toContain(`<a href="/community">Browse community</a>`);
+    expect(html).toContain(`<a href="/builder">Open builder</a>`);
   });
 
   test("sets stale-while-revalidate cache header", async () => {

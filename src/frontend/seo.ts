@@ -10,7 +10,7 @@ export const DEFAULT_OG_IMAGE = "/og-default.png";
 // Worker rather than `WORKER_URL` from lib/config: social crawlers fetch
 // these URLs themselves from somewhere remote, so a localhost dev override
 // would be useless to them. Per-design OG URLs always need to be absolute.
-export const OG_IMAGE_ORIGIN = "https://api.statusline.sh";
+export const OG_IMAGE_ORIGIN = "https://statusline-community.zoniixyt.workers.dev";
 export const STATUSLINE_GUIDE_PATH = "/how-to-make-a-claude-code-statusline";
 
 /**
@@ -28,6 +28,8 @@ export interface RouteMeta {
   canonicalPath: string;
   image?: string;
   robots?: string;
+  /** Open Graph object type. Defaults to "website"; community designs use "article". */
+  ogType?: string;
   jsonLd?: JsonLdObject[];
 }
 
@@ -51,6 +53,143 @@ export function normalizePath(path: string): string {
   const withSlash = rawPath.startsWith("/") ? rawPath : `/${rawPath}`;
   const trimmed = withSlash.replace(/\/+$|\s+$/g, "") || "/";
   return trimmed === "" ? "/" : trimmed;
+}
+
+/** A single `<meta>` tag to upsert into the document head. */
+export interface MetaTagDescriptor {
+  attribute: "name" | "property";
+  key: string;
+  content: string;
+}
+
+/**
+ * Resolve a {@link RouteMeta} into the concrete head state for the page:
+ * an absolute self-referencing canonical, an absolute OG/Twitter image, the
+ * ordered set of `<meta>` tags, and the route-scoped JSON-LD blocks.
+ *
+ * Pure (no DOM access) so it can be unit-tested and reused by the runtime
+ * `Seo` component. {@link applyHeadMeta} consumes the result to mutate the
+ * live document, upserting each tag (never appending duplicates).
+ */
+export interface ResolvedHeadMeta {
+  title: string;
+  canonical: string;
+  image: string;
+  robots: string;
+  ogType: string;
+  metaTags: MetaTagDescriptor[];
+  jsonLd: JsonLdObject[];
+}
+
+export function resolveHeadMeta(meta: RouteMeta): ResolvedHeadMeta {
+  const canonical = canonicalUrl(meta.canonicalPath);
+  const image = absoluteUrl(meta.image ?? DEFAULT_OG_IMAGE);
+  const robots = meta.robots ?? "index,follow";
+  const ogType = meta.ogType ?? "website";
+  const metaTags: MetaTagDescriptor[] = [
+    { attribute: "name", key: "description", content: meta.description },
+    { attribute: "name", key: "robots", content: robots },
+    { attribute: "property", key: "og:site_name", content: SITE_NAME },
+    { attribute: "property", key: "og:type", content: ogType },
+    { attribute: "property", key: "og:title", content: meta.title },
+    { attribute: "property", key: "og:description", content: meta.description },
+    { attribute: "property", key: "og:url", content: canonical },
+    { attribute: "property", key: "og:image", content: image },
+    { attribute: "name", key: "twitter:card", content: "summary_large_image" },
+    { attribute: "name", key: "twitter:title", content: meta.title },
+    { attribute: "name", key: "twitter:description", content: meta.description },
+    { attribute: "name", key: "twitter:image", content: image },
+  ];
+  return {
+    title: meta.title,
+    canonical,
+    image,
+    robots,
+    ogType,
+    metaTags,
+    jsonLd: meta.jsonLd ?? [],
+  };
+}
+
+/**
+ * Apply resolved head metadata to a document. Upserts the title, every
+ * `<meta>` tag, and the canonical `<link>` (updating existing nodes in place
+ * rather than appending duplicates), then replaces the route-scoped JSON-LD
+ * (`script[data-seo="route"]`) with the supplied blocks.
+ *
+ * Server-rendered JSON-LD (which carries no `data-seo` marker) is deliberately
+ * left untouched — it serves crawlers that never execute this JS, while the
+ * runtime blocks are the equivalent for client-side SPA navigations.
+ *
+ * Accepts a `Document` so it stays unit-testable against a DOM stub. No-ops
+ * when no document is available (SSR / non-browser).
+ */
+export function applyHeadMeta(
+  meta: RouteMeta,
+  doc: Document | undefined = typeof document === "undefined"
+    ? undefined
+    : document,
+): void {
+  if (!doc) return;
+  const resolved = resolveHeadMeta(meta);
+  const head = doc.head;
+
+  doc.title = resolved.title;
+
+  for (const tag of resolved.metaTags) {
+    upsertMeta(doc, head, tag);
+  }
+
+  upsertCanonical(doc, head, resolved.canonical);
+  replaceRouteJsonLd(doc, head, resolved.jsonLd);
+}
+
+function upsertMeta(
+  doc: Document,
+  head: HTMLHeadElement,
+  tag: MetaTagDescriptor,
+): void {
+  let element = head.querySelector<HTMLMetaElement>(
+    `meta[${tag.attribute}="${tag.key}"]`,
+  );
+  if (!element) {
+    element = doc.createElement("meta");
+    element.setAttribute(tag.attribute, tag.key);
+    head.appendChild(element);
+  }
+  element.setAttribute("content", tag.content);
+}
+
+function upsertCanonical(
+  doc: Document,
+  head: HTMLHeadElement,
+  href: string,
+): void {
+  let element = head.querySelector<HTMLLinkElement>('link[rel="canonical"]');
+  if (!element) {
+    element = doc.createElement("link");
+    element.setAttribute("rel", "canonical");
+    head.appendChild(element);
+  }
+  element.setAttribute("href", href);
+}
+
+function replaceRouteJsonLd(
+  doc: Document,
+  head: HTMLHeadElement,
+  items: JsonLdObject[],
+): void {
+  head
+    .querySelectorAll('script[type="application/ld+json"][data-seo="route"]')
+    .forEach((element) => element.remove());
+
+  for (const item of items) {
+    const script = doc.createElement("script");
+    script.setAttribute("type", "application/ld+json");
+    script.dataset.seo = "route";
+    script.textContent = JSON.stringify(item);
+    head.appendChild(script);
+  }
 }
 
 export function buildWebSiteJsonLd(): JsonLdObject {
@@ -340,11 +479,16 @@ export function metaForPath(path: string): RouteMeta {
     return buildCommunityDetailMeta({ slug, name: label });
   }
 
+  // Unknown / dynamic route with no static shell and no SSR backing. Give it
+  // a unique, self-referencing canonical and title, but keep it out of the
+  // index — it is not a real, content-bearing page, and indexing arbitrary
+  // client-only paths would dilute the canonical surface.
   return {
     title: `${SITE_NAME} | Claude Code Statusline Builder`,
     description:
       "Design, preview, share, and install Claude Code statuslines from a browser-based builder.",
     canonicalPath: normalized,
+    robots: "noindex,follow",
   };
 }
 
@@ -353,6 +497,8 @@ export interface CommunityDetailMetaInput {
   name: string;
   description?: string | null;
   author_name?: string | null;
+  /** Epoch milliseconds; flows into `datePublished` on the JSON-LD. */
+  published_at?: number | null;
 }
 
 /**
@@ -377,15 +523,61 @@ export function buildCommunityDetailMeta(
       ? `A Claude Code statusline design by ${author}. Preview and fork it into your own builder on ${SITE_NAME}.`
       : `A community-published Claude Code statusline design. Preview and fork it into your own builder on ${SITE_NAME}.`;
 
+  const canonical = canonicalUrl(canonicalPath);
+  const image = communityOgImageUrl(input.slug);
+  const datePublished = isoDateOrUndefined(input.published_at);
+  const authorNode = author.length > 0
+    ? { "@type": "Person", name: author }
+    : { "@type": "Organization", name: SITE_NAME };
+
   return {
     title: `${displayName} | Community Statusline | ${SITE_NAME}`,
     description,
     canonicalPath,
+    // A shared design is a piece of authored content, not a website — flag it
+    // as an article so social cards/crawlers treat it accordingly.
+    ogType: "article",
     // Per-design rasterised OG card — the Worker renders SVG → PNG so the
     // share preview shows the actual design name + author rather than the
     // generic default card.
-    image: communityOgImageUrl(input.slug),
+    image,
+    // Runtime equivalent of the server-rendered JSON-LD (worker/src/ssr.ts):
+    // a SoftwareApplication + CreativeWork view of the design plus the
+    // BreadcrumbList. Tagged `data-seo="route"` so it is applied/cleaned on
+    // client-side navigation without touching the SSR blocks meant for
+    // non-JS crawlers.
     jsonLd: [
+      {
+        "@context": "https://schema.org",
+        "@type": "SoftwareApplication",
+        name: displayName,
+        description,
+        applicationCategory: "DeveloperApplication",
+        operatingSystem: "macOS, Linux, Windows",
+        url: canonical,
+        image,
+        author: authorNode,
+        isAccessibleForFree: true,
+        ...(datePublished ? { datePublished } : {}),
+        offers: { "@type": "Offer", price: "0", priceCurrency: "USD" },
+      },
+      {
+        "@context": "https://schema.org",
+        "@type": "CreativeWork",
+        name: displayName,
+        description,
+        url: canonical,
+        image,
+        author: authorNode,
+        isAccessibleForFree: true,
+        genre: "Claude Code statusline",
+        ...(datePublished ? { datePublished } : {}),
+        isPartOf: {
+          "@type": "CollectionPage",
+          name: `${SITE_NAME} community`,
+          url: canonicalUrl("/community"),
+        },
+      },
       buildBreadcrumbJsonLd([
         { name: "Home", path: "/" },
         { name: "Community", path: "/community" },
@@ -393,6 +585,15 @@ export function buildCommunityDetailMeta(
       ]),
     ],
   };
+}
+
+function isoDateOrUndefined(ts?: number | null): string | undefined {
+  if (typeof ts !== "number" || !Number.isFinite(ts)) return undefined;
+  try {
+    return new Date(ts).toISOString();
+  } catch {
+    return undefined;
+  }
 }
 
 function titleFromSlug(slug: string): string {

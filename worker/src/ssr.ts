@@ -31,10 +31,24 @@ import { renderToAnsi } from "@statusline/shared/compiler/interpret";
 import type { DesignRow } from "./designs";
 import { communityCanonicalUrl, communityDescription, SITE_ORIGIN } from "./seo";
 
-const WORKER_ORIGIN = "https://api.statusline.sh";
+const WORKER_ORIGIN = "https://statusline-community.zoniixyt.workers.dev";
+
+/** A sibling community design surfaced as a crawlable internal link. */
+export interface RelatedDesign {
+  slug: string;
+  name: string;
+  author_name: string;
+}
 
 interface SsrInput {
   row: DesignRow;
+  /**
+   * A small set of OTHER community designs to link to for internal-link
+   * crawlability. Optional and order-preserving; if empty/omitted the related
+   * block is simply not rendered (the page still links back to /community
+   * and /builder), so the page degrades safely when no siblings exist.
+   */
+  related?: RelatedDesign[];
 }
 
 /**
@@ -78,12 +92,17 @@ function escapeJsonForScript(value: string): string {
   return value.replace(/</g, "\\u003c");
 }
 
-function buildJsonLd(row: DesignRow): string {
+function buildJsonLd(row: DesignRow, ogImage: string): string {
   const canonical = communityCanonicalUrl(row.slug);
   const description = communityDescription({
     name: row.name,
     description: row.description,
   });
+  const datePublished = new Date(row.published_at).toISOString();
+  const author = {
+    "@type": "Person",
+    name: row.author_name,
+  };
   const software = {
     "@context": "https://schema.org",
     "@type": "SoftwareApplication",
@@ -92,16 +111,34 @@ function buildJsonLd(row: DesignRow): string {
     applicationCategory: "DeveloperApplication",
     operatingSystem: "macOS, Linux, Windows",
     url: canonical,
-    author: {
-      "@type": "Person",
-      name: row.author_name,
-    },
-    datePublished: new Date(row.published_at).toISOString(),
+    image: ogImage,
+    author,
+    datePublished,
     isAccessibleForFree: true,
     offers: {
       "@type": "Offer",
       price: "0",
       priceCurrency: "USD",
+    },
+  };
+  // A CreativeWork view of the same artefact — gives crawlers a content-type
+  // (vs. application-type) signal for the design itself, with the OG image and
+  // publish date that the page already references.
+  const creativeWork = {
+    "@context": "https://schema.org",
+    "@type": "CreativeWork",
+    name: row.name,
+    description,
+    url: canonical,
+    image: ogImage,
+    author,
+    datePublished,
+    isAccessibleForFree: true,
+    genre: "Claude Code statusline",
+    isPartOf: {
+      "@type": "CollectionPage",
+      name: "statusline.sh community",
+      url: `${SITE_ORIGIN}/community`,
     },
   };
   const breadcrumbs = {
@@ -130,11 +167,40 @@ function buildJsonLd(row: DesignRow): string {
   };
   return [
     `<script type="application/ld+json">${escapeJsonForScript(JSON.stringify(software))}</script>`,
+    `<script type="application/ld+json">${escapeJsonForScript(JSON.stringify(creativeWork))}</script>`,
     `<script type="application/ld+json">${escapeJsonForScript(JSON.stringify(breadcrumbs))}</script>`,
   ].join("\n    ");
 }
 
-export function renderCommunityDetailHtml({ row }: SsrInput): string {
+/**
+ * Server-rendered list of internal links to sibling community designs plus the
+ * canonical back-links to /community and /builder. Real `<a href>` anchors so
+ * Googlebot can crawl the community graph without executing JS. Returns an
+ * empty related sub-list (but always the back-links) when no siblings exist.
+ */
+function buildRelatedLinks(related: RelatedDesign[]): string {
+  const items = related
+    .map(
+      (r) =>
+        `<li><a href="${escapeAttr(
+          communityCanonicalUrl(r.slug),
+        )}">${escapeHtml(r.name)} <span class="ssr-related-by">by ${escapeHtml(
+          r.author_name,
+        )}</span></a></li>`,
+    )
+    .join("\n          ");
+  const relatedBlock = related.length
+    ? `<nav class="ssr-related" aria-label="Related community statuslines">
+        <h2 class="ssr-related-heading">Related statuslines</h2>
+        <ul class="ssr-related-list">
+          ${items}
+        </ul>
+      </nav>`
+    : "";
+  return relatedBlock;
+}
+
+export function renderCommunityDetailHtml({ row, related = [] }: SsrInput): string {
   const canonical = communityCanonicalUrl(row.slug);
   const description = communityDescription({
     name: row.name,
@@ -147,7 +213,8 @@ export function renderCommunityDetailHtml({ row }: SsrInput): string {
   const plainPreview = stripAnsi(ansi);
   const installCmd = `curl -fsSL ${WORKER_ORIGIN}/i/${row.id}.sh | bash`;
   const installCmdPs = `irm ${WORKER_ORIGIN}/i/${row.id}.ps1 | iex`;
-  const jsonLd = buildJsonLd(row);
+  const jsonLd = buildJsonLd(row, ogImage);
+  const relatedLinks = buildRelatedLinks(related);
 
   return `<!doctype html>
 <html lang="en">
@@ -272,6 +339,38 @@ export function renderCommunityDetailHtml({ row }: SsrInput): string {
         color: #0E0E10;
         border-color: #E8E8E6;
       }
+      .ssr-related {
+        margin: 56px 0 0;
+        padding: 28px 0 0;
+        border-top: 1px solid rgba(255,255,255,.08);
+      }
+      .ssr-related-heading {
+        color: #8A8A86;
+        font-size: 12px;
+        letter-spacing: .14em;
+        text-transform: uppercase;
+        margin: 0 0 16px;
+        font-weight: 500;
+      }
+      .ssr-related-list {
+        list-style: none;
+        margin: 0;
+        padding: 0;
+        display: grid;
+        gap: 8px;
+      }
+      .ssr-related-list a {
+        color: #E8E8E6;
+        text-decoration: none;
+        font-size: 15px;
+      }
+      .ssr-related-list a:hover {
+        text-decoration: underline;
+      }
+      .ssr-related-by {
+        color: #8A8A86;
+        font-size: 13px;
+      }
     </style>
   </head>
   <body>
@@ -291,8 +390,10 @@ export function renderCommunityDetailHtml({ row }: SsrInput): string {
       </div>
       <nav class="ssr-actions">
         <a class="primary" href="/builder?fork=${escapeAttr(encodeURIComponent(row.slug))}">Fork in builder</a>
+        <a href="/builder">Open builder</a>
         <a href="/community">Browse community</a>
       </nav>
+      ${relatedLinks}
     </main></div>
     <!--
       The SSR page is intentionally a content-only document. The SPA bundle

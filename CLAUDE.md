@@ -21,7 +21,7 @@ bun test test/compiler.test.ts     # single file
 bun test -t "preserves settings.json" # single test by name pattern
 ```
 
-The SPA reads `NEXT_PUBLIC_WORKER_URL` (build-time constant inlined into the bundle via `build.ts`'s `define` map; localhost falls back to `http://localhost:8787`, production falls back to `https://api.statusline.sh`). Vercel serves `./dist`; the Worker handles all `/community`, `/designs`, `/install`, `/i/:id.{sh,ps1}`, `/robots.txt`, `/sitemap.xml`, and `/og/community/:slug.svg` routes cross-origin via CORS + Turnstile.
+The SPA reads `NEXT_PUBLIC_WORKER_URL` (build-time constant inlined into the bundle via `build.ts`'s `define` map; localhost falls back to `http://localhost:8787`, production falls back to `https://statusline-community.zoniixyt.workers.dev` — the Worker's `workers.dev` host, used because `api.statusline.sh` is not yet on Cloudflare DNS). Vercel serves `./dist`; the Worker handles all `/community`, `/designs`, `/install`, `/i/:id.{sh,ps1}`, `/robots.txt`, `/sitemap.xml`, and `/og/community/:slug.svg` routes cross-origin via CORS + Turnstile.
 
 ## Architecture invariants
 

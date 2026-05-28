@@ -129,20 +129,12 @@ describe("SEO render helpers", () => {
     );
   });
 
-  test("renders XML-safe sitemap entries", () => {
+  test("renders XML-safe community sitemap entries", () => {
     const xml = renderSitemapXml([
       { slug: "quiet&prompt", published_at: Date.UTC(2026, 0, 2, 3, 4, 5) },
     ]);
 
     expect(xml).toContain("<?xml version=\"1.0\" encoding=\"UTF-8\"?>");
-    expect(xml).toContain("<loc>https://statusline.sh</loc>");
-    expect(xml).toContain("<loc>https://statusline.sh/builder</loc>");
-    expect(xml).toContain("<loc>https://statusline.sh/community</loc>");
-    expect(xml).toContain(
-      "<loc>https://statusline.sh/how-to-make-a-claude-code-statusline</loc>",
-    );
-    expect(xml).toContain("<loc>https://statusline.sh/privacy</loc>");
-    expect(xml).toContain("<loc>https://statusline.sh/terms</loc>");
     expect(xml).toContain(
       "<loc>https://statusline.sh/community/quiet%26prompt</loc>",
     );
@@ -150,49 +142,49 @@ describe("SEO render helpers", () => {
     expect(xml).not.toContain("quiet&prompt");
   });
 
-  test("every <url> in the sitemap has a <lastmod>", () => {
+  test("worker sitemap contains ONLY community URLs, not the static pages", () => {
+    const xml = renderSitemapXml([
+      { slug: "one-aaaa", published_at: Date.UTC(2026, 0, 2, 3, 4, 5) },
+    ]);
+
+    // Static routes now live in Vercel's `sitemap-pages.xml`, so they must NOT
+    // appear here — otherwise the two child sitemaps would duplicate URLs.
+    expect(xml).not.toContain("<loc>https://statusline.sh</loc>");
+    expect(xml).not.toContain("<loc>https://statusline.sh/builder</loc>");
+    expect(xml).not.toContain("<loc>https://statusline.sh/community</loc>");
+    expect(xml).not.toContain(
+      "<loc>https://statusline.sh/how-to-make-a-claude-code-statusline</loc>",
+    );
+    expect(xml).not.toContain("<loc>https://statusline.sh/privacy</loc>");
+    expect(xml).not.toContain("<loc>https://statusline.sh/terms</loc>");
+  });
+
+  test("every <url> in the sitemap is a community design with a <lastmod>", () => {
     const xml = renderSitemapXml([
       { slug: "one-aaaa", published_at: Date.UTC(2026, 0, 2, 3, 4, 5) },
       { slug: "two-bbbb", published_at: Date.UTC(2026, 1, 3, 4, 5, 6) },
     ]);
 
     const urlBlocks = xml.match(/<url>[\s\S]*?<\/url>/g) ?? [];
-    // 12 static routes (homepage, builder, community, guide, 6 programmatic
-    // element pages, privacy, terms) + 2 community entries.
-    expect(urlBlocks.length).toBe(14);
+    // Community-only sitemap: exactly the two design entries.
+    expect(urlBlocks.length).toBe(2);
     for (const block of urlBlocks) {
+      expect(block).toContain("/community/");
       expect(block).toMatch(/<lastmod>[^<]+<\/lastmod>/);
     }
   });
 
-  test("homepage entry carries the STATIC_ROUTES_LASTMOD value", () => {
+  test("an empty community sitemap is a valid, empty urlset", () => {
     const xml = renderSitemapXml([]);
     expect(xml).toContain(
-      `<loc>https://statusline.sh</loc>\n    <lastmod>${STATIC_ROUTES_LASTMOD}</lastmod>`,
+      "<urlset xmlns=\"http://www.sitemaps.org/schemas/sitemap/0.9\">",
     );
-    // Sanity check on the constant — guards against an accidental edit that
-    // produces an invalid ISO-8601 string.
+    expect(xml).not.toContain("<url>");
+    // STATIC_ROUTES_LASTMOD is still a valid ISO-8601 constant (referenced by
+    // the static sitemap index in build.ts, kept here for the sync guard).
     expect(new Date(STATIC_ROUTES_LASTMOD).toISOString()).toBe(
       STATIC_ROUTES_LASTMOD,
     );
-  });
-
-  test("sitemap includes all six canonical static SPA routes with priorities", () => {
-    const xml = renderSitemapXml([]);
-
-    expect(xml).toContain("<loc>https://statusline.sh</loc>");
-    expect(xml).toContain("<loc>https://statusline.sh/builder</loc>");
-    expect(xml).toContain("<loc>https://statusline.sh/community</loc>");
-    expect(xml).toContain(
-      "<loc>https://statusline.sh/how-to-make-a-claude-code-statusline</loc>",
-    );
-    expect(xml).toContain("<loc>https://statusline.sh/privacy</loc>");
-    expect(xml).toContain("<loc>https://statusline.sh/terms</loc>");
-    expect(xml).toContain("<priority>1.0</priority>");
-    expect(xml).toContain("<priority>0.9</priority>");
-    expect(xml).toContain("<priority>0.8</priority>");
-    expect(xml).toContain("<priority>0.7</priority>");
-    expect(xml).toContain("<priority>0.2</priority>");
   });
 
   test("worker STATIC_SITEMAP_ROUTES stays in sync with build.ts [[seo-routes-mirror]]", () => {

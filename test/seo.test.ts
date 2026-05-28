@@ -3,7 +3,8 @@ import {
   STATIC_SITEMAP_ROUTES,
   renderStaticRouteHtmlShell,
   renderRobotsTxt,
-  renderStaticSitemapXml,
+  renderSitemapIndexXml,
+  renderSitemapPagesXml,
   renderWebManifest,
 } from "../build";
 import {
@@ -11,30 +12,65 @@ import {
   STATIC_ROUTE_META,
   STATUSLINE_GUIDE_PATH,
   absoluteUrl,
+  applyHeadMeta,
+  buildCommunityDetailMeta,
   buildGuideFaqJsonLd,
   buildGuideHowToJsonLd,
   buildSoftwareApplicationJsonLd,
   canonicalUrl,
   metaForPath,
+  resolveHeadMeta,
 } from "../src/frontend/seo";
+import { makeStubDocument } from "./helpers/domStub";
 
 describe("static SEO assets", () => {
-  test("renders robots.txt with static and Worker sitemap locations", () => {
+  test("renders robots.txt pointing at the static sitemap index", () => {
     expect(renderRobotsTxt()).toBe(
-      "User-agent: *\nAllow: /\n\nSitemap: https://statusline.sh/sitemap.xml\nSitemap: https://api.statusline.sh/sitemap.xml\n",
+      "User-agent: *\nAllow: /\n\nSitemap: https://statusline.sh/sitemap.xml\n",
     );
   });
 
-  test("renders static sitemap XML for canonical routes", () => {
-    const xml = renderStaticSitemapXml();
+  test("renders /sitemap.xml as an index referencing both children", () => {
+    const xml = renderSitemapIndexXml();
 
     expect(xml).toContain("<?xml version=\"1.0\" encoding=\"UTF-8\"?>");
-    expect(xml).toContain("<loc>https://statusline.sh</loc>");
-    expect(xml).toContain("<loc>https://statusline.sh/builder</loc>");
-    expect(xml).toContain("<loc>https://statusline.sh/community</loc>");
     expect(xml).toContain(
-      "<loc>https://statusline.sh/how-to-make-a-claude-code-statusline</loc>",
+      "<sitemapindex xmlns=\"http://www.sitemaps.org/schemas/sitemap/0.9\">",
     );
+    expect(xml).toContain(
+      "<loc>https://statusline.sh/sitemap-pages.xml</loc>",
+    );
+    expect(xml).toContain(
+      "<loc>https://statusline-community.zoniixyt.workers.dev/sitemap.xml</loc>",
+    );
+    // It's an index, not a urlset — no per-page <url> entries here.
+    expect(xml).not.toContain("<url>");
+    // Exactly two children.
+    expect((xml.match(/<sitemap>/g) ?? []).length).toBe(2);
+  });
+
+  test("renders /sitemap-pages.xml with every static route as an absolute URL", () => {
+    const xml = renderSitemapPagesXml();
+
+    expect(xml).toContain("<?xml version=\"1.0\" encoding=\"UTF-8\"?>");
+    expect(xml).toContain(
+      "<urlset xmlns=\"http://www.sitemaps.org/schemas/sitemap/0.9\">",
+    );
+
+    for (const route of STATIC_SITEMAP_ROUTES) {
+      const loc =
+        route.path === "/"
+          ? "https://statusline.sh"
+          : `https://statusline.sh${route.path}`;
+      expect(xml).toContain(`<loc>${loc}</loc>`);
+    }
+
+    // One <url> per static route, each with a <lastmod>.
+    const urlBlocks = xml.match(/<url>[\s\S]*?<\/url>/g) ?? [];
+    expect(urlBlocks.length).toBe(STATIC_SITEMAP_ROUTES.length);
+    for (const block of urlBlocks) {
+      expect(block).toMatch(/<lastmod>[^<]+<\/lastmod>/);
+    }
     expect(xml).toContain("<changefreq>daily</changefreq>");
     expect(xml).toContain("<priority>0.8</priority>");
   });
@@ -80,7 +116,7 @@ describe("static SEO assets", () => {
       canonicalPath: "/community/example-statusline",
       // Per-design OG image points at the Worker PNG endpoint so social
       // crawlers see a card with the design's actual name + author.
-      image: "https://api.statusline.sh/og/community/example-statusline.png",
+      image: "https://statusline-community.zoniixyt.workers.dev/og/community/example-statusline.png",
     });
     expect(metaForPath(STATUSLINE_GUIDE_PATH)).toMatchObject({
       title: "How to Make a Claude Code Status Line | statusline.sh",
@@ -142,6 +178,120 @@ describe("static SEO assets", () => {
     expect(html).toContain('"@type":"BreadcrumbList"');
   });
 
+  test("marks unknown dynamic routes noindex with a self-referencing canonical", () => {
+    const meta = metaForPath("/some/client-only/state?x=1");
+    expect(meta.robots).toBe("noindex,follow");
+    expect(canonicalUrl(meta.canonicalPath)).toBe(
+      "https://statusline.sh/some/client-only/state",
+    );
+  });
+
+  test("community detail meta carries CreativeWork + SoftwareApplication JSON-LD", () => {
+    const meta = buildCommunityDetailMeta({
+      slug: "neon-bar",
+      name: "Neon Bar",
+      description: "A bright statusline.",
+      author_name: "ada",
+      published_at: Date.UTC(2026, 0, 2),
+    });
+    expect(meta.ogType).toBe("article");
+    expect(meta.image).toBe(
+      "https://statusline-community.zoniixyt.workers.dev/og/community/neon-bar.png",
+    );
+    const types = (meta.jsonLd ?? []).map((j) => j["@type"]);
+    expect(types).toEqual([
+      "SoftwareApplication",
+      "CreativeWork",
+      "BreadcrumbList",
+    ]);
+    const serialized = JSON.stringify(meta.jsonLd);
+    expect(serialized).toContain('"datePublished":"2026-01-02T00:00:00.000Z"');
+    expect(serialized).toContain('"name":"ada"');
+    expect(serialized).toContain('"genre":"Claude Code statusline"');
+  });
+});
+
+describe("runtime Seo head application", () => {
+  test("resolveHeadMeta produces an absolute canonical, image, and og:type", () => {
+    const resolved = resolveHeadMeta(metaForPath("/builder"));
+    expect(resolved.title).toBe(STATIC_ROUTE_META["/builder"]!.title);
+    expect(resolved.canonical).toBe("https://statusline.sh/builder");
+    expect(resolved.image).toBe("https://statusline.sh/og-default.png");
+    const ogUrl = resolved.metaTags.find((t) => t.key === "og:url");
+    expect(ogUrl?.content).toBe("https://statusline.sh/builder");
+    const ogType = resolved.metaTags.find((t) => t.key === "og:type");
+    expect(ogType?.content).toBe("website");
+  });
+
+  test("applyHeadMeta sets a unique absolute canonical + title per route", () => {
+    const doc = makeStubDocument();
+
+    applyHeadMeta(metaForPath("/"), doc as unknown as Document);
+    expect(doc.title).toBe(
+      "Claude Code Statusline Builder | statusline.sh",
+    );
+    expect(
+      doc.head.querySelector('link[rel="canonical"]')?.getAttribute("href"),
+    ).toBe("https://statusline.sh/");
+
+    applyHeadMeta(metaForPath("/community"), doc as unknown as Document);
+    expect(doc.title).toBe(
+      "Claude Code Statusline Examples | statusline.sh Community",
+    );
+    expect(
+      doc.head.querySelector('link[rel="canonical"]')?.getAttribute("href"),
+    ).toBe("https://statusline.sh/community");
+  });
+
+  test("applyHeadMeta updates tags in place rather than appending duplicates", () => {
+    const doc = makeStubDocument();
+
+    applyHeadMeta(metaForPath("/builder"), doc as unknown as Document);
+    applyHeadMeta(metaForPath("/community"), doc as unknown as Document);
+
+    // Exactly one canonical link, one description, one og:url after two routes.
+    expect(doc.head.querySelectorAll('link[rel="canonical"]').length).toBe(1);
+    expect(doc.head.querySelectorAll('meta[name="description"]').length).toBe(1);
+    expect(doc.head.querySelectorAll('meta[property="og:url"]').length).toBe(1);
+
+    // ...and they reflect the latest route, never the prior one.
+    expect(
+      doc.head.querySelector('meta[property="og:url"]')?.getAttribute("content"),
+    ).toBe("https://statusline.sh/community");
+    expect(
+      doc.head.querySelector('meta[name="description"]')?.getAttribute("content"),
+    ).toBe(STATIC_ROUTE_META["/community"]!.description);
+  });
+
+  test("applyHeadMeta replaces route JSON-LD (no stale blocks) on navigation", () => {
+    const doc = makeStubDocument();
+
+    // Community detail emits 3 route-scoped JSON-LD blocks...
+    applyHeadMeta(
+      buildCommunityDetailMeta({ slug: "neon-bar", name: "Neon Bar" }),
+      doc as unknown as Document,
+    );
+    expect(
+      doc.head.querySelectorAll(
+        'script[type="application/ld+json"][data-seo="route"]',
+      ).length,
+    ).toBe(3);
+
+    // ...navigating to /builder (no JSON-LD) clears them, leaving none stale.
+    applyHeadMeta(metaForPath("/builder"), doc as unknown as Document);
+    expect(
+      doc.head.querySelectorAll(
+        'script[type="application/ld+json"][data-seo="route"]',
+      ).length,
+    ).toBe(0);
+  });
+
+  test("applyHeadMeta no-ops without a document (SSR safety)", () => {
+    expect(() => applyHeadMeta(metaForPath("/"), undefined)).not.toThrow();
+  });
+});
+
+describe("static SEO assets (guide body)", () => {
   test("renders crawlable static body for the statusline guide", () => {
     const html = renderStaticRouteHtmlShell(
       [

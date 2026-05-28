@@ -21,7 +21,7 @@ import { renderCommunityOgSvg } from "./og";
 import { renderOgPng } from "./og-png";
 import { renderRobotsTxt, renderSitemapXml } from "./seo";
 import { rollupViewsFromAE } from "./views";
-import { renderCommunityDetailHtml } from "./ssr";
+import { renderCommunityDetailHtml, type RelatedDesign } from "./ssr";
 
 export interface RateLimitBinding {
   limit(opts: { key: string }): Promise<{ success: boolean }>;
@@ -394,7 +394,26 @@ async function handleSsrCommunityBySlug(
     });
   }
 
-  const html = renderCommunityDetailHtml({ row });
+  // Fetch a small set of sibling designs to surface as crawlable internal
+  // links. Recent ordering keeps the community graph fresh; we over-fetch by
+  // one so we can drop the current design without coming up short. Failures
+  // here must never break the page — degrade to no related links.
+  let related: RelatedDesign[] = [];
+  try {
+    const siblings = await listCommunity(env, { sort: "recent", limit: 7 });
+    related = siblings.items
+      .filter((item) => item.slug !== row.slug)
+      .slice(0, 6)
+      .map((item) => ({
+        slug: item.slug,
+        name: item.name,
+        author_name: item.author_name,
+      }));
+  } catch (err) {
+    console.warn("ssr: related-design lookup failed", err);
+  }
+
+  const html = renderCommunityDetailHtml({ row, related });
   const response = new Response(html, {
     status: 200,
     headers: {

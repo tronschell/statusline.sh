@@ -75,7 +75,7 @@ bun test test/compiler.test.ts     # single file
 bun test -t "preserves settings.json"   # single test by name pattern
 ```
 
-The SPA reads `NEXT_PUBLIC_WORKER_URL` (build-time constant inlined into the bundle via `build.ts`). On localhost it falls back to `http://localhost:8787`; in production it falls back to `https://api.statusline.sh`. `NEXT_PUBLIC_TURNSTILE_SITE_KEY` configures the publish, fork, and anonymous-install flows; if unset, Cloudflare's always-pass dev key is used, so a fresh clone Just Works.
+The SPA reads `NEXT_PUBLIC_WORKER_URL` (build-time constant inlined into the bundle via `build.ts`). On localhost it falls back to `http://localhost:8787`; in production it falls back to `https://statusline-community.zoniixyt.workers.dev` (the Worker's `workers.dev` host; switch this to `https://api.statusline.sh` once that custom domain is on Cloudflare). `NEXT_PUBLIC_TURNSTILE_SITE_KEY` configures the publish, fork, and anonymous-install flows; if unset, Cloudflare's always-pass dev key is used, so a fresh clone Just Works.
 
 For Worker deploys, set `TURNSTILE_SECRET_KEY` via `wrangler secret put` and apply D1 migrations with `wrangler d1 migrations apply statusline-community --remote` before `wrangler deploy`.
 

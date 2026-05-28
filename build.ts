@@ -13,6 +13,10 @@ import {
   canonicalUrl,
   type RouteMeta,
 } from "./src/frontend/seo";
+import {
+  renderStaticRouteBody,
+  staticHeadJsonLd,
+} from "./src/frontend/static-content/staticContent";
 
 const outdir = path.join(process.cwd(), "dist");
 
@@ -47,31 +51,62 @@ const STATIC_HTML_ROUTES = [
   "/terms",
 ];
 
-// @deprecated — the primary domain now rewrites `/robots.txt` and
-// `/sitemap.xml` to the Worker (see `vercel.json`), so the build no longer
-// writes a static copy of either file. Kept exported only because tests in
-// `test/seo.test.ts` still reference these helpers; remove once those tests
-// are updated/removed.
-export function renderRobotsTxt(
-  siteUrl = SITE_URL,
-  workerSitemapUrl = "https://api.statusline.sh/sitemap.xml",
-): string {
+// The Worker host (the `workers.dev` URL) can be down independently of the
+// primary Vercel domain, so `robots.txt` and the sitemap index are served as
+// STATIC Vercel assets and never depend on the Worker being healthy. The
+// sitemap index references two children:
+//   1. `sitemap-pages.xml` — the static routes, always served by Vercel.
+//   2. the Worker's `/sitemap.xml` — community designs, graceful degradation.
+const STATIC_SITEMAP_PAGES_URL = `${SITE_URL}/sitemap-pages.xml`;
+const WORKER_SITEMAP_URL = "https://statusline-community.zoniixyt.workers.dev/sitemap.xml";
+
+// Deterministic lastmod for the static page routes — kept in lockstep with
+// `STATIC_ROUTES_LASTMOD` in `worker/src/seo.ts`. Bump manually when the
+// static pages meaningfully change so search engines don't see noisy churn.
+export const STATIC_ROUTES_LASTMOD = "2026-05-27T00:00:00.000Z";
+
+export function renderRobotsTxt(siteUrl = SITE_URL): string {
   const origin = siteUrl.replace(/\/+$/, "");
   return [
     "User-agent: *",
     "Allow: /",
     "",
     `Sitemap: ${origin}/sitemap.xml`,
-    `Sitemap: ${workerSitemapUrl}`,
     "",
   ].join("\n");
 }
 
-// @deprecated — see `renderRobotsTxt` above. The dynamic sitemap is served by
-// the Worker at `/sitemap.xml` (rewritten from the primary domain).
-export function renderStaticSitemapXml(
+/**
+ * The canonical `/sitemap.xml` — a sitemap INDEX (not a urlset). Points at the
+ * static page sitemap (always served by Vercel) plus the Worker's
+ * community-design sitemap. If the Worker is down, GSC only warns on that one
+ * child rather than failing the whole submission.
+ */
+export function renderSitemapIndexXml(
+  pagesUrl = STATIC_SITEMAP_PAGES_URL,
+  workerSitemapUrl = WORKER_SITEMAP_URL,
+  lastmod = STATIC_ROUTES_LASTMOD,
+): string {
+  const child = (loc: string): string =>
+    [
+      "  <sitemap>",
+      `    <loc>${escapeXml(loc)}</loc>`,
+      `    <lastmod>${escapeXml(lastmod)}</lastmod>`,
+      "  </sitemap>",
+    ].join("\n");
+
+  const body = [child(pagesUrl), child(workerSitemapUrl)].join("\n");
+  return `<?xml version="1.0" encoding="UTF-8"?>\n<sitemapindex xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${body}\n</sitemapindex>\n`;
+}
+
+/**
+ * `/sitemap-pages.xml` — a urlset of every route Vercel itself serves. Mirrors
+ * the worker sitemap's per-URL shape (`loc`/`lastmod`/`changefreq`/`priority`).
+ */
+export function renderSitemapPagesXml(
   routes = STATIC_SITEMAP_ROUTES,
   siteUrl = SITE_URL,
+  lastmod = STATIC_ROUTES_LASTMOD,
 ): string {
   const origin = siteUrl.replace(/\/+$/, "");
   const urls = routes
@@ -80,6 +115,7 @@ export function renderStaticSitemapXml(
       return [
         "  <url>",
         `    <loc>${escapeXml(loc)}</loc>`,
+        `    <lastmod>${escapeXml(lastmod)}</lastmod>`,
         `    <changefreq>${route.changefreq}</changefreq>`,
         `    <priority>${route.priority}</priority>`,
         "  </url>",
@@ -241,7 +277,7 @@ export function renderStaticRouteHtmlShell(
 }
 
 function injectStaticRootHtml(indexHtml: string, meta: RouteMeta): string {
-  const staticHtml = renderStaticRootHtml(meta);
+  const staticHtml = renderStaticRouteBody(meta.canonicalPath);
   if (!staticHtml) return indexHtml;
   return indexHtml.replace(
     /<div\s+id="root"><\/div>/,
@@ -249,30 +285,12 @@ function injectStaticRootHtml(indexHtml: string, meta: RouteMeta): string {
   );
 }
 
-function renderStaticRootHtml(meta: RouteMeta): string {
-  if (meta.canonicalPath !== STATUSLINE_GUIDE_PATH) return "";
-  return [
-    '<main style="background:#0E0E10;color:#E8E8E6;min-height:100vh;font-family:Geist,system-ui,sans-serif;padding:72px 24px;">',
-    '<article style="max-width:960px;margin:0 auto;">',
-    '<p style="color:#8A8A86;font-size:12px;letter-spacing:.14em;text-transform:uppercase;margin:0 0 24px;">Claude Code guide</p>',
-    '<h1 style="font-family:Instrument Serif,Georgia,serif;font-size:clamp(48px,8vw,88px);line-height:1.02;letter-spacing:-.035em;margin:0;">How to make a Claude Code status line.</h1>',
-    '<p style="color:#A8A8A4;font-size:18px;line-height:1.7;max-width:720px;margin:28px 0 0;">Claude Code calls the bottom bar a statusline. Many people search for it as a status line or status bar. statusline.sh helps you build, customize, preview, and install one visually.</p>',
-    '<section style="border-top:1px solid rgba(255,255,255,.08);margin-top:64px;padding-top:40px;">',
-    '<h2 style="font-family:Instrument Serif,Georgia,serif;font-size:40px;line-height:1.1;letter-spacing:-.03em;margin:0;">What is a Claude Code statusline?</h2>',
-    '<p style="color:#A8A8A4;font-size:15px;line-height:1.7;max-width:760px;">A Claude Code statusline is an executable command configured in settings.json. Claude Code sends it session JSON on stdin, and the command prints styled terminal text to stdout.</p>',
-    '</section>',
-    '<section style="border-top:1px solid rgba(255,255,255,.08);margin-top:48px;padding-top:40px;">',
-    '<h2 style="font-family:Instrument Serif,Georgia,serif;font-size:40px;line-height:1.1;letter-spacing:-.03em;margin:0;">Build it visually.</h2>',
-    '<p style="color:#A8A8A4;font-size:15px;line-height:1.7;max-width:760px;">Use the builder to add model, directory, git branch, context, cost, duration, separators, glyphs, and ANSI styling, then install with a generated bash or PowerShell command.</p>',
-    '<p style="margin-top:28px;"><a href="/builder" style="display:inline-block;background:#E8E8E6;color:#0E0E10;text-decoration:none;border-radius:6px;padding:12px 18px;font-size:14px;font-weight:500;">Open the builder</a></p>',
-    '</section>',
-    '</article>',
-    '</main>',
-  ].join("");
-}
-
 function renderJsonLdScripts(meta: RouteMeta): string {
-  return (meta.jsonLd ?? [])
+  // The shared `meta.jsonLd` plus any route-specific extras (e.g. the builder
+  // page's SoftwareApplication schema, attached in the static-content module
+  // without mutating the shared `seo.ts` metadata).
+  const items = [...(meta.jsonLd ?? []), ...staticHeadJsonLd(meta.canonicalPath)];
+  return items
     .map(
       (item) =>
         `<script type="application/ld+json">${escapeScriptJson(JSON.stringify(item))}</script>`,
@@ -293,12 +311,25 @@ function replaceFirst(
 }
 
 async function writeStaticSeoAssets(): Promise<void> {
-  // Note: `robots.txt` and `sitemap.xml` are NOT written here. The primary
-  // domain rewrites both paths to the Worker (`vercel.json`), which serves
-  // them dynamically — including the live community-design slug list.
+  // `robots.txt`, `sitemap.xml` (a sitemap index), and `sitemap-pages.xml` are
+  // written as STATIC Vercel assets so Google never depends on the Worker host
+  // being up. The sitemap index points at `sitemap-pages.xml` (always served by
+  // Vercel) plus the Worker's community sitemap (graceful degradation). All
+  // three contain a dot so Vercel's catch-all SPA rewrite excludes them.
   await mkdir(outdir, { recursive: true });
   const ogSvgPath = path.join(process.cwd(), "src", "static", "og-default.svg");
   await Promise.all([
+    writeFile(path.join(outdir, "robots.txt"), renderRobotsTxt(), "utf8"),
+    writeFile(
+      path.join(outdir, "sitemap.xml"),
+      renderSitemapIndexXml(),
+      "utf8",
+    ),
+    writeFile(
+      path.join(outdir, "sitemap-pages.xml"),
+      renderSitemapPagesXml(),
+      "utf8",
+    ),
     writeFile(
       path.join(outdir, "site.webmanifest"),
       renderWebManifest(),
