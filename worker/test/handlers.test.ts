@@ -675,6 +675,186 @@ describe("worker fetch dispatch", () => {
   });
 });
 
+// ---------------------------------------------------------------------------
+// SSR community detail handler
+// ---------------------------------------------------------------------------
+//
+// Vercel rewrites `/community/:slug` → `https://api.statusline.sh/ssr/community/:slug`,
+// so the Worker must return a hydration-ready HTML document with rich
+// per-design metadata. These tests pin the contract: status code, content
+// type, presence of design data + structured data, and cache headers.
+
+describe("GET /ssr/community/:slug", () => {
+  let db: FakeDb;
+  let env: Env;
+
+  beforeEach(() => {
+    db = makeDb();
+    env = makeEnv(db);
+  });
+
+  function seed(): {
+    slug: string;
+    name: string;
+    author: string;
+    description: string;
+    id: string;
+  } {
+    const id = "ssr1234567";
+    const slug = "lovely-statusline-ssr1";
+    const name = "Lovely Statusline";
+    const author = "Ada Lovelace";
+    const description = "A cozy minimalist statusline with git status.";
+    db.designs.push({
+      id,
+      json: JSON.stringify(minimalDesign()),
+      slug,
+      name,
+      author_name: author,
+      description,
+      forked_from: null,
+      published_at: Date.parse("2026-04-12T08:30:00.000Z"),
+      views: 0,
+      forks: 0,
+      installs: 0,
+    });
+    return { slug, name, author, description, id };
+  }
+
+  test("returns 200 + text/html for a known slug", async () => {
+    const { slug } = seed();
+    const res = await worker.fetch(
+      new Request(`https://worker.example.com/ssr/community/${slug}`),
+      env,
+      makeCtx(),
+    );
+    expect(res.status).toBe(200);
+    expect(res.headers.get("content-type")).toBe(
+      "text/html; charset=utf-8",
+    );
+  });
+
+  test("returns 404 for an unknown slug", async () => {
+    const res = await worker.fetch(
+      new Request("https://worker.example.com/ssr/community/missing-slug"),
+      env,
+      makeCtx(),
+    );
+    expect(res.status).toBe(404);
+  });
+
+  test("HTML contains design name, author, description, install command", async () => {
+    const { slug, name, author, description, id } = seed();
+    const res = await worker.fetch(
+      new Request(`https://worker.example.com/ssr/community/${slug}`),
+      env,
+      makeCtx(),
+    );
+    const html = await res.text();
+    expect(html).toContain(`<h1 class="ssr-title">${name}</h1>`);
+    expect(html).toContain(author);
+    expect(html).toContain(description);
+    expect(html).toContain(
+      `curl -fsSL https://api.statusline.sh/i/${id}.sh | bash`,
+    );
+    expect(html).toContain(`/i/${id}.ps1`);
+    expect(html).toContain(`<div id="root">`);
+  });
+
+  test("HTML contains OG metadata + canonical link", async () => {
+    const { slug, name } = seed();
+    const res = await worker.fetch(
+      new Request(`https://worker.example.com/ssr/community/${slug}`),
+      env,
+      makeCtx(),
+    );
+    const html = await res.text();
+    expect(html).toContain(
+      `<link rel="canonical" href="https://statusline.sh/community/${slug}" />`,
+    );
+    expect(html).toContain(
+      `<meta property="og:url" content="https://statusline.sh/community/${slug}" />`,
+    );
+    expect(html).toContain(
+      `<meta property="og:image" content="https://api.statusline.sh/og/community/${slug}.svg" />`,
+    );
+    expect(html).toContain(`<meta name="twitter:card" content="summary_large_image" />`);
+    expect(html).toContain(name);
+  });
+
+  test("HTML embeds SoftwareApplication + BreadcrumbList JSON-LD", async () => {
+    const { slug, name, author } = seed();
+    const res = await worker.fetch(
+      new Request(`https://worker.example.com/ssr/community/${slug}`),
+      env,
+      makeCtx(),
+    );
+    const html = await res.text();
+    // Pull every JSON-LD payload out of the HTML and parse it.
+    const scripts = [
+      ...html.matchAll(
+        /<script type="application\/ld\+json">([\s\S]*?)<\/script>/g,
+      ),
+    ].map((m) => JSON.parse(m[1]!.replace(/\\u003c/g, "<")));
+    const software = scripts.find(
+      (s) => (s as { "@type": string })["@type"] === "SoftwareApplication",
+    ) as Record<string, unknown> | undefined;
+    const breadcrumbs = scripts.find(
+      (s) => (s as { "@type": string })["@type"] === "BreadcrumbList",
+    ) as { itemListElement: Array<{ name: string; item: string }> } | undefined;
+    expect(software).toBeDefined();
+    expect(software!["name"]).toBe(name);
+    expect(software!["applicationCategory"]).toBe("DeveloperApplication");
+    expect((software!["author"] as { name: string }).name).toBe(author);
+    expect(breadcrumbs).toBeDefined();
+    expect(breadcrumbs!.itemListElement.map((i) => i.name)).toEqual([
+      "Home",
+      "Community",
+      name,
+    ]);
+    expect(breadcrumbs!.itemListElement[2]!.item).toBe(
+      `https://statusline.sh/community/${slug}`,
+    );
+  });
+
+  test("sets stale-while-revalidate cache header", async () => {
+    const { slug } = seed();
+    const res = await worker.fetch(
+      new Request(`https://worker.example.com/ssr/community/${slug}`),
+      env,
+      makeCtx(),
+    );
+    const cache = res.headers.get("cache-control") ?? "";
+    expect(cache).toContain("s-maxage=300");
+    expect(cache).toContain("stale-while-revalidate=3600");
+  });
+
+  test("does not break the JSON detail endpoint", async () => {
+    // Regression guard — both /community/:slug and /ssr/community/:slug must
+    // resolve independently (the SPA still uses the JSON endpoint for
+    // client-side fetches).
+    const { slug } = seed();
+    const jsonRes = await worker.fetch(
+      new Request(`https://worker.example.com/community/${slug}`),
+      env,
+      makeCtx(),
+    );
+    expect(jsonRes.status).toBe(200);
+    expect(jsonRes.headers.get("content-type")).toBe(
+      "application/json; charset=utf-8",
+    );
+    const ssrRes = await worker.fetch(
+      new Request(`https://worker.example.com/ssr/community/${slug}`),
+      env,
+      makeCtx(),
+    );
+    expect(ssrRes.status).toBe(200);
+    expect(ssrRes.headers.get("content-type")).toBe(
+      "text/html; charset=utf-8",
+    );
+  });
+});
+
 describe("Analytics Engine view write", () => {
   test("calls VIEWS.writeDataPoint when binding present", async () => {
     const db = makeDb();

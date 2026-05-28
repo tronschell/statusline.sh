@@ -15,6 +15,10 @@
     },
     { "source": "/privacy", "destination": "/privacy.html" },
     { "source": "/terms", "destination": "/terms.html" },
+    {
+      "source": "/community/:slug",
+      "destination": "https://api.statusline.sh/ssr/community/:slug"
+    },
     { "source": "/((?!_next|assets|.*\\..*).*)", "destination": "/index.html" }
   ],
   "headers": [
