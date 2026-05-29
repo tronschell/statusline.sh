@@ -7,6 +7,7 @@ import { DndProvider } from "./frontend/hooks/useDnd";
 import { LivePreview } from "./frontend/components/Preview/LivePreview";
 import { BuilderPage, parseBuilderQuery } from "./frontend/components/Builder/BuilderPage";
 import BuilderSetupModal from "./frontend/components/Builder/BuilderSetupModal";
+import SettingsModal from "./frontend/components/Builder/SettingsModal";
 import { CollapsibleInspector } from "./frontend/components/Builder/CollapsibleInspector";
 import { TEMPLATES } from "@statusline/shared/templates";
 import TopBar from "./frontend/components/Layout/TopBar";
@@ -18,8 +19,6 @@ import { PrivacyPage } from "./frontend/components/Legal/PrivacyPage";
 import { TermsPage } from "./frontend/components/Legal/TermsPage";
 import InstallDrawer from "./frontend/components/Install/InstallDrawer";
 import PublishDialog from "./frontend/components/Community/PublishDialog";
-import Modal from "./frontend/components/Modal/Modal";
-import ThemePresets from "./frontend/components/Inspector/ThemePresets";
 import { CommunityPage } from "./frontend/components/Community/CommunityPage";
 import { CommunityDetailPage } from "./frontend/components/Community/CommunityDetailPage";
 import { ClaudeCodeStatuslineGuidePage } from "./frontend/components/Guides/ClaudeCodeStatuslineGuidePage";
@@ -98,7 +97,7 @@ function BuilderRoute() {
 
   const [installOpen, setInstallOpen] = useState(false);
   const [publishOpen, setPublishOpen] = useState(false);
-  const [themesOpen, setThemesOpen] = useState(false);
+  const [settingsOpen, setSettingsOpen] = useState(false);
   const [setupOpen, setSetupOpen] = useState(false);
   const [inspectorCollapsed, setInspectorCollapsed] = useState(true);
   const selectedId = useDesignStore((s) => s.selectedId);
@@ -158,8 +157,7 @@ function BuilderRoute() {
               slug={slug}
               onOpenInstall={() => setInstallOpen(true)}
               onOpenPublish={() => setPublishOpen(true)}
-              onOpenThemes={() => setThemesOpen(true)}
-              onOpenSetup={() => setSetupOpen(true)}
+              onOpenSettings={() => setSettingsOpen(true)}
             />
           }
           palette={<ElementPalette />}
@@ -186,6 +184,13 @@ function BuilderRoute() {
         templateName={templateName}
       />
 
+      <SettingsModal
+        isOpen={settingsOpen}
+        onClose={() => setSettingsOpen(false)}
+        templateId={templateId}
+        templateName={templateName}
+      />
+
       <InstallDrawer
         designId={null}
         isOpen={installOpen}
@@ -198,15 +203,6 @@ function BuilderRoute() {
         onClose={() => setPublishOpen(false)}
         onPublished={(s) => setSlug(s)}
       />
-
-      <Modal
-        isOpen={themesOpen}
-        onClose={() => setThemesOpen(false)}
-        title="Theme presets"
-        widthClass="max-w-lg"
-      >
-        <ThemePresets onClose={() => setThemesOpen(false)} />
-      </Modal>
     </BuilderPage>
   );
 }

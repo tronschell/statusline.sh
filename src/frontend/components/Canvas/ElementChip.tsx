@@ -50,9 +50,10 @@ function truncate(s: string, max = 14): string {
 
 export interface ElementChipProps {
   element: Element;
+  onContextMenu?: (elementId: string, x: number, y: number) => void;
 }
 
-export function ElementChip({ element }: ElementChipProps) {
+export function ElementChip({ element, onContextMenu }: ElementChipProps) {
   const selectedId = useDesignStore((s) => s.selectedId);
   const select = useDesignStore((s) => s.select);
   const removeElement = useDesignStore((s) => s.removeElement);
@@ -102,6 +103,12 @@ export function ElementChip({ element }: ElementChipProps) {
     removeElement(element.id);
   }
 
+  function handleContextMenu(e: MouseEvent<HTMLDivElement>) {
+    e.preventDefault();
+    e.stopPropagation();
+    onContextMenu?.(element.id, e.clientX, e.clientY);
+  }
+
   if (isFlexSpacer) {
     return (
       <div
@@ -110,6 +117,7 @@ export function ElementChip({ element }: ElementChipProps) {
         {...attributes}
         {...listeners}
         onClick={handleClick}
+        onContextMenu={handleContextMenu}
         role="button"
         tabIndex={0}
         data-element-id={element.id}
@@ -169,6 +177,7 @@ export function ElementChip({ element }: ElementChipProps) {
         {...attributes}
         {...listeners}
         onClick={handleClick}
+        onContextMenu={handleContextMenu}
         role="button"
         tabIndex={0}
         data-element-id={element.id}
@@ -210,6 +219,7 @@ export function ElementChip({ element }: ElementChipProps) {
         {...attributes}
         {...listeners}
         onClick={handleClick}
+        onContextMenu={handleContextMenu}
         role="button"
         tabIndex={0}
         data-element-id={element.id}
@@ -255,6 +265,7 @@ export function ElementChip({ element }: ElementChipProps) {
       {...attributes}
       {...listeners}
       onClick={handleClick}
+      onContextMenu={handleContextMenu}
       role="button"
       tabIndex={0}
       data-element-id={element.id}

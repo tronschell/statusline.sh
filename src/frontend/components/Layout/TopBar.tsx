@@ -1,22 +1,17 @@
-import { useRef, useState } from "react";
 import {
   ArrowCounterClockwise,
   ArrowClockwise,
-  UploadSimple,
   Globe,
-  Palette,
-  ArrowsHorizontal,
+  GearSix,
 } from "@phosphor-icons/react";
 import { useDesignStore } from "../../store/designStore";
-import { safeValidateDesign } from "@statusline/shared/schema";
 import { ClaudeCodeLogo } from "../ClaudeCodeLogo";
 
 export interface TopBarProps {
   slug: string | null;
   onOpenInstall(): void;
   onOpenPublish(): void;
-  onOpenThemes(): void;
-  onOpenSetup(): void;
+  onOpenSettings(): void;
 }
 
 const btnBase =
@@ -32,43 +27,14 @@ export default function TopBar({
   slug,
   onOpenInstall,
   onOpenPublish,
-  onOpenThemes,
-  onOpenSetup,
+  onOpenSettings,
 }: TopBarProps) {
   const design = useDesignStore((s) => s.design);
   const setName = useDesignStore((s) => s.setName);
-  const importDesign = useDesignStore((s) => s.importDesign);
   const undo = useDesignStore((s) => s.undo);
   const redo = useDesignStore((s) => s.redo);
   const past = useDesignStore((s) => s.past);
   const future = useDesignStore((s) => s.future);
-
-  const fileInputRef = useRef<HTMLInputElement | null>(null);
-  const [importError, setImportError] = useState<string | null>(null);
-
-  function onImportClick() {
-    setImportError(null);
-    fileInputRef.current?.click();
-  }
-
-  async function onImportFile(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0];
-    e.target.value = "";
-    if (!file) return;
-    try {
-      const text = await file.text();
-      const parsed = JSON.parse(text);
-      const result = safeValidateDesign(parsed);
-      if (!result.ok) {
-        setImportError(`Invalid design: ${result.error.message}`);
-        return;
-      }
-      importDesign(result.design);
-      setImportError(null);
-    } catch (err) {
-      setImportError(`Could not read file: ${(err as Error).message}`);
-    }
-  }
 
   const status: string = slug ? `Published as ${shortIdLabel(slug)}` : "Auto-saved";
 
@@ -114,40 +80,23 @@ export default function TopBar({
 
           <button
             type="button"
-            onClick={onOpenSetup}
+            onClick={onOpenSettings}
             className={btnBase}
-            aria-label="Spacing setup"
-            title="Auto-spacing between elements"
+            aria-label="Settings"
+            title="Settings"
           >
-            <ArrowsHorizontal size={12} weight="bold" />
-            Spacing
+            <GearSix size={12} weight="bold" />
+            Settings
           </button>
 
           <button
             type="button"
-            onClick={onOpenThemes}
+            onClick={onOpenPublish}
             className={btnBase}
-            aria-label="Theme presets"
+            aria-label="Publish to community"
           >
-            <Palette size={12} weight="bold" />
-            Themes
-          </button>
-
-          <input
-            ref={fileInputRef}
-            type="file"
-            accept="application/json,.json"
-            className="hidden"
-            onChange={onImportFile}
-          />
-          <button
-            type="button"
-            onClick={onImportClick}
-            className={btnBase}
-            aria-label="Import design"
-          >
-            <UploadSimple size={12} weight="bold" />
-            Import
+            <Globe size={12} weight="bold" />
+            Publish
           </button>
 
           <button
@@ -162,23 +111,8 @@ export default function TopBar({
               Claude Code
             </>
           </button>
-
-          <button
-            type="button"
-            onClick={onOpenPublish}
-            className={btnBase}
-            aria-label="Publish to community"
-          >
-            <Globe size={12} weight="bold" />
-            Publish
-          </button>
         </div>
       </div>
-      {importError && (
-        <p className="mt-2 text-xs text-[#E8A08A]" role="alert">
-          {importError}
-        </p>
-      )}
     </div>
   );
 }

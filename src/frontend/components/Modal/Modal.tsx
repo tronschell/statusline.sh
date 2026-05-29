@@ -6,6 +6,8 @@ export interface ModalProps {
   onClose(): void;
   title: string;
   children: ReactNode;
+  /** Optional element rendered above the title row (e.g. a back button). */
+  aboveTitle?: ReactNode;
   /** Optional element rendered into the panel header bar, right of title. */
   headerRight?: ReactNode;
   /** Max-width Tailwind class — defaults to max-w-md. */
@@ -28,6 +30,7 @@ export default function Modal({
   onClose,
   title,
   children,
+  aboveTitle,
   headerRight,
   widthClass = "max-w-md",
   closeLabel = "Close",
@@ -68,6 +71,7 @@ export default function Modal({
         }
         onClick={(e) => e.stopPropagation()}
       >
+        {aboveTitle ? <div className="mb-4">{aboveTitle}</div> : null}
         <div className="flex items-start justify-between gap-4 mb-6">
           <h2 className="text-lg font-medium tracking-tight text-[#E8E8E6]">
             {title}

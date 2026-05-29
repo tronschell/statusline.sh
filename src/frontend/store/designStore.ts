@@ -158,6 +158,12 @@ export interface DesignState {
   addElementAt(type: ElementType, index: number): void;
   updateElement(id: string, patch: Partial<Element>): void;
   removeElement(id: string): void;
+  /**
+   * Deep-clone the element with `id`, assign the copy a fresh id, splice it in
+   * directly after the original, and select it. No-op if `id` is not found.
+   * One history step.
+   */
+  duplicateElement(id: string): void;
   reorder(fromIdx: number, toIdx: number): void;
   select(id: string | null): void;
   setName(name: string): void;
@@ -301,6 +307,22 @@ export const useDesignStore = create<DesignState>()(
             return { ...design, elements };
           });
           if (selectedId === id) set({ selectedId: null });
+        },
+
+        duplicateElement(id) {
+          let copyId: string | null = null;
+          withHistory((design) => {
+            const i = design.elements.findIndex((el) => el.id === id);
+            if (i < 0) return design;
+            const original = design.elements[i]!;
+            const newId = nanoid(8);
+            const copy = { ...structuredClone(original), id: newId } as Element;
+            copyId = newId;
+            const elements = design.elements.slice();
+            elements.splice(i + 1, 0, copy);
+            return { ...design, elements };
+          });
+          if (copyId) set({ selectedId: copyId });
         },
 
         reorder(fromIdx, toIdx) {

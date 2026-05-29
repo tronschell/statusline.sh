@@ -59,6 +59,13 @@
     font-family: var(--font-sans);
     color: var(--color-text);
     background-color: var(--color-canvas);
+    /*
+     * Reserve the scrollbar gutter permanently so locking body scroll
+     * (Modal sets `overflow: hidden`) doesn't reclaim the scrollbar's ~15px
+     * and reflow the page wider — which would shift everything behind the
+     * modal (and the sticky NavBar/TopBar) sideways.
+     */
+    scrollbar-gutter: stable;
   }
 
   body {

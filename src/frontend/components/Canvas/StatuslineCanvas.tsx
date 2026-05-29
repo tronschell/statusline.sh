@@ -1,6 +1,7 @@
-import { Fragment, useCallback, useRef } from "react";
+import { Fragment, useCallback, useRef, useState } from "react";
 import { useDroppable } from "@dnd-kit/core";
 import { SortableContext, type SortingStrategy } from "@dnd-kit/sortable";
+import { Copy, Trash } from "@phosphor-icons/react";
 import type { Element } from "@statusline/shared/types";
 import { useDesignStore } from "../../store/designStore";
 import {
@@ -11,6 +12,7 @@ import {
   useRegisterInsertionResolver,
   type InsertionResolver,
 } from "../../hooks/useDnd";
+import { ContextMenu } from "../ContextMenu/ContextMenu";
 import { ElementChip } from "./ElementChip";
 
 // Freeze every sortable chip in place during a drag. The default strategies
@@ -247,12 +249,20 @@ function resolveInsertion(
 
 export function StatuslineCanvas() {
   const elements = useDesignStore((s) => s.design.elements);
+  const duplicateElement = useDesignStore((s) => s.duplicateElement);
+  const removeElement = useDesignStore((s) => s.removeElement);
   const { isOver, setNodeRef: setDroppableRef } = useDroppable({
     id: CANVAS_ROOT_DROPPABLE,
   });
   const { pending } = useInsertionPreview();
 
   const rootRef = useRef<HTMLDivElement | null>(null);
+
+  const [menu, setMenu] = useState<{
+    elementId: string;
+    x: number;
+    y: number;
+  } | null>(null);
 
   const sortableIds = elements.map((el) => canvasDragId(el.id));
   const empty = elements.length === 0;
@@ -340,7 +350,12 @@ export function StatuslineCanvas() {
                         {showSkeletonInRow && skeletonBeforeIdx === index ? (
                           <SkeletonChip type={pending!.type} />
                         ) : null}
-                        <ElementChip element={el} />
+                        <ElementChip
+                          element={el}
+                          onContextMenu={(id, x, y) =>
+                            setMenu({ elementId: id, x, y })
+                          }
+                        />
                       </Fragment>
                     ))}
                     {skeletonAtRowEnd ? (
@@ -358,6 +373,27 @@ export function StatuslineCanvas() {
           )}
         </div>
       </SortableContext>
+
+      {menu ? (
+        <ContextMenu
+          x={menu.x}
+          y={menu.y}
+          onClose={() => setMenu(null)}
+          items={[
+            {
+              label: "Duplicate",
+              Icon: Copy,
+              onSelect: () => duplicateElement(menu.elementId),
+            },
+            {
+              label: "Delete",
+              Icon: Trash,
+              destructive: true,
+              onSelect: () => removeElement(menu.elementId),
+            },
+          ]}
+        />
+      ) : null}
     </section>
   );
 }
