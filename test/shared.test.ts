@@ -88,6 +88,114 @@ describe("schema.validateDesign", () => {
   });
 });
 
+describe("schema numeric upper bounds (installer DoS guard)", () => {
+  const withElement = (el: Record<string, unknown>) => ({
+    version: 1,
+    name: "Bounds",
+    elements: [el],
+  });
+
+  test("rejects contextBar width above max", () => {
+    const bad = withElement({
+      id: "b",
+      type: "contextBar",
+      width: 1e9,
+      filledChar: "█",
+      emptyChar: "░",
+      style: {},
+    });
+    expect(() => validateDesign(bad)).toThrow(ValidationError);
+  });
+
+  test("accepts contextBar width at max", () => {
+    const ok = withElement({
+      id: "b",
+      type: "contextBar",
+      width: 200,
+      filledChar: "█",
+      emptyChar: "░",
+      style: {},
+    });
+    expect(() => validateDesign(ok)).not.toThrow();
+  });
+
+  test("rejects rateLimit5h width above max", () => {
+    const bad = withElement({
+      id: "r",
+      type: "rateLimit5h",
+      variant: "bar",
+      width: 1e9,
+      filledChar: "█",
+      emptyChar: "░",
+      style: {},
+    });
+    expect(() => validateDesign(bad)).toThrow(ValidationError);
+  });
+
+  test("rejects maxLength above max", () => {
+    const bad = withElement({
+      id: "m",
+      type: "model",
+      maxLength: 1e9,
+      style: {},
+    });
+    expect(() => validateDesign(bad)).toThrow(ValidationError);
+  });
+
+  test("accepts maxLength at max", () => {
+    const ok = withElement({
+      id: "m",
+      type: "model",
+      maxLength: 1000,
+      style: {},
+    });
+    expect(() => validateDesign(ok)).not.toThrow();
+  });
+
+  test("rejects spacer width above max", () => {
+    const bad = withElement({
+      id: "s",
+      type: "spacer",
+      mode: "fixed",
+      width: 1e9,
+      style: {},
+    });
+    expect(() => validateDesign(bad)).toThrow(ValidationError);
+  });
+
+  test("rejects rotator intervalSeconds above max", () => {
+    const bad = withElement({
+      id: "rot",
+      type: "rotator",
+      items: ["a", "b"],
+      intervalSeconds: 1e9,
+      pickMode: "cycle",
+      style: {},
+    });
+    expect(() => validateDesign(bad)).toThrow(ValidationError);
+  });
+
+  test("rejects top-level refreshInterval above max", () => {
+    const bad = {
+      version: 1,
+      name: "Bounds",
+      elements: [{ id: "a", type: "model", style: {} }],
+      refreshInterval: 1e9,
+    };
+    expect(() => validateDesign(bad)).toThrow(ValidationError);
+  });
+
+  test("accepts refreshInterval at max", () => {
+    const ok = {
+      version: 1,
+      name: "Bounds",
+      elements: [{ id: "a", type: "model", style: {} }],
+      refreshInterval: 86400,
+    };
+    expect(() => validateDesign(ok)).not.toThrow();
+  });
+});
+
 describe("ansi parser", () => {
   test("parses plain text", () => {
     const segs = parseAnsi("hello");

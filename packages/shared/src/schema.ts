@@ -24,6 +24,17 @@ export class ValidationError extends Error {
 const isObj = (v: unknown): v is Record<string, unknown> =>
   typeof v === "object" && v !== null && !Array.isArray(v);
 
+// Upper bounds on numeric design fields. These cap compiled-loop / resource
+// cost so a published community design cannot DoS the terminals of users who
+// install it: bar widths drive __repeat_char/__bar loops in the bash/PS
+// compilers, truncate length and spacer width drive string allocation, and
+// interval seconds gate refresh cost. Values are generous — they only reject
+// absurd inputs (e.g. width: 1e9), not any realistic configuration.
+const MAX_BAR_WIDTH = 200;
+const MAX_TRUNCATE = 1000;
+const MAX_SPACER_WIDTH = 1000;
+const MAX_INTERVAL_SECONDS = 86400; // one day
+
 const ELEMENT_TYPES: ReadonlyArray<ElementType> = [
   "static",
   "model",
@@ -209,8 +220,11 @@ function vBaseFields(v: Record<string, unknown>, path: string) {
     base.suffix = v.suffix;
   }
   if (v.maxLength !== undefined) {
-    if (typeof v.maxLength !== "number" || v.maxLength < 0)
-      throw new ValidationError(path + ".maxLength", "expected non-negative number");
+    if (typeof v.maxLength !== "number" || v.maxLength < 0 || v.maxLength > MAX_TRUNCATE)
+      throw new ValidationError(
+        path + ".maxLength",
+        `expected non-negative number <= ${MAX_TRUNCATE}`,
+      );
     base.maxLength = v.maxLength;
   }
   if (v.showWhen !== undefined) {
@@ -287,8 +301,8 @@ function vElement(raw: unknown, path: string): Element {
       return out;
     }
     case "contextBar": {
-      if (typeof v.width !== "number" || v.width < 1)
-        throw new ValidationError(path + ".width", "expected positive number");
+      if (typeof v.width !== "number" || v.width < 1 || v.width > MAX_BAR_WIDTH)
+        throw new ValidationError(path + ".width", `expected 1..${MAX_BAR_WIDTH}`);
       if (typeof v.filledChar !== "string" || v.filledChar.length === 0)
         throw new ValidationError(path + ".filledChar", "expected non-empty string");
       if (typeof v.emptyChar !== "string" || v.emptyChar.length === 0)
@@ -330,8 +344,8 @@ function vElement(raw: unknown, path: string): Element {
       const width = v.width === undefined ? 10 : v.width;
       const filledChar = v.filledChar === undefined ? "█" : v.filledChar;
       const emptyChar = v.emptyChar === undefined ? "░" : v.emptyChar;
-      if (typeof width !== "number" || width < 1)
-        throw new ValidationError(path + ".width", "expected positive number");
+      if (typeof width !== "number" || width < 1 || width > MAX_BAR_WIDTH)
+        throw new ValidationError(path + ".width", `expected 1..${MAX_BAR_WIDTH}`);
       if (typeof filledChar !== "string" || filledChar.length === 0)
         throw new ValidationError(path + ".filledChar", "expected non-empty string");
       if (typeof emptyChar !== "string" || emptyChar.length === 0)
@@ -380,10 +394,14 @@ function vElement(raw: unknown, path: string): Element {
           throw new ValidationError(`${path}.items[${i}]`, "expected string");
         return it;
       });
-      if (typeof v.intervalSeconds !== "number" || v.intervalSeconds < 1)
+      if (
+        typeof v.intervalSeconds !== "number" ||
+        v.intervalSeconds < 1 ||
+        v.intervalSeconds > MAX_INTERVAL_SECONDS
+      )
         throw new ValidationError(
           path + ".intervalSeconds",
-          "expected number >= 1",
+          `expected 1..${MAX_INTERVAL_SECONDS}`,
         );
       if (v.pickMode !== "cycle" && v.pickMode !== "random")
         throw new ValidationError(path + ".pickMode", "expected cycle|random");
@@ -445,8 +463,16 @@ function vElement(raw: unknown, path: string): Element {
         throw new ValidationError(path + ".mode", "expected fixed|flex");
       const out: Element = { ...base, type: "spacer", mode: v.mode };
       if (v.width !== undefined) {
-        if (typeof v.width !== "number" || v.width < 0 || !Number.isFinite(v.width))
-          throw new ValidationError(path + ".width", "expected non-negative number");
+        if (
+          typeof v.width !== "number" ||
+          v.width < 0 ||
+          v.width > MAX_SPACER_WIDTH ||
+          !Number.isFinite(v.width)
+        )
+          throw new ValidationError(
+            path + ".width",
+            `expected non-negative number <= ${MAX_SPACER_WIDTH}`,
+          );
         out.width = v.width;
       }
       if (v.char !== undefined) {
@@ -475,8 +501,15 @@ export function validateDesign(raw: unknown): Design {
   const out: Design = { version: 1, name: raw.name, elements };
 
   if (raw.refreshInterval !== undefined) {
-    if (typeof raw.refreshInterval !== "number" || raw.refreshInterval < 0)
-      throw new ValidationError("$.refreshInterval", "expected non-negative number");
+    if (
+      typeof raw.refreshInterval !== "number" ||
+      raw.refreshInterval < 0 ||
+      raw.refreshInterval > MAX_INTERVAL_SECONDS
+    )
+      throw new ValidationError(
+        "$.refreshInterval",
+        `expected non-negative number <= ${MAX_INTERVAL_SECONDS}`,
+      );
     out.refreshInterval = raw.refreshInterval;
   }
   if (raw.background !== undefined)
