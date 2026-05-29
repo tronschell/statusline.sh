@@ -469,10 +469,11 @@ function emitOp(op: RenderOp, depth = 0): string {
       return body;
     }
     case "lineBreak":
-      // Reset SGR state, then emit a real LF byte. The reset prevents
-      // element-level or design-level background colors from bleeding
-      // past the line boundary.
-      return `${pad}__reset\n${pad}printf '\\n'\n`;
+      // Reset SGR state, emit a real LF byte, then reset again. The first reset
+      // prevents bg colors bleeding past the line; the second makes the next
+      // line begin with an ANSI escape, which shields its leading whitespace
+      // from Claude Code's per-line leading-whitespace trimming.
+      return `${pad}__reset\n${pad}printf '\\n'\n${pad}__reset\n`;
     case "fixedSpacer": {
       if (op.width <= 0) return "";
       const ch = bashEscapeSingleQuoted(op.char);
@@ -591,8 +592,10 @@ export function compileToBash(design: Design): string {
   for (let d = 0; d < decks.length; d++) {
     body += emitDeck(decks[d]!);
     if (d < decks.length - 1) {
-      // Emit the same reset-then-newline contract as a lineBreak op.
-      body += `__reset\nprintf '\\n'\n`;
+      // Same contract as a lineBreak op: reset, newline, reset — the trailing
+      // reset makes the next line start with an ANSI escape so Claude Code's
+      // per-line leading-whitespace trim can't drop a leading indent.
+      body += `__reset\nprintf '\\n'\n__reset\n`;
     }
   }
 

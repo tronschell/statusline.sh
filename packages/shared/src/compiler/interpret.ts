@@ -189,8 +189,12 @@ function renderOpsWithDecks(ops: RenderOp[], input: ClaudeStdin): string {
     out += renderDeck(decks[d]!, input, cols);
     if (d < decks.length - 1) {
       // Emit the same byte sequence that {op:"lineBreak"} produces, so
-      // the boundary contract (reset-then-newline) is preserved.
-      out += `${SGR_RESET}\n`;
+      // the boundary contract is preserved: reset BEFORE the newline (no bg
+      // bleed) and reset AFTER it, so the next line begins with an ANSI escape.
+      // That leading escape shields any leading whitespace on the line from
+      // Claude Code's per-line leading-whitespace trimming (which would
+      // otherwise drop a plain " " indent and misalign multi-line layouts).
+      out += `${SGR_RESET}\n${SGR_RESET}`;
     }
   }
   return out;
@@ -365,9 +369,10 @@ function renderOp(op: RenderOp, input: ClaudeStdin): string {
       return wrapWithStyle(text, op.style);
     }
     case "lineBreak":
-      // Reset SGR state THEN emit newline so element-level or
-      // design-level background colors do not bleed past the line.
-      return `${SGR_RESET}\n`;
+      // Reset SGR state THEN newline (so bg colors don't bleed past the line),
+      // then reset again so the next line begins with an ANSI escape — see the
+      // deck-boundary note above for why that protects leading whitespace.
+      return `${SGR_RESET}\n${SGR_RESET}`;
     case "fixedSpacer":
       return op.width > 0 ? op.char.repeat(op.width) : "";
     case "flexSpacer":

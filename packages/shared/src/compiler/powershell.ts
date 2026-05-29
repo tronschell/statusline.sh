@@ -419,12 +419,12 @@ function emitOp(op: RenderOp, depth = 0): string {
       return body;
     }
     case "lineBreak":
-      // Reset SGR state, then emit a real LF byte (PowerShell backtick-n).
-      // Writes via __write so the chunk-capture sink (used by flex spacers)
-      // also catches it; in normal flow __write falls through to
-      // [Console]::Out.Write so neither the reset nor the newline are
-      // mangled by host color handling.
-      return `${pad}__write ((__reset) + "\`n")\n`;
+      // Reset SGR state, emit a real LF byte (PowerShell backtick-n), then reset
+      // again. Writes via __write so the flex-spacer chunk-capture sink also
+      // catches it, and so the bytes go out as raw UTF-8 (not via OutputEncoding).
+      // The trailing reset makes the next line begin with an ANSI escape, which
+      // shields its leading whitespace from Claude Code's per-line trim.
+      return `${pad}__write ((__reset) + "\`n" + (__reset))\n`;
     case "fixedSpacer": {
       if (op.width <= 0) return "";
       return `${pad}__write (${psLit(op.char)} * ${op.width})\n`;
@@ -519,7 +519,9 @@ export function compileToPS(design: Design): string {
   for (let d = 0; d < decks.length; d++) {
     body += emitDeckPS(decks[d]!);
     if (d < decks.length - 1) {
-      body += `__write ((__reset) + "\`n")\n`;
+      // reset, newline, reset — trailing reset protects the next line's
+      // leading whitespace from Claude Code's per-line trim.
+      body += `__write ((__reset) + "\`n" + (__reset))\n`;
     }
   }
   // Flush the raw stdout stream before exit — when stdout is redirected (as it

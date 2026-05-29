@@ -408,6 +408,19 @@ const MULTILINE_BG: Design = {
   ],
 };
 
+// Leading whitespace on a non-first line. Claude Code trims a plain leading
+// space per line, but a line that begins with an ANSI escape is spared — so the
+// compiled output emits a reset right after each newline. See interpret.ts.
+const LEADING_WS: Design = {
+  version: 1,
+  name: "LWS",
+  elements: [
+    { id: "a", type: "static", text: "L1", style: {} },
+    { id: "lb", type: "lineBreak", style: {} },
+    { id: "b", type: "static", text: " L2", style: {} },
+  ],
+};
+
 describe("lineBreak (multi-deck)", () => {
   test("compileToOps emits a {op:'lineBreak'} between flanking ops", () => {
     const ops = compileToOps(MULTILINE);
@@ -440,6 +453,15 @@ describe("lineBreak (multi-deck)", () => {
     const afterNl = raw.slice(raw.indexOf("\n") + 1);
     expect(afterNl.startsWith("\x1b[44m")).toBe(false);
     expect(afterNl).not.toContain("\x1b[44m");
+  });
+
+  test("interpret: a newline is never followed by a plain space (leading indent reset-protected)", () => {
+    const raw = renderToAnsi(LEADING_WS, DEFAULT_MOCK_STDIN);
+    // Claude Code trims a bare leading space per line; a leading ANSI escape
+    // spares it. The boundary must therefore reset right after the newline.
+    expect(raw).not.toContain("\n ");
+    expect(raw).toContain("\n\x1b[0m L2");
+    expect(stripAnsi(raw).split("\n")[1]).toBe(" L2"); // indent still present
   });
 
   test("compiled bash emits __reset then printf newline", () => {
@@ -1100,6 +1122,20 @@ describe.skipIf(!HAS_BASH)("bash backend executes correctly", () => {
     expect(stripAnsi(r.stdout)).toBe(stripAnsi(renderToAnsi(d, DEFAULT_MOCK_STDIN)));
   });
 
+  test("leading-whitespace protection: bash output never has a newline + plain space", () => {
+    const script = compileToBash(LEADING_WS);
+    const dir = mkdtempSync(join(tmpdir(), "sl-"));
+    const path = join(dir, "sl.sh");
+    writeFileSync(path, script);
+    const r = spawnSync("bash", [path], {
+      input: JSON.stringify(DEFAULT_MOCK_STDIN),
+      encoding: "utf8",
+    });
+    expect(r.status).toBe(0);
+    expect(r.stdout).not.toContain("\n ");
+    expect(stripAnsi(r.stdout).split("\n")[1]).toBe(" L2");
+  });
+
   test("lineBreak parity: stripped bash output includes the newline", () => {
     const script = compileToBash(MULTILINE);
     const dir = mkdtempSync(join(tmpdir(), "sl-"));
@@ -1359,6 +1395,15 @@ describe.skipIf(!PS_EXE)("powershell backend executes correctly", () => {
     const out = runPS(MULTILINE, DEFAULT_MOCK_STDIN).toString("utf8");
     expect(stripAnsi(out)).toBe(stripAnsi(renderToAnsi(MULTILINE, DEFAULT_MOCK_STDIN)));
     expect(stripAnsi(out)).toContain("\n");
+  });
+
+  // The current regression: line 2's leading space was dropped by Claude Code's
+  // per-line trim because it wasn't preceded by an ANSI escape.
+  test("REGRESSION: line 2 leading whitespace is reset-protected (no newline + plain space)", () => {
+    const out = runPS(LEADING_WS, DEFAULT_MOCK_STDIN).toString("utf8");
+    expect(out).not.toContain("\n ");
+    expect(out).toContain("\n\x1b[0m L2");
+    expect(stripAnsi(out).split("\n")[1]).toBe(" L2");
   });
 
   // The original DWYIzEclt1 bug: halfwidth glyphs ￭ (U+FFED) / ･ (U+FF65) used
