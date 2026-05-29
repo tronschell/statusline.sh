@@ -345,6 +345,10 @@ export async function listCommunity(
   return { items, nextCursor };
 }
 
+// The sitemaps protocol caps a single sitemap file at 50,000 URLs; bound the
+// query so a large table can't trigger a full-table scan on every request.
+const SITEMAP_MAX_ENTRIES = 50000;
+
 export async function listCommunitySitemapEntries(
   env: DbEnv,
 ): Promise<CommunitySitemapEntry[]> {
@@ -352,8 +356,10 @@ export async function listCommunitySitemapEntries(
     .prepare(
       `SELECT slug, published_at
        FROM designs
-       ORDER BY published_at DESC, id ASC`,
+       ORDER BY published_at DESC, id ASC
+       LIMIT ?`,
     )
+    .bind(SITEMAP_MAX_ENTRIES)
     .all<CommunitySitemapEntry>();
   return res.results;
 }

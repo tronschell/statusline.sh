@@ -4,6 +4,7 @@ import {
   decodeCursor,
   encodeCursor,
   kebabCase,
+  listCommunitySitemapEntries,
 } from "../src/designs";
 
 describe("kebabCase", () => {
@@ -93,5 +94,48 @@ describe("encodeCursor / decodeCursor round-trip", () => {
       expect(enc.endsWith("=")).toBe(false);
       expect(decodeCursor(enc)).toEqual(cur);
     }
+  });
+});
+
+describe("listCommunitySitemapEntries", () => {
+  test("issues a bounded query (LIMIT) and never returns more than the cap", async () => {
+    let capturedSql = "";
+    let boundLimit: number | undefined;
+
+    const env = {
+      DB: {
+        prepare(sql: string) {
+          capturedSql = sql.replace(/\s+/g, " ").trim();
+          const stmt = {
+            bind(...args: unknown[]) {
+              boundLimit = args[args.length - 1] as number;
+              return stmt;
+            },
+            async all<T = unknown>(): Promise<{ results: T[] }> {
+              // Pretend the table holds more rows than the cap; the DB itself
+              // applies LIMIT, so honour the bound value here.
+              const limit = boundLimit ?? 0;
+              const results = Array.from({ length: limit }, (_v, i) => ({
+                slug: `design-${i}`,
+                published_at: i,
+              })) as T[];
+              return { results };
+            },
+          };
+          return stmt;
+        },
+      },
+    } as unknown as Parameters<typeof listCommunitySitemapEntries>[0];
+
+    const entries = await listCommunitySitemapEntries(env);
+
+    // Query must carry a LIMIT bound to a numeric parameter, keeping the
+    // existing ORDER BY.
+    expect(capturedSql).toContain("ORDER BY published_at DESC, id ASC");
+    expect(capturedSql).toContain("LIMIT ?");
+    expect(typeof boundLimit).toBe("number");
+    expect(boundLimit).toBe(50000);
+    // Sitemaps protocol caps a single file at 50,000 URLs.
+    expect(entries.length).toBeLessThanOrEqual(50000);
   });
 });
