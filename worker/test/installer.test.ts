@@ -80,6 +80,53 @@ function makeCtx(): ExecutionContext {
   } as unknown as ExecutionContext;
 }
 
+// ExecutionContext stub that records the promises passed to waitUntil so a
+// test can await them and assert background work (the D1 increment + edge
+// cache put) landed.
+function makeRecordingCtx(): {
+  ctx: ExecutionContext;
+  waited: Promise<unknown>[];
+} {
+  const waited: Promise<unknown>[] = [];
+  const ctx = {
+    waitUntil(p: Promise<unknown>): void {
+      waited.push(p);
+    },
+    passThroughOnException(): void {},
+  } as unknown as ExecutionContext;
+  return { ctx, waited };
+}
+
+// Minimal in-memory edge-cache stub mirroring the slice of the Cache API the
+// installer uses (`match` / `put`). `caches.default` is absent in the Bun test
+// runtime, so `getEdgeCache()` returns null and caching no-ops; to exercise
+// the HIT path we install this stub onto `globalThis.caches.default` around a
+// test and tear it down afterwards.
+function withEdgeCacheStub(): {
+  store: Map<string, Response>;
+  restore: () => void;
+} {
+  const store = new Map<string, Response>();
+  const cache = {
+    async match(req: Request): Promise<Response | undefined> {
+      return store.get(req.url);
+    },
+    async put(req: Request, res: Response): Promise<void> {
+      store.set(req.url, res);
+    },
+  };
+  const g = globalThis as { caches?: { default?: unknown } };
+  const prev = g.caches;
+  g.caches = { default: cache };
+  return {
+    store,
+    restore() {
+      if (prev === undefined) delete g.caches;
+      else g.caches = prev;
+    },
+  };
+}
+
 describe("renderInstaller (bash)", () => {
   const design = makeDesign();
   const req = new Request("https://example.com/i/abc.sh");
@@ -340,5 +387,166 @@ describe("handleInstaller increments the install counter", () => {
     await Promise.all(waited);
     expect(installs.size).toBe(0);
     expect(waited.length).toBe(0);
+  });
+});
+
+describe("handleInstaller edge-caching", () => {
+  test("MISS stamps x-cache: MISS and stores the body in the edge cache", async () => {
+    const cacheStub = withEdgeCacheStub();
+    try {
+      const env = makeD1Env(
+        new Map([["designs:known", JSON.stringify(makeDesign())]]),
+      );
+      const { ctx, waited } = makeRecordingCtx();
+      const res = await handleInstaller(
+        new Request("https://example.com/i/known.sh"),
+        env,
+        ctx,
+        { id: "known", ext: "sh" },
+      );
+      expect(res.status).toBe(200);
+      expect(res.headers.get("x-cache")).toBe("MISS");
+      // The internal source marker must never leak to the client.
+      expect(res.headers.get("x-install-source")).toBeNull();
+      // Drain the background cache put.
+      await Promise.all(waited);
+      expect(cacheStub.store.size).toBe(1);
+      const cached = [...cacheStub.store.values()][0]!;
+      // The cached entry carries the internal source marker for the HIT path.
+      expect(cached.headers.get("x-install-source")).toBe("designs");
+    } finally {
+      cacheStub.restore();
+    }
+  });
+
+  test("HIT serves the cached body, strips x-install-source, and still bumps installs (non-preview)", async () => {
+    const cacheStub = withEdgeCacheStub();
+    try {
+      const installs = new Map<string, number>();
+      const env = makeD1Env(
+        new Map([["designs:known", JSON.stringify(makeDesign())]]),
+        installs,
+      );
+      // Prime the cache with a MISS.
+      const miss = makeRecordingCtx();
+      await handleInstaller(
+        new Request("https://example.com/i/known.sh"),
+        env,
+        miss.ctx,
+        { id: "known", ext: "sh" },
+      );
+      await Promise.all(miss.waited);
+      expect(installs.get("known")).toBe(1);
+
+      // Second request is a HIT — must not re-read D1 (the stub's first() only
+      // serves designs/install_records, which would still work, but the
+      // increment must fire and the body must come from cache).
+      const hit = makeRecordingCtx();
+      const res = await handleInstaller(
+        new Request("https://example.com/i/known.sh"),
+        env,
+        hit.ctx,
+        { id: "known", ext: "sh" },
+      );
+      expect(res.status).toBe(200);
+      expect(res.headers.get("x-cache")).toBe("HIT");
+      expect(res.headers.get("x-install-source")).toBeNull();
+      const body = await res.text();
+      expect(body).toContain("STATUSLINE_EOF");
+      await Promise.all(hit.waited);
+      // The counter advanced on the HIT too — this is the high-risk regression.
+      expect(installs.get("known")).toBe(2);
+    } finally {
+      cacheStub.restore();
+    }
+  });
+
+  test("HIT does NOT bump installs when ?preview=1 is set", async () => {
+    const cacheStub = withEdgeCacheStub();
+    try {
+      const installs = new Map<string, number>();
+      const env = makeD1Env(
+        new Map([["designs:known", JSON.stringify(makeDesign())]]),
+        installs,
+      );
+      // Prime the cache via a preview MISS (no increment).
+      const miss = makeRecordingCtx();
+      await handleInstaller(
+        new Request("https://example.com/i/known.sh?preview=1"),
+        env,
+        miss.ctx,
+        { id: "known", ext: "sh" },
+      );
+      await Promise.all(miss.waited);
+      expect(installs.get("known")).toBeUndefined();
+
+      // A preview HIT shares the same cache entry but still must not count.
+      const hit = makeRecordingCtx();
+      const res = await handleInstaller(
+        new Request("https://example.com/i/known.sh?preview=1"),
+        env,
+        hit.ctx,
+        { id: "known", ext: "sh" },
+      );
+      expect(res.status).toBe(200);
+      expect(res.headers.get("x-cache")).toBe("HIT");
+      await Promise.all(hit.waited);
+      expect(installs.get("known")).toBeUndefined();
+      expect(hit.waited.length).toBe(0);
+    } finally {
+      cacheStub.restore();
+    }
+  });
+
+  test("install_records HIT never bumps the counter", async () => {
+    const cacheStub = withEdgeCacheStub();
+    try {
+      const installs = new Map<string, number>();
+      const env = makeD1Env(
+        new Map([["install_records:tmp1", JSON.stringify(makeDesign())]]),
+        installs,
+      );
+      const miss = makeRecordingCtx();
+      await handleInstaller(
+        new Request("https://example.com/i/tmp1.sh"),
+        env,
+        miss.ctx,
+        { id: "tmp1", ext: "sh" },
+      );
+      await Promise.all(miss.waited);
+
+      const hit = makeRecordingCtx();
+      const res = await handleInstaller(
+        new Request("https://example.com/i/tmp1.sh"),
+        env,
+        hit.ctx,
+        { id: "tmp1", ext: "sh" },
+      );
+      expect(res.headers.get("x-cache")).toBe("HIT");
+      await Promise.all(hit.waited);
+      expect(installs.size).toBe(0);
+      expect(hit.waited.length).toBe(0);
+    } finally {
+      cacheStub.restore();
+    }
+  });
+
+  test("404 responses are not cached", async () => {
+    const cacheStub = withEdgeCacheStub();
+    try {
+      const env = makeD1Env(new Map());
+      const { ctx, waited } = makeRecordingCtx();
+      const res = await handleInstaller(
+        new Request("https://example.com/i/missing.sh"),
+        env,
+        ctx,
+        { id: "missing", ext: "sh" },
+      );
+      expect(res.status).toBe(404);
+      await Promise.all(waited);
+      expect(cacheStub.store.size).toBe(0);
+    } finally {
+      cacheStub.restore();
+    }
   });
 });
