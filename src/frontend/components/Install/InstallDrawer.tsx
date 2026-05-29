@@ -56,6 +56,9 @@ export default function InstallDrawer({
 
   // Anonymous install state (only used when designId is null).
   const [mintedId, setMintedId] = useState<string | null>(null);
+  // Serialized snapshot of the design at the moment we minted `mintedId`. Used
+  // to detect when subsequent edits have made the minted install id stale.
+  const [mintedFor, setMintedFor] = useState<string | null>(null);
   const [minting, setMinting] = useState(false);
   const [mintError, setMintError] = useState<string | null>(null);
   const [token, setToken] = useState<string | null>(null);
@@ -89,10 +92,14 @@ export default function InstallDrawer({
 
     setMinting(true);
     setMintError(null);
+    // Snapshot exactly what we're about to send so the staleness check below
+    // compares against the design that actually backs `mintedId`.
+    const snapshot = JSON.stringify(design);
     api
       .installAnonymous(design, token)
       .then((res) => {
         setMintedId(res.id);
+        setMintedFor(snapshot);
       })
       .catch((e: unknown) => {
         setMintError(e instanceof Error ? e.message : String(e));
@@ -101,6 +108,22 @@ export default function InstallDrawer({
         setMinting(false);
       });
   }, [isOpen, designId, mintedId, token, minting, design]);
+
+  // Invalidate the minted install id once the live design diverges from the
+  // snapshot it was minted from. Without this, editing the design after the
+  // first mint keeps serving the original snapshot's id — so the installed
+  // statusline silently lags behind the builder (the user edits, reopens this
+  // drawer, and the cached `mintedId` re-runs the *old* design). Clearing the
+  // single-use Turnstile token too forces a fresh challenge → fresh mint of the
+  // current design.
+  useEffect(() => {
+    if (designId) return; // published id path never mints
+    if (mintedId === null) return; // nothing minted yet
+    if (mintedFor === JSON.stringify(design)) return; // unchanged since mint
+    setMintedId(null);
+    setMintedFor(null);
+    setToken(null);
+  }, [design, designId, mintedId, mintedFor]);
 
   const directUrl = useMemo(() => {
     if (!effectiveId) return "";
