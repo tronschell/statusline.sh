@@ -54,11 +54,15 @@ function makeEnv(rows: FakeDesignRow[]): Env {
         async all<T = unknown>(): Promise<{ results: T[] }> {
           if (
             norm ===
-            "SELECT slug, published_at FROM designs ORDER BY published_at DESC, id ASC"
+            "SELECT slug, published_at FROM designs ORDER BY published_at DESC, id ASC LIMIT ?"
           ) {
+            // The bound LIMIT is the last (only) bind arg — honour it so a
+            // table larger than the cap returns at most that many rows.
+            const limit = stmt.args[stmt.args.length - 1] as number;
             return {
               results: [...rows]
                 .sort((a, b) => b.published_at - a.published_at)
+                .slice(0, limit)
                 .map(({ slug, published_at }) => ({ slug, published_at })) as T[],
             };
           }
@@ -198,8 +202,8 @@ describe("SEO worker routes", () => {
       route("GET", "/robots.txt", () => handleRobotsTxt());
     }
     if (!match("GET", "/sitemap.xml")) {
-      route("GET", "/sitemap.xml", (_req, env) =>
-        handleSitemapXml(env as Env),
+      route("GET", "/sitemap.xml", (req, env, ctx) =>
+        handleSitemapXml(req, env as Env, ctx),
       );
     }
     if (!match("GET", "/og/community/example.svg")) {
@@ -273,6 +277,42 @@ describe("SEO worker routes", () => {
     );
     expect(xml.indexOf("newer-bbbb")).toBeLessThan(xml.indexOf("older-aaaa"));
     expect(writes).toEqual([]);
+  });
+
+  test("GET /sitemap.xml returns 429 without reading the DB when rate limited", async () => {
+    ensureSeoRoutes();
+    const env: Env = {
+      ...makeEnv([
+        {
+          slug: "any-aaaa",
+          name: "Any",
+          description: "",
+          published_at: 1_700_000_000_000,
+        },
+      ]),
+      // Stubbed detail limiter that always denies — the handler must bail with
+      // 429 BEFORE issuing the (otherwise throwing) DB query below.
+      RATE_LIMITER_DETAIL: {
+        async limit() {
+          return { success: false };
+        },
+      },
+      // Replace DB so any query at all blows up — proves the rate-limit check
+      // short-circuits ahead of the table scan.
+      DB: {
+        prepare() {
+          throw new Error("DB must not be touched when rate limited");
+        },
+      } as unknown as D1Database,
+    };
+
+    const res = await worker.fetch(
+      new Request("https://worker.example.com/sitemap.xml"),
+      env,
+      makeCtx(),
+    );
+
+    expect(res.status).toBe(429);
   });
 
   test("GET /og/community/:slug.svg returns an escaped SVG preview", async () => {

@@ -69,7 +69,9 @@ route("GET", "/community", (req, env, ctx, params) =>
   handleListCommunity(req, env as Env, ctx, params),
 );
 route("GET", "/robots.txt", () => handleRobotsTxt());
-route("GET", "/sitemap.xml", (_req, env) => handleSitemapXml(env as Env));
+route("GET", "/sitemap.xml", (req, env, ctx) =>
+  handleSitemapXml(req, env as Env, ctx),
+);
 route("GET", "/og/community/:slug.svg", (_req, env, _ctx, params) =>
   handleCommunityOgSvg(env as Env, params),
 );
@@ -281,14 +283,50 @@ function handleRobotsTxt(): Response {
   });
 }
 
-async function handleSitemapXml(env: Env): Promise<Response> {
+async function handleSitemapXml(
+  req: Request,
+  env: Env,
+  ctx: ExecutionContext,
+): Promise<Response> {
+  const cacheKey = buildSitemapCacheKey();
+  const edgeCache = getEdgeCache();
+
+  if (edgeCache) {
+    const hit = await edgeCache.match(cacheKey);
+    if (hit) {
+      const headers = new Headers(hit.headers);
+      headers.set("x-cache", "HIT");
+      return new Response(hit.body, { status: hit.status, headers });
+    }
+  }
+
+  // Cache miss — apply the detail rate limit BEFORE the (now-bounded) DB query
+  // so `?x=<random>` can't defeat the edge cache and trigger an unthrottled
+  // table scan on every request.
+  const ip = getClientIp(req) ?? "anon";
+  const rl = await checkRateLimit(env, "detail", ip);
+  if (rl) return rl;
+
   const entries = await listCommunitySitemapEntries(env);
-  return new Response(renderSitemapXml(entries), {
+  const response = new Response(renderSitemapXml(entries), {
     headers: {
       "content-type": "application/xml; charset=utf-8",
       "cache-control": "public, s-maxage=3600",
+      "x-cache": "MISS",
     },
   });
+
+  if (edgeCache) {
+    ctx.waitUntil(edgeCache.put(cacheKey, response.clone()));
+  }
+  return response;
+}
+
+// Canonical cache key — a fixed synthetic URL with no query string so that
+// `/sitemap.xml?x=<random>` shares the single cached entry instead of minting
+// a new one per request.
+function buildSitemapCacheKey(): Request {
+  return new Request("https://sitemap-cache.invalid/sitemap.xml");
 }
 
 async function handleCommunityOgSvg(
