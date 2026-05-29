@@ -4,6 +4,7 @@ import type {
   Element,
 } from "@statusline/shared/types";
 import { DEFAULT_CONTEXT_THRESHOLDS } from "@statusline/shared/types";
+import BarCharFields from "./BarCharFields";
 import { type FieldsProps, inputClass, labelClass } from "./common";
 
 type BarElement = Extract<Element, { type: "contextBar" }>;
@@ -51,34 +52,11 @@ export default function ContextBarFields({
         />
       </div>
 
-      <div className="flex gap-2">
-        <div className="flex flex-1 flex-col gap-2">
-          <label className={labelClass}>Filled char</label>
-          <input
-            type="text"
-            maxLength={4}
-            value={element.filledChar}
-            onChange={(e) =>
-              onPatch({ filledChar: e.target.value } as Partial<Element>)
-            }
-            className={inputClass}
-            placeholder="█"
-          />
-        </div>
-        <div className="flex flex-1 flex-col gap-2">
-          <label className={labelClass}>Empty char</label>
-          <input
-            type="text"
-            maxLength={4}
-            value={element.emptyChar}
-            onChange={(e) =>
-              onPatch({ emptyChar: e.target.value } as Partial<Element>)
-            }
-            className={inputClass}
-            placeholder="░"
-          />
-        </div>
-      </div>
+      <BarCharFields
+        filledChar={element.filledChar}
+        emptyChar={element.emptyChar}
+        onPatch={onPatch}
+      />
 
       <div className="flex flex-col gap-2">
         <label className={labelClass}>Color mode</label>
