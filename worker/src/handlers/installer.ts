@@ -26,14 +26,23 @@ function getEdgeCache(): Cache | null {
   }
 }
 
-// Canonical cache key for a compiled installer body: keyed on `(id, ext)`
-// only. The compiled body is byte-identical regardless of `?preview=1` or any
+// Bump whenever the *compiler output* changes (compileToBash/compileToPS or
+// the installer templates). The edge cache (max-age=3600) survives Worker
+// deploys, so without a versioned key a compiler fix is masked by stale cached
+// bodies for up to an hour. Bumping this rotates the cache key so the next
+// request recompiles and re-caches under the new version; old entries orphan
+// and expire on their own.
+const INSTALLER_CACHE_VERSION = "2";
+
+// Canonical cache key for a compiled installer body: keyed on `(version, id,
+// ext)`. The compiled body is byte-identical regardless of `?preview=1` or any
 // cache-buster query param, and published designs / install_records are
 // immutable, so dropping the query string maximises the hit rate without
 // risking a stale body. Origin and arbitrary request headers are stripped too.
 function buildInstallerCacheKey(id: string, ext: string): Request {
   const u = new URL("https://installer-cache.invalid/i/");
   u.pathname = `/i/${encodeURIComponent(id)}.${ext}`;
+  u.searchParams.set("v", INSTALLER_CACHE_VERSION);
   return new Request(u.toString());
 }
 
