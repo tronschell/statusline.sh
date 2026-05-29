@@ -70,15 +70,15 @@ route("GET", "/community", (req, env, ctx, params) =>
 );
 route("GET", "/robots.txt", () => handleRobotsTxt());
 route("GET", "/sitemap.xml", (_req, env) => handleSitemapXml(env as Env));
-route("GET", "/og/community/:slug.svg", (_req, env, _ctx, params) =>
-  handleCommunityOgSvg(env as Env, params),
+route("GET", "/og/community/:slug.svg", (req, env, ctx, params) =>
+  handleCommunityOgSvg(req, env as Env, ctx, params),
 );
 // Keep the .svg route above intact for backwards compat (Google still indexes
 // it fine, and any hotlinks shouldn't 404). The .png variant is what social
 // link previewers — Twitter/X, Slack, Discord, iMessage, LinkedIn, Facebook
 // — actually consume, since they refuse to render SVG `og:image` URLs.
-route("GET", "/og/community/:slug.png", (_req, env, _ctx, params) =>
-  handleCommunityOgPng(env as Env, params),
+route("GET", "/og/community/:slug.png", (req, env, ctx, params) =>
+  handleCommunityOgPng(req, env as Env, ctx, params),
 );
 route("GET", "/community/:slug", (req, env, _ctx, params) =>
   handleGetCommunityBySlug(req, env as Env, params),
@@ -292,37 +292,104 @@ async function handleSitemapXml(env: Env): Promise<Response> {
 }
 
 async function handleCommunityOgSvg(
+  req: Request,
   env: Env,
+  ctx: ExecutionContext,
   params: Record<string, string>,
 ): Promise<Response> {
-  const row = await getCommunitySeoBySlug(env, params.slug!);
+  const slug = params.slug!;
+  const cacheKey = buildOgCacheKey(slug, "svg");
+  const edgeCache = getEdgeCache();
+
+  if (edgeCache) {
+    const hit = await edgeCache.match(cacheKey);
+    if (hit) {
+      const headers = new Headers(hit.headers);
+      headers.set("x-cache", "HIT");
+      return new Response(hit.body, { status: hit.status, headers });
+    }
+  }
+
+  // Cache miss — apply the detail rate limit BEFORE touching D1 so a flood
+  // of `?cachebust=` requests (real or bogus slugs) can't amplify into one
+  // D1 read per request from a single client.
+  const ip = getClientIp(req) ?? "anon";
+  const rl = await checkRateLimit(env, "detail", ip);
+  if (rl) return rl;
+
+  const row = await getCommunitySeoBySlug(env, slug);
   if (!row) return new Response("not found", { status: 404 });
 
-  return new Response(renderCommunityOgSvg(row), {
+  const response = new Response(renderCommunityOgSvg(row), {
     headers: {
       "content-type": "image/svg+xml; charset=utf-8",
       "cache-control": "public, max-age=3600, s-maxage=86400",
+      "x-cache": "MISS",
     },
   });
+
+  if (edgeCache) {
+    ctx.waitUntil(edgeCache.put(cacheKey, response.clone()));
+  }
+  return response;
 }
 
 async function handleCommunityOgPng(
+  req: Request,
   env: Env,
+  ctx: ExecutionContext,
   params: Record<string, string>,
 ): Promise<Response> {
-  const row = await getCommunitySeoBySlug(env, params.slug!);
+  const slug = params.slug!;
+  const cacheKey = buildOgCacheKey(slug, "png");
+  const edgeCache = getEdgeCache();
+
+  if (edgeCache) {
+    const hit = await edgeCache.match(cacheKey);
+    if (hit) {
+      const headers = new Headers(hit.headers);
+      headers.set("x-cache", "HIT");
+      return new Response(hit.body, { status: hit.status, headers });
+    }
+  }
+
+  // Cache miss — apply the detail rate limit BEFORE the D1 read AND the
+  // expensive resvg-wasm rasterisation. The PNG path is the single most
+  // CPU-costly route in the Worker, so this is the primary DoS amplifier the
+  // edge cache + rate limit close off (`?x=<random>` can no longer force a
+  // fresh render every request, and the rate limit caps a determined client).
+  const ip = getClientIp(req) ?? "anon";
+  const rl = await checkRateLimit(env, "detail", ip);
+  if (rl) return rl;
+
+  const row = await getCommunitySeoBySlug(env, slug);
   if (!row) return new Response("not found", { status: 404 });
 
   // SVG is the source of truth — rasterise it on demand. Edge-cache TTL
   // mirrors the SVG endpoint (1h browser, 24h CF) so a viral design only
   // pays the resvg cost once per PoP per day.
   const png = await renderOgPng(renderCommunityOgSvg(row));
-  return new Response(png, {
+  const response = new Response(png, {
     headers: {
       "content-type": "image/png",
       "cache-control": "public, max-age=3600, s-maxage=86400",
+      "x-cache": "MISS",
     },
   });
+
+  if (edgeCache) {
+    ctx.waitUntil(edgeCache.put(cacheKey, response.clone()));
+  }
+  return response;
+}
+
+// Canonical cache key for the OG image endpoints. Built from slug + ext only
+// (query string ignored) so `?cachebust=` / `?x=<random>` can't bypass the
+// edge cache, and the `ext` discriminator keeps svg and png from colliding.
+function buildOgCacheKey(slug: string, ext: "svg" | "png"): Request {
+  const u = new URL("https://og-cache.invalid/og/community/");
+  u.pathname = `/og/community/${encodeURIComponent(slug)}.${ext}`;
+  return new Request(u.toString());
 }
 
 async function handleGetCommunityBySlug(
@@ -614,4 +681,5 @@ export {
   handleSitemapXml,
   handleCommunityOgSvg,
   handleCommunityOgPng,
+  buildOgCacheKey,
 };
