@@ -2,6 +2,12 @@ import { create } from "zustand";
 import { persist, createJSONStorage } from "zustand/middleware";
 import type { StateStorage } from "zustand/middleware";
 import { DEFAULT_MOCK_STDIN } from "@statusline/shared/mockStdin";
+import {
+  DEFAULT_SEPARATOR_TEXT,
+  DEFAULT_SPACER_CHAR,
+  DEFAULT_SPACER_WIDTH,
+  type AutoInsertMode,
+} from "../lib/separators";
 
 function safeStorage(): StateStorage {
   if (typeof localStorage !== "undefined") return localStorage;
@@ -26,12 +32,31 @@ export interface UiState {
   mockStdinJson: string;
   osOverride: OsOverride;
   selfHealOptIn: boolean;
+  /**
+   * Whether new content elements auto-get a separator/spacer dropped in
+   * before them. Defaults to "none" so behaviour is unchanged until the user
+   * opts in through the builder setup prompt.
+   */
+  autoInsert: AutoInsertMode;
+  /** Literal text used when autoInsert === "separator". */
+  autoSeparatorText: string;
+  /** Fixed-width spacer width used when autoInsert === "spacer". */
+  autoSpacerWidth: number;
+  /** Fill character used when autoInsert === "spacer". */
+  autoSpacerChar: string;
+  /** Set once the user has dismissed the one-time setup prompt. */
+  builderSetupSeen: boolean;
   togglePalette(): void;
   toggleInspector(): void;
   setMockPreset(k: string): void;
   setMockStdinJson(s: string): void;
   setOsOverride(o: OsOverride): void;
   setSelfHealOptIn(b: boolean): void;
+  setAutoInsert(m: AutoInsertMode): void;
+  setAutoSeparatorText(s: string): void;
+  setAutoSpacerWidth(n: number): void;
+  setAutoSpacerChar(s: string): void;
+  setBuilderSetupSeen(b: boolean): void;
 }
 
 const DEFAULT_MOCK_JSON = JSON.stringify(DEFAULT_MOCK_STDIN, null, 2);
@@ -75,6 +100,11 @@ export const useUiStore = create<UiState>()(
       mockStdinJson: DEFAULT_MOCK_JSON,
       osOverride: "auto",
       selfHealOptIn: false,
+      autoInsert: "none",
+      autoSeparatorText: DEFAULT_SEPARATOR_TEXT,
+      autoSpacerWidth: DEFAULT_SPACER_WIDTH,
+      autoSpacerChar: DEFAULT_SPACER_CHAR,
+      builderSetupSeen: false,
       togglePalette: () =>
         set((s) => ({ paletteCollapsed: !s.paletteCollapsed })),
       toggleInspector: () =>
@@ -83,16 +113,35 @@ export const useUiStore = create<UiState>()(
       setMockStdinJson: (s) => set({ mockStdinJson: s }),
       setOsOverride: (o) => set({ osOverride: o }),
       setSelfHealOptIn: (b) => set({ selfHealOptIn: b }),
+      setAutoInsert: (m) => set({ autoInsert: m }),
+      setAutoSeparatorText: (s) => set({ autoSeparatorText: s }),
+      setAutoSpacerWidth: (n) =>
+        set({ autoSpacerWidth: Math.max(1, Math.min(8, Math.round(n))) }),
+      setAutoSpacerChar: (s) => set({ autoSpacerChar: s }),
+      setBuilderSetupSeen: (b) => set({ builderSetupSeen: b }),
     }),
     {
       name: "statusline-ui-v1",
-      version: 2,
+      version: 3,
       storage: createJSONStorage(safeStorage),
       migrate: (persisted, version) => {
         if (typeof persisted !== "object" || persisted === null) return persisted;
         const state = persisted as Partial<UiState>;
         if (version < 2 && typeof state.mockStdinJson === "string") {
           state.mockStdinJson = backfillMockJson(state.mockStdinJson);
+        }
+        // v2 → v3: introduce auto-insert spacing prefs. Backfill the new keys
+        // onto older persisted UI state so the store has a complete shape.
+        if (version < 3) {
+          if (state.autoInsert === undefined) state.autoInsert = "none";
+          if (state.autoSeparatorText === undefined)
+            state.autoSeparatorText = DEFAULT_SEPARATOR_TEXT;
+          if (state.autoSpacerWidth === undefined)
+            state.autoSpacerWidth = DEFAULT_SPACER_WIDTH;
+          if (state.autoSpacerChar === undefined)
+            state.autoSpacerChar = DEFAULT_SPACER_CHAR;
+          if (state.builderSetupSeen === undefined)
+            state.builderSetupSeen = false;
         }
         return state as UiState;
       },

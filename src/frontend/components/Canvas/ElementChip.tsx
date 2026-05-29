@@ -56,6 +56,17 @@ export function ElementChip({ element }: ElementChipProps) {
   const selectedId = useDesignStore((s) => s.selectedId);
   const select = useDesignStore((s) => s.select);
   const removeElement = useDesignStore((s) => s.removeElement);
+  const lastAdd = useDesignStore((s) => s.lastAdd);
+
+  // Freshly added chips mount with their animation class already present, so
+  // the keyframes play once on first render. The just-added content chip
+  // drops in; an auto-inserted separator reveals + glows a beat later.
+  const animClass =
+    lastAdd?.contentId === element.id
+      ? "sl-anim-chip-drop"
+      : lastAdd?.separatorId === element.id
+        ? "sl-anim-sep-reveal"
+        : "";
 
   const {
     attributes,
@@ -111,6 +122,7 @@ export function ElementChip({ element }: ElementChipProps) {
           isSelected
             ? "border border-[#8FB8DA]"
             : "border border-dashed border-white/[0.08] hover:border-white/[0.16]",
+          animClass,
         ].join(" ")}
       >
         <span className="font-mono text-[10px] shrink-0" aria-hidden="true">
@@ -170,6 +182,7 @@ export function ElementChip({ element }: ElementChipProps) {
           isSelected
             ? "border border-[#8FB8DA]"
             : "border border-white/[0.06] hover:border-white/[0.12]",
+          animClass,
         ].join(" ")}
       >
         <Icon size={12} weight="bold" />
@@ -209,6 +222,7 @@ export function ElementChip({ element }: ElementChipProps) {
           isSelected
             ? "border border-[#8FB8DA]"
             : "border border-dashed border-white/[0.08] hover:border-white/[0.16]",
+          animClass,
         ].join(" ")}
       >
         <span className="shrink-0" aria-hidden="true">
@@ -252,6 +266,7 @@ export function ElementChip({ element }: ElementChipProps) {
         isSelected
           ? "border border-[#8FB8DA]"
           : "border border-white/[0.06] hover:border-white/[0.12]",
+        animClass,
       ].join(" ")}
     >
       <span

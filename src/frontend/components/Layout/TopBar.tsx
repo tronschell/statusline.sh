@@ -5,6 +5,7 @@ import {
   UploadSimple,
   Globe,
   Palette,
+  ArrowsHorizontal,
 } from "@phosphor-icons/react";
 import { useDesignStore } from "../../store/designStore";
 import { safeValidateDesign } from "@statusline/shared/schema";
@@ -15,6 +16,7 @@ export interface TopBarProps {
   onOpenInstall(): void;
   onOpenPublish(): void;
   onOpenThemes(): void;
+  onOpenSetup(): void;
 }
 
 const btnBase =
@@ -31,6 +33,7 @@ export default function TopBar({
   onOpenInstall,
   onOpenPublish,
   onOpenThemes,
+  onOpenSetup,
 }: TopBarProps) {
   const design = useDesignStore((s) => s.design);
   const setName = useDesignStore((s) => s.setName);
@@ -107,6 +110,17 @@ export default function TopBar({
             className={btnBase}
           >
             <ArrowClockwise size={12} weight="bold" />
+          </button>
+
+          <button
+            type="button"
+            onClick={onOpenSetup}
+            className={btnBase}
+            aria-label="Spacing setup"
+            title="Auto-spacing between elements"
+          >
+            <ArrowsHorizontal size={12} weight="bold" />
+            Spacing
           </button>
 
           <button

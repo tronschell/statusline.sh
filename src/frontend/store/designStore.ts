@@ -9,6 +9,13 @@ import type {
   ElementType,
 } from "@statusline/shared/types";
 import { getThemePreset } from "../themes/presets";
+import { useUiStore } from "./uiStore";
+import {
+  autoInsertElementBody,
+  isContentElementType,
+  respaceElements,
+  withPaddedSuffix,
+} from "../lib/separators";
 
 function safeStorage(): StateStorage {
   if (typeof localStorage !== "undefined") return localStorage;
@@ -128,11 +135,24 @@ function lineBreakCapReached(design: Design): boolean {
   return false;
 }
 
+/**
+ * Transient record of the most recent add, so the canvas can play the
+ * "chip drops in, then the auto separator reveals" animation. `nonce`
+ * increments per add so re-adds of the same element still retrigger.
+ * NOT persisted (only `design` is partialized).
+ */
+export interface LastAdd {
+  contentId: string;
+  separatorId: string | null;
+  nonce: number;
+}
+
 export interface DesignState {
   design: Design;
   selectedId: string | null;
   past: Design[];
   future: Design[];
+  lastAdd: LastAdd | null;
 
   addElement(type: ElementType): void;
   addElementAt(type: ElementType, index: number): void;
@@ -146,6 +166,28 @@ export interface DesignState {
   importDesign(d: Design): void;
   reset(): void;
   applyThemePreset(presetId: string): void;
+  /**
+   * Mass-edit every `separator` element. `text` replaces their text; passing
+   * `null` removes them entirely. One history step regardless of count.
+   */
+  replaceAllSeparators(text: string | null): void;
+  /**
+   * Strip the design's existing spacing (separators, fixed spacers, padding
+   * affixes) and re-apply the current auto-insert config uniformly. Used to
+   * convert a template's baked-in spacing to the user's choice in one step.
+   */
+  respaceFromConfig(): void;
+}
+
+/**
+ * Build the auto separator/spacer element to drop before a freshly added
+ * content element, reading the current builder spacing config from uiStore.
+ * Returns null when auto-insert is off.
+ */
+function makeAutoSeparator(): Element | null {
+  const body = autoInsertElementBody(useUiStore.getState());
+  if (!body) return null;
+  return { id: nanoid(8), ...body } as Element;
 }
 
 function pushHistory(past: Design[], prior: Design): Design[] {
@@ -175,28 +217,64 @@ export const useDesignStore = create<DesignState>()(
         selectedId: null,
         past: [],
         future: [],
+        lastAdd: null,
 
         addElement(type) {
-          withHistory((design) => {
-            if (type === "lineBreak" && lineBreakCapReached(design)) {
-              return design;
-            }
-            const el = defaultsFor(type, nanoid(8));
-            return { ...design, elements: [...design.elements, el] };
-          });
+          get().addElementAt(type, get().design.elements.length);
         },
 
         addElementAt(type, index) {
+          let added: { contentId: string; separatorId: string | null } | null =
+            null;
           withHistory((design) => {
             if (type === "lineBreak" && lineBreakCapReached(design)) {
               return design;
             }
-            const el = defaultsFor(type, nanoid(8));
+            const contentId = nanoid(8);
+            const el = defaultsFor(type, contentId);
             const i = Math.max(0, Math.min(index, design.elements.length));
             const elements = design.elements.slice();
-            elements.splice(i, 0, el);
+
+            // Auto-space the new element from its left neighbour only when
+            // both are content — never before/after structural or whitespace
+            // elements, and never as a leading separator at the start of a row.
+            let separatorId: string | null = null;
+            const prev = elements[i - 1];
+            const mode = useUiStore.getState().autoInsert;
+            const canSpace =
+              mode !== "none" &&
+              isContentElementType(type) &&
+              i > 0 &&
+              prev !== undefined &&
+              isContentElementType(prev.type);
+            if (canSpace && mode === "padding" && prev !== undefined) {
+              // No extra element — pad the previous element's suffix, the way
+              // the built-in templates space items apart.
+              elements[i - 1] = withPaddedSuffix(prev);
+              elements.splice(i, 0, el);
+            } else {
+              const sep = canSpace ? makeAutoSeparator() : null;
+              if (sep) {
+                separatorId = sep.id;
+                elements.splice(i, 0, sep, el);
+              } else {
+                elements.splice(i, 0, el);
+              }
+            }
+
+            added = { contentId, separatorId };
             return { ...design, elements };
           });
+          const a = added as { contentId: string; separatorId: string | null } | null;
+          if (a) {
+            set((s) => ({
+              lastAdd: {
+                contentId: a.contentId,
+                separatorId: a.separatorId,
+                nonce: (s.lastAdd?.nonce ?? 0) + 1,
+              },
+            }));
+          }
         },
 
         updateElement(id, patch) {
@@ -284,6 +362,7 @@ export const useDesignStore = create<DesignState>()(
             past: [],
             future: [],
             selectedId: null,
+            lastAdd: null,
           });
         },
 
@@ -293,6 +372,7 @@ export const useDesignStore = create<DesignState>()(
             past: [],
             future: [],
             selectedId: null,
+            lastAdd: null,
           });
         },
 
@@ -310,6 +390,46 @@ export const useDesignStore = create<DesignState>()(
             });
             return { ...design, elements };
           });
+        },
+
+        replaceAllSeparators(text) {
+          withHistory((design) => {
+            if (text === null) {
+              const elements = design.elements.filter(
+                (el) => el.type !== "separator",
+              );
+              if (elements.length === design.elements.length) return design;
+              return { ...design, elements };
+            }
+            let changed = false;
+            const elements = design.elements.map((el) => {
+              if (el.type !== "separator") return el;
+              if (el.text === text) return el;
+              changed = true;
+              return { ...el, text };
+            });
+            if (!changed) return design;
+            return { ...design, elements };
+          });
+        },
+
+        respaceFromConfig() {
+          const cfg = useUiStore.getState();
+          let removedSelected = false;
+          withHistory((design) => {
+            const elements = respaceElements(design.elements, cfg, () =>
+              nanoid(8),
+            );
+            const { selectedId } = get();
+            if (
+              selectedId !== null &&
+              !elements.some((el) => el.id === selectedId)
+            ) {
+              removedSelected = true;
+            }
+            return { ...design, elements };
+          });
+          if (removedSelected) set({ selectedId: null });
         },
       };
     },

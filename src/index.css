@@ -290,6 +290,96 @@
   100% { border-radius: 50% 50% 75% 25% / 30% 70% 40% 60%; }
 }
 
+/*
+ * Canvas "element added" choreography. When a content chip is dropped onto
+ * the canvas it falls in (sl-chip-drop); if auto-spacing is on, the separator
+ * the store inserted just before it reveals a beat later with a brief glow
+ * (sl-sep-reveal + sl-sep-glow) so it's obvious where the spacing came from.
+ * CSS animations override the chip's inline transform/opacity during playback,
+ * then hand control back to the resting inline styles when they finish.
+ */
+@keyframes sl-chip-drop {
+  0%   { opacity: 0; transform: translateY(-12px) scale(0.9); }
+  55%  { opacity: 1; transform: translateY(3px) scale(1.03); }
+  100% { opacity: 1; transform: translateY(0) scale(1); }
+}
+.sl-anim-chip-drop {
+  animation: sl-chip-drop 320ms cubic-bezier(0.18, 0.67, 0.6, 1.22) both;
+}
+
+@keyframes sl-sep-reveal {
+  0%   { opacity: 0; transform: scaleX(0.35); }
+  100% { opacity: 1; transform: scaleX(1); }
+}
+@keyframes sl-sep-glow {
+  0%   { box-shadow: 0 0 0 0 rgba(143, 184, 218, 0); }
+  35%  { box-shadow: 0 0 0 3px rgba(143, 184, 218, 0.45); }
+  100% { box-shadow: 0 0 0 0 rgba(143, 184, 218, 0); }
+}
+.sl-anim-sep-reveal {
+  transform-origin: left center;
+  animation:
+    sl-sep-reveal 300ms ease-out 150ms both,
+    sl-sep-glow 760ms ease-out 150ms both;
+}
+
+/*
+ * Looping demo used inside the setup prompt. A single 4.2s timeline: the new
+ * chip drops in (~20%), the separator pops between it and the existing chip
+ * (~35%), both hold, then reset for the next loop. Both elements share the
+ * same duration so the loop stays in lockstep.
+ */
+@keyframes sl-demo-chip {
+  0%, 8%    { opacity: 0; transform: translateY(-14px) scale(0.88); }
+  20%, 80%  { opacity: 1; transform: translateY(0) scale(1); }
+  92%, 100% { opacity: 0; transform: translateY(-14px) scale(0.88); }
+}
+@keyframes sl-demo-sep {
+  0%, 24%   { opacity: 0; transform: scaleX(0.3); }
+  38%, 80%  { opacity: 1; transform: scaleX(1); }
+  92%, 100% { opacity: 0; transform: scaleX(0.3); }
+}
+@keyframes sl-demo-sep-glow {
+  0%, 24%   { box-shadow: 0 0 0 0 rgba(143, 184, 218, 0); }
+  34%       { box-shadow: 0 0 0 4px rgba(143, 184, 218, 0.5); }
+  48%, 100% { box-shadow: 0 0 0 0 rgba(143, 184, 218, 0); }
+}
+@keyframes sl-demo-arrow {
+  0%, 8%    { opacity: 0; transform: translateY(-10px); }
+  18%       { opacity: 1; transform: translateY(0); }
+  30%, 100% { opacity: 0; transform: translateY(2px); }
+}
+.sl-demo-chip {
+  animation: sl-demo-chip 4.2s ease-in-out infinite;
+}
+.sl-demo-sep {
+  transform-origin: left center;
+  animation:
+    sl-demo-sep 4.2s ease-in-out infinite,
+    sl-demo-sep-glow 4.2s ease-in-out infinite;
+}
+.sl-demo-arrow {
+  animation: sl-demo-arrow 4.2s ease-in-out infinite;
+}
+
+/*
+ * Mass-edit confirmation: a green check overlay pops in over the button,
+ * holds, then fades back out, revealing the original label. The component
+ * unmounts the overlay on a timeout (not animationend) so this still resolves
+ * when the reduced-motion rule below disables the animation.
+ */
+@keyframes sl-confirm-flash {
+  0%   { opacity: 0; transform: scale(0.4); }
+  16%  { opacity: 1; transform: scale(1.14); }
+  28%  { transform: scale(1); }
+  70%  { opacity: 1; }
+  100% { opacity: 0; transform: scale(1); }
+}
+.sl-confirm-flash {
+  transform-origin: center;
+  animation: sl-confirm-flash 1150ms ease-out both;
+}
+
 @media (prefers-reduced-motion) {
   *,
   ::before,

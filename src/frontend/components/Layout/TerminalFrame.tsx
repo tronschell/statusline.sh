@@ -20,10 +20,10 @@ export function TerminalFrame({ children, className }: TerminalFrameProps) {
         (className ? " " + className : "")
       }
     >
-      <div className="flex items-center gap-[6px] px-4 py-2.5 border-b border-white/[0.04]">
-        <span className="block w-[10px] h-[10px] rounded-full bg-white/15" />
-        <span className="block w-[10px] h-[10px] rounded-full bg-white/15" />
-        <span className="block w-[10px] h-[10px] rounded-full bg-white/15" />
+      <div className="group flex items-center gap-[6px] px-4 py-2.5 border-b border-white/[0.04]">
+        <span className="block w-[10px] h-[10px] rounded-full bg-white/15 transition-colors duration-200 group-hover:bg-[#FF5F57]" />
+        <span className="block w-[10px] h-[10px] rounded-full bg-white/15 transition-colors duration-200 group-hover:bg-[#FEBC2E]" />
+        <span className="block w-[10px] h-[10px] rounded-full bg-white/15 transition-colors duration-200 group-hover:bg-[#28C840]" />
       </div>
       <div className="font-mono text-sm px-5 py-4 text-[#E8E8E6] overflow-x-auto whitespace-nowrap">
         {children}
