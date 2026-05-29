@@ -1,5 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import worker, {
+  buildOgCacheKey,
   handleCommunityOgPng,
   handleCommunityOgSvg,
   handleRobotsTxt,
@@ -203,13 +204,13 @@ describe("SEO worker routes", () => {
       );
     }
     if (!match("GET", "/og/community/example.svg")) {
-      route("GET", "/og/community/:slug.svg", (_req, env, _ctx, params) =>
-        handleCommunityOgSvg(env as Env, params),
+      route("GET", "/og/community/:slug.svg", (req, env, ctx, params) =>
+        handleCommunityOgSvg(req, env as Env, ctx, params),
       );
     }
     if (!match("GET", "/og/community/example.png")) {
-      route("GET", "/og/community/:slug.png", (_req, env, _ctx, params) =>
-        handleCommunityOgPng(env as Env, params),
+      route("GET", "/og/community/:slug.png", (req, env, ctx, params) =>
+        handleCommunityOgPng(req, env as Env, ctx, params),
       );
     }
   }
@@ -374,6 +375,75 @@ describe("SEO worker routes", () => {
     );
 
     expect(res.status).toBe(404);
+  });
+
+  // A `DB` that throws on ANY query — proves the rate limit short-circuits
+  // before the D1 read (and, for .png, before the resvg rasterisation).
+  function explodingDbEnv(success: boolean): Env {
+    let limitCalls = 0;
+    const env = {
+      ...makeEnv([]),
+      DB: {
+        prepare() {
+          throw new Error("DB must not be touched when rate limited");
+        },
+        async batch() {
+          throw new Error("DB must not be touched when rate limited");
+        },
+      } as unknown as D1Database,
+      RATE_LIMITER_DETAIL: {
+        async limit() {
+          limitCalls += 1;
+          return { success };
+        },
+      },
+    } satisfies Env;
+    return Object.assign(env, { _limitCalls: () => limitCalls });
+  }
+
+  test("GET /og/community/:slug.svg rate-limits on a cache miss before the DB read", async () => {
+    ensureSeoRoutes();
+    const env = explodingDbEnv(false);
+    const res = await worker.fetch(
+      new Request("https://worker.example.com/og/community/quiet-prompt-abcd.svg"),
+      env,
+      makeCtx(),
+    );
+    expect(res.status).toBe(429);
+    expect((env as unknown as { _limitCalls: () => number })._limitCalls()).toBe(1);
+  });
+
+  test("GET /og/community/:slug.png rate-limits on a cache miss before the render", async () => {
+    ensureSeoRoutes();
+    const env = explodingDbEnv(false);
+    const res = await worker.fetch(
+      new Request("https://worker.example.com/og/community/quiet-prompt-abcd.png"),
+      env,
+      makeCtx(),
+    );
+    expect(res.status).toBe(429);
+    expect((env as unknown as { _limitCalls: () => number })._limitCalls()).toBe(1);
+  });
+});
+
+describe("OG image edge-cache key", () => {
+  test("ignores query string — cachebusting params resolve to one key", () => {
+    const a = buildOgCacheKey("quiet-prompt-abcd", "png").url;
+    const b = buildOgCacheKey("quiet-prompt-abcd", "png").url;
+    expect(a).toBe(b);
+    // Same slug + ext is canonical regardless of how the caller's request was
+    // spelled (the builder takes slug + ext only, never the query string).
+    expect(a).toBe(
+      "https://og-cache.invalid/og/community/quiet-prompt-abcd.png",
+    );
+  });
+
+  test("svg and png discriminator keep the two endpoints from colliding", () => {
+    const svg = buildOgCacheKey("quiet-prompt-abcd", "svg").url;
+    const png = buildOgCacheKey("quiet-prompt-abcd", "png").url;
+    expect(svg).not.toBe(png);
+    expect(svg.endsWith(".svg")).toBe(true);
+    expect(png.endsWith(".png")).toBe(true);
   });
 });
 
