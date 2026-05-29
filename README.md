@@ -1,5 +1,14 @@
 # statusline.sh
 
+[![Bun](https://img.shields.io/badge/Bun-000000?style=for-the-badge&logo=bun&logoColor=white)](https://bun.sh)
+[![React](https://img.shields.io/badge/React_19-20232A?style=for-the-badge&logo=react&logoColor=61DAFB)](https://react.dev)
+[![TypeScript](https://img.shields.io/badge/TypeScript-3178C6?style=for-the-badge&logo=typescript&logoColor=white)](https://www.typescriptlang.org)
+[![Tailwind CSS](https://img.shields.io/badge/Tailwind_v4-0F172A?style=for-the-badge&logo=tailwindcss&logoColor=38BDF8)](https://tailwindcss.com)
+[![Cloudflare Workers](https://img.shields.io/badge/Cloudflare_Workers-F38020?style=for-the-badge&logo=cloudflare&logoColor=white)](https://workers.cloudflare.com)
+[![Vercel](https://img.shields.io/badge/Vercel-000000?style=for-the-badge&logo=vercel&logoColor=white)](https://vercel.com)
+[![License: MIT](https://img.shields.io/badge/License-MIT-22C55E?style=for-the-badge)](./LICENSE)
+[![PRs Welcome](https://img.shields.io/badge/PRs-welcome-6366F1?style=for-the-badge)](#contributing-and-community)
+
 Visual builder for Claude Code statuslines.
 
 [statusline.sh](https://statusline.sh) is a free, open-source web app for designing the Claude Code statusline — the customizable status bar at the bottom of the Claude Code terminal interface. Drag elements onto a canvas, style them, preview live, then paste a single command to install on macOS, Linux, or Windows.
@@ -53,6 +62,19 @@ Parity is enforced in `test/compiler.test.ts`, which spawns the compiled bash wi
 Community designs live in Cloudflare D1 (SQLite-compatible), accessed only from the Worker. Two tables: `designs` (with compound indexes on `(published_at DESC, id ASC)` and `(forks DESC, views DESC, id ASC)` for cursor pagination) and `install_records` (a 7-day staging area for anonymous installs, reaped by a daily cron). The SPA never touches D1 directly — it reaches the Worker cross-origin via CORS and Turnstile-protected POSTs.
 
 For a deeper tour of the architecture invariants — compiler parity, installer safety rules, state-management contracts, and the D1 access pattern — see [`CLAUDE.md`](./CLAUDE.md).
+
+## Infrastructure and how this stays free
+
+statusline.sh runs entirely on the free tiers of Vercel and Cloudflare. That is not luck — the architecture is shaped to push work to the client and the edge, keep stored data tiny, and stop abuse before it touches a metered quota. The breakdown:
+
+- **Static-first SPA on Vercel (Hobby).** The builder is a pure client-side bundle served from `./dist` as immutable, far-future-cached JS/CSS (`vercel.json` sets `Cache-Control: public, max-age=31536000, immutable`). Every design edit, preview, and ANSI render happens in the browser via `compiler/interpret.ts` — there is no server compute per keystroke. The Hobby plan includes **100 GB of fast data transfer per month**, and because the assets are immutable and edge-cached, the vast majority of repeat visits never even reach an origin.
+- **Cloudflare Workers + D1 for the backend.** The Worker handles all community, install, installer (`/i/:id.{sh,ps1}`), and SEO (`robots.txt`, `sitemap.xml`, OG SVG) routes at the edge, with community designs stored in D1 (SQLite-compatible). The limits are generous: the Workers free tier allows **100,000 requests per day**, and D1's free tier provides **5 GB of storage, 5 million rows read per day, and 100,000 rows written per day** — far more headroom than the current traffic uses.
+- **Designs that cost almost nothing to store.** A SQL `CHECK (length(json) BETWEEN 2 AND 32768)` plus a 64 KiB HTTP body cap keep every row tiny, and cursor pagination backed by `idx_designs_recent` / `idx_designs_popular` avoids full-table scans no matter how large the gallery grows.
+- **Edge-friendly view counting.** Detail-page views are recorded best-effort through Workers Analytics Engine and rolled up into `designs.views` by an hourly cron, rather than issuing a D1 write on every page load.
+- **Self-cleaning staging data.** `install_records` is a 7-day staging area for anonymous installs, reaped by a daily cron (`wrangler.toml` `triggers.crons`), so the anonymous-install path never accumulates unbounded rows.
+- **Abuse kept off the meter.** Per-endpoint rate-limit namespaces (publish, fork, install, list, detail, installer) plus Turnstile on the publish / fork / install flows stop bots from burning through free-tier quotas.
+
+**Scaling and future optimization.** Today the footprint fits comfortably inside these free tiers. If growth ever pushes past them, the next levers are edge-caching the list and detail responses, offloading OG image generation to R2, and tighter D1 query budgeting — all of which extend the runway without making the core builder paid. The goal is to keep statusline.sh free to use indefinitely; this README will be updated as those optimizations land.
 
 ## Development
 
