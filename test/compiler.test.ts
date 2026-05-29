@@ -1265,3 +1265,153 @@ describe.skipIf(!HAS_BASH)("bash backend executes correctly", () => {
     }
   });
 });
+
+// --- PowerShell execution parity ---------------------------------------
+//
+// Spawns the *real* PowerShell against the compiled script with mock JSON on
+// stdin, exactly as the installed statusline runs. The script is written
+// WITHOUT a BOM — the real-world install case — so these tests also guard the
+// two Windows PowerShell 5.1 UTF-8 traps that previously mangled bar glyphs:
+//   1. parse-time: a BOM-less .ps1 is read in the OEM code page (e.g. IBM437),
+//      which would split each multi-byte glyph into garbage chars. The compiler
+//      keeps the script pure ASCII (non-ASCII emitted as [char] escapes) to
+//      defeat this.
+//   2. output-time: [Console]::Out.Write re-encodes through OutputEncoding and
+//      drops non-OEM glyphs to '?'. The compiler writes raw UTF-8 bytes instead.
+const PS_EXE = (() => {
+  for (const exe of ["pwsh", "powershell.exe", "powershell"]) {
+    try {
+      const r = spawnSync(exe, ["-NoProfile", "-Command", "exit 0"], {
+        encoding: "utf8",
+      });
+      if (r.status === 0) return exe;
+    } catch {
+      // try next candidate
+    }
+  }
+  return null;
+})();
+
+describe.skipIf(!PS_EXE)("powershell backend executes correctly", () => {
+  // Returns raw stdout bytes so we can assert exact UTF-8 encoding, not just
+  // the (already-decoded) string.
+  function runPS(
+    design: Design,
+    mock: unknown,
+    env: Record<string, string> = {},
+  ): Buffer {
+    const script = compileToPS(design);
+    const dir = mkdtempSync(join(tmpdir(), "slps-"));
+    const path = join(dir, "sl.ps1");
+    writeFileSync(path, script, { encoding: "utf8" }); // BOM-less, on purpose
+    const r = spawnSync(PS_EXE!, ["-NoProfile", "-File", path], {
+      input: JSON.stringify(mock),
+      env: { ...process.env, ...env },
+      maxBuffer: 16 * 1024 * 1024,
+    });
+    expect(r.status).toBe(0);
+    return r.stdout as Buffer;
+  }
+
+  test("simple design stripped output matches interpret", () => {
+    const out = runPS(SIMPLE, DEFAULT_MOCK_STDIN).toString("utf8");
+    expect(stripAnsi(out)).toBe(stripAnsi(renderToAnsi(SIMPLE, DEFAULT_MOCK_STDIN)));
+  });
+
+  test("complex design (▸ separator + █/░ bar + split) matches interpret", () => {
+    // Mirrors COMPLEX but uses cwd basename instead of tilde — the tilde
+    // transform is environment-dependent (real $HOME vs interpret's hardcoded
+    // /Users|/home regex) and would make this a flaky cross-backend assertion.
+    // The non-ASCII stressors (▸ separator, █/░ bar, segmentSplit) are kept.
+    const PS_COMPLEX: Design = {
+      version: 1,
+      name: "PSComplex",
+      elements: [
+        { id: "m", type: "model", style: { bold: true } },
+        { id: "s1", type: "separator", text: " ▸ ", style: { fg: { kind: "ansi16", index: 8 } } },
+        { id: "c", type: "cwd", mode: "basename", style: { fg: { kind: "rgb", r: 200, g: 200, b: 180 } } },
+        { id: "s2", type: "separator", text: " ", style: {} },
+        {
+          id: "br",
+          type: "segmentSplit",
+          style: {},
+          source: { kind: "field", path: "workspace.git_worktree" },
+          delimiter: "/",
+          segments: [
+            { style: { fg: { kind: "ansi16", index: 15 } } },
+            { style: { fg: { kind: "ansi16", index: 13 }, bold: true } },
+          ],
+        },
+        { id: "sp", type: "separator", text: " ", style: {} },
+        { id: "bar", type: "contextBar", width: 10, filledChar: "█", emptyChar: "░", style: { fg: { kind: "ansi256", index: 76 } } },
+        { id: "pct", type: "contextPct", style: {}, prefix: " ", suffix: "%" },
+        { id: "s3", type: "separator", text: " | ", style: {} },
+        { id: "cost", type: "cost", precision: 2, style: { fg: { kind: "ansi16", index: 11 } } },
+      ],
+    };
+    const out = runPS(PS_COMPLEX, DEFAULT_MOCK_STDIN).toString("utf8");
+    expect(stripAnsi(out)).toBe(stripAnsi(renderToAnsi(PS_COMPLEX, DEFAULT_MOCK_STDIN)));
+    expect(out).not.toContain("?");
+    expect(out).not.toContain("�");
+  });
+
+  test("multi-deck (lineBreak) stripped output matches interpret", () => {
+    const out = runPS(MULTILINE, DEFAULT_MOCK_STDIN).toString("utf8");
+    expect(stripAnsi(out)).toBe(stripAnsi(renderToAnsi(MULTILINE, DEFAULT_MOCK_STDIN)));
+    expect(stripAnsi(out)).toContain("\n");
+  });
+
+  // The original DWYIzEclt1 bug: halfwidth glyphs ￭ (U+FFED) / ･ (U+FF65) used
+  // as bar fill/empty chars. They must survive as exact UTF-8 bytes, not '?'.
+  test("REGRESSION: halfwidth ￭/･ bar glyphs emit correct UTF-8 bytes", () => {
+    const d: Design = {
+      version: 1,
+      name: "BAR",
+      elements: [
+        { id: "b", type: "contextBar", width: 10, filledChar: "￭", emptyChar: "･", style: {} },
+      ],
+    };
+    const mock = { context_window: { used_percentage: 50 } };
+    const out = runPS(d, mock);
+    const s = out.toString("utf8");
+    expect(stripAnsi(s)).toBe(stripAnsi(renderToAnsi(d, mock)));
+    expect(stripAnsi(s)).toBe("￭￭￭￭￭･････");
+    // ￭ = EF BF AD, ･ = EF BD A5 — must appear verbatim in the byte stream.
+    expect(out.includes(Buffer.from([0xef, 0xbf, 0xad]))).toBe(true);
+    expect(out.includes(Buffer.from([0xef, 0xbd, 0xa5]))).toBe(true);
+    // No best-fit '?' fallback and no U+FFFD replacement.
+    expect(s).not.toContain("?");
+    expect(s).not.toContain("�");
+  });
+
+  test("astral emoji rotator (🚀) emits correct UTF-8 via ConvertFromUtf32", () => {
+    const d: Design = {
+      version: 1,
+      name: "ROT",
+      elements: [
+        {
+          id: "r",
+          type: "rotator",
+          style: {},
+          items: ["⚡fast", "🚀go", "✨x"],
+          intervalSeconds: 2,
+          pickMode: "cycle",
+        },
+      ],
+    };
+    const prev = process.env.STATUSLINE_CLOCK_OVERRIDE;
+    process.env.STATUSLINE_CLOCK_OVERRIDE = "2"; // 2/2=1; 1%3=1 -> "🚀go"
+    try {
+      const out = runPS(d, DEFAULT_MOCK_STDIN, { STATUSLINE_CLOCK_OVERRIDE: "2" });
+      const s = out.toString("utf8");
+      expect(stripAnsi(s)).toBe(stripAnsi(renderToAnsi(d, DEFAULT_MOCK_STDIN)));
+      expect(stripAnsi(s)).toBe("🚀go");
+      // 🚀 = U+1F680 = F0 9F 9A 80
+      expect(out.includes(Buffer.from([0xf0, 0x9f, 0x9a, 0x80]))).toBe(true);
+      expect(s).not.toContain("�");
+    } finally {
+      if (prev === undefined) delete process.env.STATUSLINE_CLOCK_OVERRIDE;
+      else process.env.STATUSLINE_CLOCK_OVERRIDE = prev;
+    }
+  });
+});

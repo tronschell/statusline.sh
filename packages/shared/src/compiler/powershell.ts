@@ -45,12 +45,25 @@ function __sgr([string]$codes) {
 function __reset() { return "$([char]27)[0m" }
 
 # Output sink: when $__SINK is non-null, __emit/__write append to it
-# (used for flex-spacer chunk capture). Otherwise everything goes
-# straight to the console via [Console]::Out.Write.
+# (used for flex-spacer chunk capture). Otherwise bytes go straight to the
+# raw standard-output stream as UTF-8.
+#
+# We deliberately bypass [Console]::Out.Write: that re-encodes through
+# [Console]::OutputEncoding, which on Windows PowerShell 5.1 defaults to the
+# console's OEM code page (e.g. IBM437 / CP1252). Those code pages can't
+# represent the block-bar glyphs, box drawing, or emoji a statusline may emit,
+# so they get mangled to '?' regardless of the terminal's own encoding. Writing
+# UTF-8 bytes straight to the handle is independent of the console code page AND
+# of host color handling. The compiled body below keeps all literals ASCII
+# (non-ASCII is emitted as [char] escapes) so the in-memory strings are correct
+# even when PowerShell 5.1 parses this BOM-less file as its OEM code page.
 $__SINK = $null
+$__stdout = [Console]::OpenStandardOutput()
 function __write([string]$text) {
-  if ($null -eq $__SINK) { [Console]::Out.Write($text) }
-  else { $script:__SINK.Append($text) | Out-Null }
+  if ($null -eq $script:__SINK) {
+    $__b = [System.Text.Encoding]::UTF8.GetBytes($text)
+    $script:__stdout.Write($__b, 0, $__b.Length)
+  } else { $script:__SINK.Append($text) | Out-Null }
 }
 function __emit([string]$codes, [string]$text) {
   $out = ''
@@ -214,6 +227,48 @@ function psEscapeSingle(s: string): string {
   return s.replace(/'/g, "''");
 }
 
+/**
+ * Render an arbitrary string as an ASCII-only PowerShell expression that
+ * evaluates to that exact string at runtime.
+ *
+ * Printable-ASCII runs become single-quoted literals; every other code point
+ * is emitted as a `[char]0xHHHH` escape (or `[char]::ConvertFromUtf32` for
+ * astral chars like emoji). Keeping the compiled script pure ASCII means the
+ * parser can't corrupt user glyphs no matter what encoding the host uses to
+ * read the file — the critical fix for Windows PowerShell 5.1, which parses a
+ * BOM-less .ps1 as the OEM code page and would otherwise split each multi-byte
+ * UTF-8 glyph into several garbage chars (inflating bar widths and breaking
+ * flex-spacer math). The result is always safe to drop into argument position
+ * (escaped forms are parenthesised).
+ */
+function psLit(s: string): string {
+  if (s === "") return "''";
+  const parts: string[] = [];
+  let ascii = "";
+  let hasEscape = false;
+  const flushAscii = () => {
+    if (ascii !== "") {
+      parts.push(`'${ascii.replace(/'/g, "''")}'`);
+      ascii = "";
+    }
+  };
+  // Iterate by code point so surrogate pairs (emoji) are handled atomically.
+  for (const ch of s) {
+    const cp = ch.codePointAt(0)!;
+    if (cp >= 0x20 && cp <= 0x7e) {
+      ascii += ch;
+    } else {
+      flushAscii();
+      hasEscape = true;
+      const hex = cp.toString(16).toUpperCase();
+      parts.push(cp <= 0xffff ? `[char]0x${hex}` : `[char]::ConvertFromUtf32(0x${hex})`);
+    }
+  }
+  flushAscii();
+  if (!hasEscape) return parts[0]!;
+  return `(${parts.join(" + ")})`;
+}
+
 function sgrCodes(style: AnsiStyle): string {
   const sgr = styleToSgr(style);
   if (!sgr) return "";
@@ -228,7 +283,7 @@ function emitOp(op: RenderOp, depth = 0): string {
 
   switch (op.op) {
     case "literal":
-      return `${pad}__emit '${styleCodes}' '${psEscapeSingle(op.text)}'\n`;
+      return `${pad}__emit '${styleCodes}' ${psLit(op.text)}\n`;
 
     case "field": {
       const t = op.transform ?? "raw";
@@ -245,11 +300,11 @@ function emitOp(op: RenderOp, depth = 0): string {
       const expectedDirty =
         op.expr.op !== "exists" ? String(op.expr.value) : "1";
       if (op.expr.field === "__computed.git_dirty") {
-        test = `((__gitDirty) -eq '${psEscapeSingle(expectedDirty)}')`;
+        test = `((__gitDirty) -eq ${psLit(expectedDirty)})`;
       } else if (op.expr.op === "exists") {
         test = `((__field '${psEscapeSingle(op.expr.field)}') -ne '')`;
       } else if (op.expr.op === "eq") {
-        test = `((__field '${psEscapeSingle(op.expr.field)}') -eq '${psEscapeSingle(String(op.expr.value))}')`;
+        test = `((__field '${psEscapeSingle(op.expr.field)}') -eq ${psLit(String(op.expr.value))})`;
       } else if (op.expr.op === "gt") {
         test = `([double](__field '${psEscapeSingle(op.expr.field)}') -gt ${Number(op.expr.value)})`;
       } else if (op.expr.op === "lt") {
@@ -268,9 +323,9 @@ function emitOp(op: RenderOp, depth = 0): string {
     }
 
     case "progressBar": {
-      const f = psEscapeSingle(op.filled);
-      const e = psEscapeSingle(op.empty);
-      return `${pad}__emit '${styleCodes}' (__bar (__field '${psEscapeSingle(op.pctPath)}') ${op.width} '${f}' '${e}')\n`;
+      const f = psLit(op.filled);
+      const e = psLit(op.empty);
+      return `${pad}__emit '${styleCodes}' (__bar (__field '${psEscapeSingle(op.pctPath)}') ${op.width} ${f} ${e})\n`;
     }
 
     case "split": {
@@ -284,15 +339,15 @@ function emitOp(op: RenderOp, depth = 0): string {
         else if (t === "compact") v = `(__compact ${v})`;
         prelude = `${pad}$__v = ${v}\n`;
       } else if (src.op === "literal") {
-        prelude = `${pad}$__v = '${psEscapeSingle(src.text)}'\n`;
+        prelude = `${pad}$__v = ${psLit(src.text)}\n`;
       } else if (src.op === "compute" && src.expr === "git_branch") {
         prelude = `${pad}$__v = __gitBranch\n`;
       } else {
         prelude = `${pad}$__v = ''\n`;
       }
       let body = prelude;
-      body += `${pad}$__delim = '${psEscapeSingle(op.delimiter)}'\n`;
-      body += `${pad}$__join = '${psEscapeSingle(op.joinWith ?? op.delimiter)}'\n`;
+      body += `${pad}$__delim = ${psLit(op.delimiter)}\n`;
+      body += `${pad}$__join = ${psLit(op.joinWith ?? op.delimiter)}\n`;
       body += `${pad}$__parts = [string]$__v -split [regex]::Escape($__delim)\n`;
       body += `${pad}for ($__i = 0; $__i -lt $__parts.Length; $__i++) {\n`;
       body += `${pad}  if ($__i -gt 0) { __write $__join }\n`;
@@ -301,12 +356,12 @@ function emitOp(op: RenderOp, depth = 0): string {
       for (let i = 0; i < op.segments.length; i++) {
         const seg = op.segments[i]!;
         const codes = sgrCodes(seg.style);
-        const pre = psEscapeSingle(seg.prefix ?? "");
-        const suf = psEscapeSingle(seg.suffix ?? "");
+        const pre = psLit(seg.prefix ?? "");
+        const suf = psLit(seg.suffix ?? "");
         if (i === lastIdx) {
-          body += `${pad}    default { __emit '${codes}' ('${pre}' + $__parts[$__i] + '${suf}') }\n`;
+          body += `${pad}    default { __emit '${codes}' (${pre} + $__parts[$__i] + ${suf}) }\n`;
         } else {
-          body += `${pad}    ${i} { __emit '${codes}' ('${pre}' + $__parts[$__i] + '${suf}') }\n`;
+          body += `${pad}    ${i} { __emit '${codes}' (${pre} + $__parts[$__i] + ${suf}) }\n`;
         }
       }
       body += `${pad}  }\n`;
@@ -351,7 +406,7 @@ function emitOp(op: RenderOp, depth = 0): string {
       if (n === 0) return "";
       const interval = Math.max(1, Math.floor(op.intervalSeconds));
       const itemsLiteral =
-        "@(" + op.items.map((s) => `'${psEscapeSingle(s)}'`).join(", ") + ")";
+        "@(" + op.items.map((s) => psLit(s)).join(", ") + ")";
       let body = `${pad}$__items = ${itemsLiteral}\n`;
       if (op.pickMode === "random") {
         body += `${pad}$__idx = Get-Random -Maximum ${n}\n`;
@@ -372,8 +427,7 @@ function emitOp(op: RenderOp, depth = 0): string {
       return `${pad}__write ((__reset) + "\`n")\n`;
     case "fixedSpacer": {
       if (op.width <= 0) return "";
-      const ch = psEscapeSingle(op.char);
-      return `${pad}__write ('${ch}' * ${op.width})\n`;
+      return `${pad}__write (${psLit(op.char)} * ${op.width})\n`;
     }
     case "flexSpacer":
       // Top-level flex spacers are handled by the deck partitioner in
@@ -436,11 +490,11 @@ function emitDeckPS(deckOps: RenderOp[]): string {
   for (let i = 0; i <= lastIdx; i++) {
     body += `__write $__chunk_${i}\n`;
     if (i < lastIdx) {
-      const ch = psEscapeSingle(spacerChars[i] ?? " ");
+      const ch = psLit(spacerChars[i] ?? " ");
       body += `if (${spacerSeen} -lt $__padExtra) {\n`;
-      body += `  __write ('${ch}' * ($__padBase + 1))\n`;
+      body += `  __write (${ch} * ($__padBase + 1))\n`;
       body += `} else {\n`;
-      body += `  if ($__padBase -gt 0) { __write ('${ch}' * $__padBase) }\n`;
+      body += `  if ($__padBase -gt 0) { __write (${ch} * $__padBase) }\n`;
       body += `}\n`;
       spacerSeen++;
     }
@@ -468,5 +522,8 @@ export function compileToPS(design: Design): string {
       body += `__write ((__reset) + "\`n")\n`;
     }
   }
-  return PS_HEADER + "\n" + body + "\nexit 0\n";
+  // Flush the raw stdout stream before exit — when stdout is redirected (as it
+  // is under Claude Code) the underlying FileStream is buffered, and an abrupt
+  // `exit` could otherwise drop the tail of the line.
+  return PS_HEADER + "\n" + body + "\n$__stdout.Flush()\nexit 0\n";
 }
