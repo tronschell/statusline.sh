@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { Check, LinkSimple, XLogo } from "@phosphor-icons/react";
 import type { CommunityCardSummary } from "@statusline/shared/types";
 import { useOsDetect, type DetectedOs } from "../../hooks/useOsDetect";
 import { api } from "../../lib/api";
@@ -245,6 +246,13 @@ export function CommunityDetailPage({ slug: slugProp }: CommunityDetailPageProps
                 {description}
               </p>
 
+              <ShareCluster
+                url={canonicalUrl(`/community/${encodeURIComponent(data.slug)}`)}
+                shareText={`${data.name} by ${
+                  data.author_name?.trim() ? data.author_name : "anonymous"
+                } — a Claude Code statusline`}
+              />
+
               {data.forked_from ? (
                 <div className="text-[12px] text-[#6F6F6B]">
                   Forked from{" "}
@@ -345,7 +353,6 @@ export function CommunityDetailPage({ slug: slugProp }: CommunityDetailPageProps
 
               <div className="mt-2 flex flex-col gap-3">
                 <TurnstileWidget
-                  size="invisible"
                   onToken={setForkToken}
                   onError={() => setForkToken(null)}
                 />
@@ -439,6 +446,61 @@ function Stat({ label, value }: StatProps) {
       <dd className="mt-1 font-mono text-[18px] tabular-nums text-[#E8E8E6]">
         {value.toLocaleString()}
       </dd>
+    </div>
+  );
+}
+
+interface ShareClusterProps {
+  url: string;
+  shareText: string;
+}
+
+function ShareCluster({ url, shareText }: ShareClusterProps) {
+  const [copied, setCopied] = useState(false);
+  const onCopyLink = async () => {
+    if (!url) return;
+    try {
+      await navigator.clipboard.writeText(url);
+      setCopied(true);
+      window.setTimeout(() => setCopied(false), 1500);
+    } catch {
+      /* no-op */
+    }
+  };
+  const tweetHref = `https://twitter.com/intent/tweet?text=${encodeURIComponent(
+    shareText,
+  )}&url=${encodeURIComponent(url)}`;
+
+  return (
+    <div className="flex flex-wrap items-center gap-2">
+      <button
+        type="button"
+        onClick={onCopyLink}
+        aria-label="Copy link to this statusline"
+        className="flex items-center gap-1.5 rounded-[6px] border border-white/[0.12] px-3 py-1.5 text-[13px] text-[#E8E8E6] transition-colors hover:border-white/[0.24] hover:bg-white/[0.03]"
+      >
+        {copied ? (
+          <>
+            <Check size={13} weight="bold" />
+            Copied
+          </>
+        ) : (
+          <>
+            <LinkSimple size={13} weight="bold" />
+            Copy link
+          </>
+        )}
+      </button>
+      <a
+        href={tweetHref}
+        target="_blank"
+        rel="noopener noreferrer"
+        aria-label="Share on X"
+        className="flex items-center gap-1.5 rounded-[6px] border border-white/[0.12] px-3 py-1.5 text-[13px] text-[#E8E8E6] no-underline transition-colors hover:border-white/[0.24] hover:bg-white/[0.03]"
+      >
+        <XLogo size={13} weight="bold" />
+        Share on X
+      </a>
     </div>
   );
 }

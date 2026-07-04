@@ -42,9 +42,6 @@ function makeEnv(rows: FakeDesignRow[]): Env {
   const db = {
     prepare(sql: string) {
       const norm = sql.replace(/\s+/g, " ").trim();
-      if (/\bjson\b/.test(norm)) {
-        throw new Error("sitemap must not query design JSON");
-      }
 
       const stmt = {
         args: [] as unknown[],
@@ -53,6 +50,12 @@ function makeEnv(rows: FakeDesignRow[]): Env {
           return stmt;
         },
         async all<T = unknown>(): Promise<{ results: T[] }> {
+          // The sitemap/list path must never pull design JSON — enforcing it
+          // here (rather than in prepare()) keeps the invariant on the .all()
+          // surface while letting single-row .first() reads select `json`.
+          if (/\bjson\b/.test(norm)) {
+            throw new Error("sitemap must not query design JSON");
+          }
           if (
             norm ===
             "SELECT slug, published_at FROM designs ORDER BY published_at DESC, id ASC LIMIT ?"
@@ -72,7 +75,9 @@ function makeEnv(rows: FakeDesignRow[]): Env {
         async first<T = unknown>(): Promise<T | null> {
           if (
             norm ===
-            "SELECT slug, name, author_name, description, published_at, views, forks, installs FROM designs WHERE slug = ?"
+              "SELECT json, slug, name, author_name, description, published_at, views, forks, installs FROM designs WHERE slug = ?" ||
+            norm ===
+              "SELECT slug, name, author_name, description, published_at, views, forks, installs FROM designs WHERE slug = ?"
           ) {
             const slug = stmt.args[0];
             const row = rows.find((candidate) => candidate.slug === slug);

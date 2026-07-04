@@ -1,7 +1,7 @@
 import { Fragment, useCallback, useRef, useState } from "react";
 import { useDroppable } from "@dnd-kit/core";
 import { SortableContext, type SortingStrategy } from "@dnd-kit/sortable";
-import { Copy, Trash } from "@phosphor-icons/react";
+import { ArrowLeft, ArrowRight, Copy, Trash } from "@phosphor-icons/react";
 import type { Element } from "@statusline/shared/types";
 import { useDesignStore } from "../../store/designStore";
 import {
@@ -12,7 +12,7 @@ import {
   useRegisterInsertionResolver,
   type InsertionResolver,
 } from "../../hooks/useDnd";
-import { ContextMenu } from "../ContextMenu/ContextMenu";
+import { ContextMenu, type ContextMenuItem } from "../ContextMenu/ContextMenu";
 import { ElementChip } from "./ElementChip";
 
 // Freeze every sortable chip in place during a drag. The default strategies
@@ -251,6 +251,7 @@ export function StatuslineCanvas() {
   const elements = useDesignStore((s) => s.design.elements);
   const duplicateElement = useDesignStore((s) => s.duplicateElement);
   const removeElement = useDesignStore((s) => s.removeElement);
+  const reorder = useDesignStore((s) => s.reorder);
   const { isOver, setNodeRef: setDroppableRef } = useDroppable({
     id: CANVAS_ROOT_DROPPABLE,
   });
@@ -288,6 +289,40 @@ export function StatuslineCanvas() {
     [rows, elements.length],
   );
   useRegisterInsertionResolver(resolver);
+
+  // Right-click menu for a chip. "Move left/right" only appear when the move is
+  // in-bounds so the menu never offers a no-op.
+  function menuItemsFor(elementId: string): ContextMenuItem[] {
+    const idx = elements.findIndex((el) => el.id === elementId);
+    const items: ContextMenuItem[] = [
+      {
+        label: "Duplicate",
+        Icon: Copy,
+        onSelect: () => duplicateElement(elementId),
+      },
+    ];
+    if (idx > 0) {
+      items.push({
+        label: "Move left",
+        Icon: ArrowLeft,
+        onSelect: () => reorder(idx, idx - 1),
+      });
+    }
+    if (idx >= 0 && idx < elements.length - 1) {
+      items.push({
+        label: "Move right",
+        Icon: ArrowRight,
+        onSelect: () => reorder(idx, idx + 1),
+      });
+    }
+    items.push({
+      label: "Delete",
+      Icon: Trash,
+      destructive: true,
+      onSelect: () => removeElement(elementId),
+    });
+    return items;
+  }
 
   return (
     <section className="flex flex-col gap-3" aria-label="Statusline canvas">
@@ -379,19 +414,7 @@ export function StatuslineCanvas() {
           x={menu.x}
           y={menu.y}
           onClose={() => setMenu(null)}
-          items={[
-            {
-              label: "Duplicate",
-              Icon: Copy,
-              onSelect: () => duplicateElement(menu.elementId),
-            },
-            {
-              label: "Delete",
-              Icon: Trash,
-              destructive: true,
-              onSelect: () => removeElement(menu.elementId),
-            },
-          ]}
+          items={menuItemsFor(menu.elementId)}
         />
       ) : null}
     </section>

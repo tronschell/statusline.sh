@@ -16,7 +16,7 @@ declare global {
         // suppresses it so we can render our own.
         "error-callback"?: (code: string) => void | boolean;
         "expired-callback"?: () => void;
-        size?: "normal" | "compact" | "invisible";
+        size?: "normal" | "compact" | "flexible";
         theme?: "light" | "dark" | "auto";
       }): string;
       remove(widgetId: string): void;
@@ -30,7 +30,7 @@ export interface TurnstileWidgetProps {
   // Receives the Cloudflare error code (or "load" / "render" for our wrapper
   // failures) so callers can surface something useful instead of going silent.
   onError?(code: string): void;
-  size?: "normal" | "compact" | "invisible";
+  size?: "normal" | "compact" | "flexible";
   theme?: "light" | "dark" | "auto";
 }
 

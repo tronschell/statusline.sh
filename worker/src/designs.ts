@@ -73,6 +73,12 @@ export interface CommunitySeoRow {
   views: number;
   forks: number;
   installs: number;
+  /**
+   * The parsed design payload, so the OG card can render the real statusline
+   * instead of placeholder bars. Left `undefined` when the stored `json` is
+   * missing or fails to parse — the OG renderer falls back to placeholders.
+   */
+  design?: Design;
 }
 
 interface RawDesignRow {
@@ -368,14 +374,39 @@ export async function getCommunitySeoBySlug(
   env: DbEnv,
   slug: string,
 ): Promise<CommunitySeoRow | null> {
-  return (await env.DB
+  const r = (await env.DB
     .prepare(
-      `SELECT slug, name, author_name, description, published_at, views, forks, installs
+      `SELECT json, slug, name, author_name, description, published_at, views, forks, installs
        FROM designs
        WHERE slug = ?`,
     )
     .bind(slug)
-    .first()) as CommunitySeoRow | null;
+    .first()) as
+    | (Omit<CommunitySeoRow, "design"> & { json: string })
+    | null;
+  if (!r) return null;
+
+  // Parse the stored design so the OG card can render the real statusline.
+  // A malformed payload must not break SEO/OG rendering, so parse failure
+  // simply leaves `design` undefined (the OG renderer falls back to bars).
+  let design: Design | undefined;
+  try {
+    design = JSON.parse(r.json) as Design;
+  } catch {
+    design = undefined;
+  }
+
+  return {
+    slug: r.slug,
+    name: r.name,
+    author_name: r.author_name,
+    description: r.description,
+    published_at: r.published_at,
+    views: r.views,
+    forks: r.forks,
+    installs: r.installs,
+    design,
+  };
 }
 
 export async function forkBump(

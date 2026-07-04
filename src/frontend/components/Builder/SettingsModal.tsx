@@ -3,11 +3,13 @@ import {
   ArrowsHorizontal,
   CaretLeft,
   CaretRight,
+  DownloadSimple,
   Palette,
   UploadSimple,
 } from "@phosphor-icons/react";
 import Modal from "../Modal/Modal";
 import { useDesignStore } from "../../store/designStore";
+import { exportDesignAsJson } from "../../lib/exportDesign";
 import { safeValidateDesign } from "@statusline/shared/schema";
 import SpacingSettings from "./SpacingSettings";
 import ThemePresets from "../Inspector/ThemePresets";
@@ -18,7 +20,7 @@ const TITLES: Record<View, string> = {
   hub: "Settings",
   spacing: "Spacing between elements",
   themes: "Theme presets",
-  import: "Import design",
+  import: "Import / Export design",
 };
 
 export interface SettingsModalProps {
@@ -50,8 +52,8 @@ const ROWS: ReadonlyArray<{
   },
   {
     view: "import",
-    label: "Import",
-    description: "Load a design from an exported JSON file.",
+    label: "Import / Export",
+    description: "Load a design from JSON, or save your current one to a file.",
     Icon: UploadSimple,
   },
 ];
@@ -69,6 +71,7 @@ export default function SettingsModal({
 }: SettingsModalProps) {
   const [view, setView] = useState<View>("hub");
 
+  const design = useDesignStore((s) => s.design);
   const importDesign = useDesignStore((s) => s.importDesign);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const [importError, setImportError] = useState<string | null>(null);
@@ -196,6 +199,23 @@ export default function SettingsModal({
               Design imported.
             </p>
           )}
+
+          <div className="flex flex-col gap-4 border-t border-white/[0.06] pt-4">
+            <p className="text-sm leading-relaxed text-[#A8A8A4]">
+              Download your current design as a JSON file — no need to publish
+              to save it.
+            </p>
+            <div>
+              <button
+                type="button"
+                onClick={() => exportDesignAsJson(design, design.name)}
+                className="flex items-center gap-1.5 rounded-[6px] border border-white/[0.06] bg-[#1C1C1F] px-3 py-2 text-xs uppercase tracking-wider text-[#E8E8E6] transition-transform hover:scale-[0.98]"
+              >
+                <DownloadSimple size={12} weight="bold" />
+                Export JSON
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </Modal>

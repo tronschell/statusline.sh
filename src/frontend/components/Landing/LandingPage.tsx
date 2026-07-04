@@ -59,7 +59,7 @@ export function LandingPage() {
 
           <div className="mt-10 flex flex-wrap items-center gap-3">
             <Link
-              href="/builder"
+              href="/builder?new"
               className="inline-flex items-center gap-1.5 rounded-[4px] bg-[#E8E8E6] px-5 py-3 text-[14px] font-medium text-[#0E0E10] no-underline transition-transform duration-150 ease-out hover:scale-[0.98] active:scale-[0.96]"
             >
               Start from scratch
@@ -233,15 +233,20 @@ function TypewriterHeadline() {
     return () => mq.removeEventListener?.("change", onChange);
   }, []);
 
-  // Intro typing: reveal the whole headline up through "statusline".
+  // Intro typing: reveal the whole headline up through "statusline". Under
+  // reduced motion we skip the per-char animation and reveal it all at once.
   useEffect(() => {
     if (done) return;
+    if (reducedMotion) {
+      setCount(HEADLINE_TOTAL);
+      return;
+    }
     const id = window.setTimeout(
       () => setCount((c) => c + 1),
       TYPE_INTERVAL_MS,
     );
     return () => window.clearTimeout(id);
-  }, [count, done]);
+  }, [count, done, reducedMotion]);
 
   // Suffix cycle: hold → delete the suffix to the stem → type the next suffix.
   useEffect(() => {

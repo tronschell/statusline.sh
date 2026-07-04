@@ -590,6 +590,12 @@ function CanvasPicker({
         Truecolor may not render in every terminal — snap to ANSI 256 for the
         widest compatibility.
       </p>
+
+      <p className="text-[11px] italic text-[var(--color-text-muted)]">
+        Tip: check contrast against your terminal background, and avoid red vs
+        green as the only difference between elements — hard for colorblind
+        users to tell apart.
+      </p>
     </div>
   );
 }
@@ -772,27 +778,66 @@ function Ansi256Grid({
   value: AnsiColor | undefined;
   onChange: (v: AnsiColor) => void;
 }) {
+  const currentIndex =
+    value && value.kind === "ansi256" ? value.index : undefined;
+  const [draft, setDraft] = useState(
+    currentIndex !== undefined ? String(currentIndex) : "",
+  );
+  useEffect(() => {
+    setDraft(currentIndex !== undefined ? String(currentIndex) : "");
+  }, [currentIndex]);
+
+  const commit = () => {
+    const n = Number(draft);
+    if (draft.trim() === "" || !Number.isFinite(n)) {
+      setDraft(currentIndex !== undefined ? String(currentIndex) : "");
+      return;
+    }
+    onChange({ kind: "ansi256", index: clamp(Math.round(n), 0, 255) });
+  };
+
   return (
-    <div
-      className="grid gap-1"
-      role="grid"
-      aria-label="ANSI 256 palette"
-      style={{ gridTemplateColumns: "repeat(16, minmax(0, 1fr))" }}
-    >
-      {Array.from({ length: 256 }, (_, i) => i).map((i) => {
-        const sel: AnsiColor = { kind: "ansi256", index: i };
-        return (
-          <Swatch
-            key={i}
-            bg={ansi256Css(i)}
-            size={14}
-            selected={colorsEqual(value, sel)}
-            onClick={() => onChange(sel)}
-            title={`ANSI 256 — index ${i}`}
-            ariaLabel={`ANSI 256 color index ${i}`}
-          />
-        );
-      })}
+    <div className="flex flex-col gap-3">
+      <div className="flex flex-col gap-1">
+        <label className="text-[10px] uppercase tracking-wider text-[var(--color-text-muted)]">
+          Index
+        </label>
+        <input
+          type="number"
+          min={0}
+          max={255}
+          value={draft}
+          onChange={(e) => setDraft(e.target.value)}
+          onBlur={commit}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") (e.target as HTMLInputElement).blur();
+          }}
+          aria-label="ANSI 256 color index"
+          placeholder="0–255"
+          className="w-24 rounded-[4px] border border-[var(--color-border)] bg-[var(--color-surface-2)] px-2 py-1 font-mono text-sm text-[var(--color-text)] focus:outline-none focus:border-[#8FB8DA]"
+        />
+      </div>
+      <div
+        className="grid gap-1"
+        role="grid"
+        aria-label="ANSI 256 palette"
+        style={{ gridTemplateColumns: "repeat(16, minmax(0, 1fr))" }}
+      >
+        {Array.from({ length: 256 }, (_, i) => i).map((i) => {
+          const sel: AnsiColor = { kind: "ansi256", index: i };
+          return (
+            <Swatch
+              key={i}
+              bg={ansi256Css(i)}
+              size={14}
+              selected={colorsEqual(value, sel)}
+              onClick={() => onChange(sel)}
+              title={`ANSI 256 — index ${i}`}
+              ariaLabel={`ANSI 256 color index ${i}`}
+            />
+          );
+        })}
+      </div>
     </div>
   );
 }

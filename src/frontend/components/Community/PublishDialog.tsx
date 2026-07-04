@@ -3,13 +3,8 @@ import { Copy, Check, DownloadSimple } from "@phosphor-icons/react";
 import { api } from "../../lib/api";
 import { TurnstileWidget } from "../../lib/turnstile";
 import { useDesignStore } from "../../store/designStore";
+import { exportDesignAsJson } from "../../lib/exportDesign";
 import Modal from "../Modal/Modal";
-
-function sanitizeFileName(name: string): string {
-  const trimmed = name.trim();
-  const cleaned = trimmed.replace(/[\\/:*?"<>|]+/g, "-").replace(/\s+/g, "-");
-  return cleaned.length ? cleaned : "statusline";
-}
 
 export interface PublishDialogProps {
   designName: string;
@@ -83,19 +78,7 @@ export default function PublishDialog({
       : communityPath;
 
   function onExport() {
-    const exportName = name.trim() || designName;
-    const payload = { ...design, name: exportName };
-    const blob = new Blob([JSON.stringify(payload, null, 2)], {
-      type: "application/json",
-    });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `${sanitizeFileName(exportName)}.json`;
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
-    URL.revokeObjectURL(url);
+    exportDesignAsJson(design, name.trim() || designName);
   }
 
   async function copyUrl() {

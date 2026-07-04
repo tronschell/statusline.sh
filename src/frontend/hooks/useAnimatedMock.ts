@@ -14,7 +14,9 @@ const FRAME_INTERVAL_MS = 1000 / 30; // ~30fps throttle
  * requestAnimationFrame-driven tween. Returns a mock that loops through the
  * tween every `durationMs`. Throttled to ~30fps via a wall-clock delta check
  * so render cost stays bounded regardless of refresh rate. Pauses on
- * `paused === true` (the tween clock freezes; resumes from the same point).
+ * `paused === true` (the tween clock freezes; resumes from the same point) and
+ * also whenever the user prefers reduced motion — in both cases the loop keeps
+ * spinning but neither advances the clock nor re-renders, so the mock holds.
  */
 export function useAnimatedMock(opts: UseAnimatedMockOptions): ClaudeStdin {
   const { baseline, paused, durationMs } = opts;
@@ -26,6 +28,7 @@ export function useAnimatedMock(opts: UseAnimatedMockOptions): ClaudeStdin {
   const lastTickRef = useRef<number | null>(null);
   const lastFrameRef = useRef<number>(0);
   const pausedRef = useRef(paused);
+  const reducedMotionRef = useRef(false);
   const baselineRef = useRef(baseline);
   const durationRef = useRef(durationMs);
 
@@ -33,6 +36,24 @@ export function useAnimatedMock(opts: UseAnimatedMockOptions): ClaudeStdin {
   pausedRef.current = paused;
   baselineRef.current = baseline;
   durationRef.current = durationMs;
+
+  // Track prefers-reduced-motion so the hook freezes itself even if a caller
+  // forgets to fold it into `paused`.
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const mq = window.matchMedia?.("(prefers-reduced-motion: reduce)");
+    if (!mq) return;
+    reducedMotionRef.current = mq.matches;
+    const onChange = () => {
+      reducedMotionRef.current = mq.matches;
+    };
+    if (mq.addEventListener) mq.addEventListener("change", onChange);
+    else mq.addListener?.(onChange);
+    return () => {
+      if (mq.removeEventListener) mq.removeEventListener("change", onChange);
+      else mq.removeListener?.(onChange);
+    };
+  }, []);
 
   useEffect(() => {
     let rafId = 0;
@@ -53,14 +74,19 @@ export function useAnimatedMock(opts: UseAnimatedMockOptions): ClaudeStdin {
       const prev = lastTickRef.current;
       lastTickRef.current = now;
       const dt = prev == null ? 0 : Math.max(0, now - prev);
-      if (!pausedRef.current) {
+      const active = !pausedRef.current && !reducedMotionRef.current;
+      if (active) {
         elapsedRef.current = (elapsedRef.current + dt) % durationRef.current;
-      }
-      if (now - lastFrameRef.current >= FRAME_INTERVAL_MS) {
-        lastFrameRef.current = now;
-        setMock(
-          tweenMock(baselineRef.current, elapsedRef.current, durationRef.current),
-        );
+        if (now - lastFrameRef.current >= FRAME_INTERVAL_MS) {
+          lastFrameRef.current = now;
+          setMock(
+            tweenMock(
+              baselineRef.current,
+              elapsedRef.current,
+              durationRef.current,
+            ),
+          );
+        }
       }
       rafId = raf(tick);
     };

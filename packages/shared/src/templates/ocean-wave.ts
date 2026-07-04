@@ -93,7 +93,6 @@ export const template: TemplateMeta = {
         type: "cost",
         precision: 2,
         style: s({ fg: { kind: "rgb", r: 0xa5, g: 0xf3, b: 0xfc } }),
-        prefix: "$",
       }),
     ],
   },
