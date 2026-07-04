@@ -83,7 +83,16 @@ export function BuilderPage({ children }: BuilderPageProps) {
     }
   }, []);
 
-  return <>{children}</>;
+  return (
+    <>
+      {/* The visible builder chrome (canvas/palette/inspector) uses only
+          <h2> headings, so the live DOM would otherwise ship no <h1>. This
+          sr-only heading gives the page one real, crawlable <h1> without
+          disturbing the builder layout. */}
+      <h1 className="sr-only">Claude Code statusline builder</h1>
+      {children}
+    </>
+  );
 }
 
 export default BuilderPage;

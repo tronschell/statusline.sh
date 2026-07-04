@@ -23,6 +23,21 @@ const pageCache = new Map<Sort, CacheEntry>();
 
 const PAGE_SIZE = 24;
 
+/**
+ * Category facets shown as indexable labels under the heading. They frame the
+ * gallery as "examples, templates & themes" for search and give readers a
+ * vocabulary for the kinds of designs published here. Wiring these to actual
+ * filtering needs a per-design `category`/`tags` field on the D1 schema plus
+ * store/router state — tracked as follow-up. For now they are static labels.
+ */
+const CATEGORY_FACETS = [
+  "Minimal",
+  "Powerline",
+  "Cost tracker",
+  "Context / token",
+  "Themes",
+] as const;
+
 export function CommunityPage() {
   const [sort, setSort] = useState<Sort>("recent");
   const [items, setItems] = useState<CommunityCardSummary[]>(
@@ -122,7 +137,7 @@ export function CommunityPage() {
         <header className="mb-12 flex flex-col gap-6 md:mb-16 md:flex-row md:items-end md:justify-between">
           <div>
             <div className="text-[12px] uppercase tracking-[0.16em] text-[#8A8A86]">
-              Browse
+              Community
             </div>
             <h1
               className="mt-3 font-serif text-5xl md:text-6xl leading-[1.05] tracking-tight"
@@ -131,11 +146,12 @@ export function CommunityPage() {
                   "var(--font-serif, 'Instrument Serif', Georgia, serif)",
               }}
             >
-              Community.
+              Claude Code statusline examples
             </h1>
-            <p className="mt-4 max-w-[52ch] text-[15px] leading-relaxed text-[#8A8A86]">
-              Designs published by the community. Open any of them to see the
-              live preview, or fork into your own builder.
+            <p className="mt-4 max-w-[56ch] text-[15px] leading-relaxed text-[#8A8A86]">
+              Browse real Claude Code statusline examples, templates, and themes
+              published by the community — copy-paste to install, or fork any
+              design into the builder.
             </p>
             <p className="mt-3 max-w-[60ch] text-[14px] leading-relaxed text-[#8A8A86]">
               <Link
@@ -166,6 +182,22 @@ export function CommunityPage() {
             <SortToggle value={sort} onChange={setSort} />
           </div>
         </header>
+
+        {/* Indexable category facets. Static labels for now — see
+            CATEGORY_FACETS note above for the filtering follow-up. */}
+        <div className="mb-10 flex flex-wrap items-center gap-2 md:mb-12">
+          <span className="mr-1 text-[11px] uppercase tracking-[0.14em] text-[#6F6F6B]">
+            Browse by
+          </span>
+          {CATEGORY_FACETS.map((label) => (
+            <span
+              key={label}
+              className="inline-flex items-center rounded-[999px] border border-white/[0.08] bg-[#161618] px-3 py-1 text-[12px] text-[#A8A8A4]"
+            >
+              {label}
+            </span>
+          ))}
+        </div>
 
         {error ? (
           <div className="mb-8 rounded-[10px] border border-[#E89B9E]/30 bg-[#3A1F21]/30 px-4 py-3 text-[13px] text-[#E89B9E]">

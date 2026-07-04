@@ -130,6 +130,21 @@ export function ClaudeCodeStatuslineGuidePage() {
           </p>
         </GuideSection>
 
+        <GuideSection title="Statusline vs. status line — same thing">
+          <p>
+            You will see this feature written both ways. Claude Code's own
+            documentation spells it as one word, statusline, while many
+            developers search for a Claude Code status line as two words, or
+            call it the status bar.
+          </p>
+          <p>
+            They all point to the same thing: the command that renders the
+            status line at the bottom of your terminal. Whether you write
+            statusline or status line, the builder generates the same script and
+            the same settings.json merge, so you never have to pick a spelling.
+          </p>
+        </GuideSection>
+
         <Reveal as="section" className="mt-20 border-t border-white/[0.06] pt-12">
           <SectionHeading
             eyebrow="Live, in your browser"

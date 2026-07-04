@@ -207,7 +207,12 @@ export function renderCommunityDetailHtml({ row, related = [] }: SsrInput): stri
     description: row.description,
   });
   const title = `${row.name} — Claude Code Statusline | statusline.sh`;
-  const ogImage = `${WORKER_ORIGIN}/og/community/${encodeURIComponent(row.slug)}.svg`;
+  // Social link previewers (Twitter/X, Slack, Discord, iMessage, LinkedIn,
+  // Facebook) refuse to render SVG `og:image` URLs, so we point at the PNG
+  // variant — same slug, rasterised on demand by the /og/community/:slug.png
+  // handler. The .svg route still exists for crawlers/hotlinks.
+  const ogImage = `${WORKER_ORIGIN}/og/community/${encodeURIComponent(row.slug)}.png`;
+  const ogImageAlt = `${row.name} — Claude Code statusline by ${row.author_name}`;
   const ansi = safeRenderAnsi(row.design);
   const previewHtml = ansi ? ansiToHtml(ansi) : escapeHtml(row.name);
   const plainPreview = stripAnsi(ansi);
@@ -234,10 +239,14 @@ export function renderCommunityDetailHtml({ row, related = [] }: SsrInput): stri
     <meta property="og:description" content="${escapeAttr(description)}" />
     <meta property="og:url" content="${escapeAttr(canonical)}" />
     <meta property="og:image" content="${escapeAttr(ogImage)}" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:image:alt" content="${escapeAttr(ogImageAlt)}" />
     <meta name="twitter:card" content="summary_large_image" />
     <meta name="twitter:title" content="${escapeAttr(title)}" />
     <meta name="twitter:description" content="${escapeAttr(description)}" />
     <meta name="twitter:image" content="${escapeAttr(ogImage)}" />
+    <meta name="twitter:image:alt" content="${escapeAttr(ogImageAlt)}" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <script async src="https://www.googletagmanager.com/gtag/js?id=G-JDKLE4R2EV"></script>
@@ -404,6 +413,253 @@ export function renderCommunityDetailHtml({ row, related = [] }: SsrInput): stri
       preserved so a future hydration step (e.g. injecting the hashed bundle
       via a Vercel build-step that writes a constant into the Worker) can
       mount React over this exact content with no DOM mismatch.
+    -->
+  </body>
+</html>
+`;
+}
+
+// ===========================================================================
+// Community LIST page (`/community`)
+// ===========================================================================
+//
+// The user-facing `/community` list is rewritten to `/ssr/community` on the
+// Worker (see vercel.json). Rendering it here — rather than shipping a static
+// SPA shell whose cards are painted client-side — is what gives crawlers a real
+// `<ul>` of `<a href>` anchors into every design detail page. Without this, the
+// detail pages are orphaned ("Discovered, currently not indexed") because no
+// server-rendered surface links to them.
+
+const LIST_TITLE =
+  "Claude Code Statusline Examples, Templates & Themes | statusline.sh";
+const LIST_DESCRIPTION =
+  "Browse a gallery of Claude Code statusline examples, templates and themes. " +
+  "Preview any community design, fork it in the builder, and install it with a single command.";
+const LIST_CANONICAL = `${SITE_ORIGIN}/community`;
+// Static 1200×630 PNG built by build.ts and served by Vercel. Social previewers
+// refuse SVG, so we reuse the site's default PNG OG asset for the list page.
+const LIST_OG_IMAGE = `${SITE_ORIGIN}/og-default.png`;
+
+interface SsrListInput {
+  /**
+   * The community designs to render as crawlable internal links. Order is
+   * preserved. May be empty — the page still renders as a valid document (used
+   * for the graceful-degradation path when D1/listCommunity fails).
+   */
+  designs: RelatedDesign[];
+}
+
+/**
+ * Real `<a href>` anchors to every listed design — the crawlable link graph
+ * that connects `/community` to each `/community/:slug` detail page. Uses the
+ * absolute canonical URL for each design so the link target is unambiguous
+ * regardless of where the SSR HTML is fetched from.
+ */
+function buildCommunityListItems(designs: RelatedDesign[]): string {
+  return designs
+    .map(
+      (d) =>
+        `<li class="ssr-list-item"><a href="${escapeAttr(
+          communityCanonicalUrl(d.slug),
+        )}">${escapeHtml(d.name)} <span class="ssr-list-by">by ${escapeHtml(
+          d.author_name,
+        )}</span></a></li>`,
+    )
+    .join("\n          ");
+}
+
+function buildListJsonLd(designs: RelatedDesign[]): string {
+  const collection = {
+    "@context": "https://schema.org",
+    "@type": "CollectionPage",
+    name: "Claude Code statusline community gallery",
+    description: LIST_DESCRIPTION,
+    url: LIST_CANONICAL,
+    isPartOf: {
+      "@type": "WebSite",
+      name: "statusline.sh",
+      url: `${SITE_ORIGIN}/`,
+    },
+  };
+  const breadcrumbs = {
+    "@context": "https://schema.org",
+    "@type": "BreadcrumbList",
+    itemListElement: [
+      {
+        "@type": "ListItem",
+        position: 1,
+        name: "Home",
+        item: `${SITE_ORIGIN}/`,
+      },
+      {
+        "@type": "ListItem",
+        position: 2,
+        name: "Community",
+        item: LIST_CANONICAL,
+      },
+    ],
+  };
+  const itemList = {
+    "@context": "https://schema.org",
+    "@type": "ItemList",
+    itemListElement: designs.map((d, i) => ({
+      "@type": "ListItem",
+      position: i + 1,
+      name: d.name,
+      url: communityCanonicalUrl(d.slug),
+    })),
+  };
+  return [
+    `<script type="application/ld+json">${escapeJsonForScript(JSON.stringify(collection))}</script>`,
+    `<script type="application/ld+json">${escapeJsonForScript(JSON.stringify(breadcrumbs))}</script>`,
+    `<script type="application/ld+json">${escapeJsonForScript(JSON.stringify(itemList))}</script>`,
+  ].join("\n    ");
+}
+
+export function renderCommunityListHtml({ designs }: SsrListInput): string {
+  const count = designs.length;
+  const listItems = buildCommunityListItems(designs);
+  const jsonLd = buildListJsonLd(designs);
+  const listBlock = count
+    ? `<ul class="ssr-list">
+          ${listItems}
+        </ul>`
+    : `<p class="ssr-empty">No community statuslines have been published yet. <a href="/builder">Design one in the builder</a>.</p>`;
+
+  return `<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>${escapeHtml(LIST_TITLE)}</title>
+    <meta name="description" content="${escapeAttr(LIST_DESCRIPTION)}" />
+    <meta name="robots" content="index,follow" />
+    <meta name="theme-color" content="#0E0E10" />
+    <link rel="canonical" href="${escapeAttr(LIST_CANONICAL)}" />
+    <link rel="manifest" href="${escapeAttr(`${SITE_ORIGIN}/site.webmanifest`)}" />
+    <link rel="icon" type="image/svg+xml" href="${escapeAttr(`${SITE_ORIGIN}/logo.svg`)}" />
+    <meta property="og:site_name" content="statusline.sh" />
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="${escapeAttr(LIST_TITLE)}" />
+    <meta property="og:description" content="${escapeAttr(LIST_DESCRIPTION)}" />
+    <meta property="og:url" content="${escapeAttr(LIST_CANONICAL)}" />
+    <meta property="og:image" content="${escapeAttr(LIST_OG_IMAGE)}" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:image:alt" content="statusline.sh — Claude Code statusline community gallery" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="${escapeAttr(LIST_TITLE)}" />
+    <meta name="twitter:description" content="${escapeAttr(LIST_DESCRIPTION)}" />
+    <meta name="twitter:image" content="${escapeAttr(LIST_OG_IMAGE)}" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <script async src="https://www.googletagmanager.com/gtag/js?id=G-JDKLE4R2EV"></script>
+    <script>
+      window.dataLayer = window.dataLayer || [];
+      function gtag(){dataLayer.push(arguments);}
+      gtag('js', new Date());
+      gtag('config', 'G-JDKLE4R2EV', { send_page_view: false });
+    </script>
+    ${jsonLd}
+    <style>
+      :root { color-scheme: dark; }
+      body {
+        margin: 0;
+        background: #0E0E10;
+        color: #E8E8E6;
+        font-family: Geist, system-ui, -apple-system, sans-serif;
+      }
+      .ssr-main {
+        max-width: 960px;
+        margin: 0 auto;
+        padding: 72px 24px 96px;
+      }
+      .ssr-eyebrow {
+        color: #8A8A86;
+        font-size: 12px;
+        letter-spacing: .14em;
+        text-transform: uppercase;
+        margin: 0 0 16px;
+      }
+      .ssr-title {
+        font-family: "Instrument Serif", Georgia, serif;
+        font-size: clamp(40px, 6vw, 64px);
+        line-height: 1.05;
+        letter-spacing: -.035em;
+        margin: 0;
+      }
+      .ssr-description {
+        color: #C8C8C4;
+        font-size: 17px;
+        line-height: 1.6;
+        margin: 28px 0 0;
+        max-width: 720px;
+      }
+      .ssr-list {
+        list-style: none;
+        margin: 48px 0 0;
+        padding: 0;
+        display: grid;
+        gap: 10px;
+      }
+      .ssr-list-item a {
+        display: inline-block;
+        color: #E8E8E6;
+        text-decoration: none;
+        font-size: 16px;
+      }
+      .ssr-list-item a:hover {
+        text-decoration: underline;
+      }
+      .ssr-list-by {
+        color: #8A8A86;
+        font-size: 13px;
+      }
+      .ssr-empty {
+        color: #C8C8C4;
+        font-size: 16px;
+        margin: 40px 0 0;
+      }
+      .ssr-empty a { color: #E8E8E6; }
+      .ssr-actions {
+        display: flex;
+        gap: 12px;
+        margin: 48px 0 0;
+        flex-wrap: wrap;
+      }
+      .ssr-actions a {
+        display: inline-block;
+        padding: 10px 16px;
+        border-radius: 8px;
+        text-decoration: none;
+        font-size: 14px;
+        border: 1px solid rgba(255,255,255,.12);
+        color: #E8E8E6;
+      }
+      .ssr-actions a.primary {
+        background: #E8E8E6;
+        color: #0E0E10;
+        border-color: #E8E8E6;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="root"><main class="ssr-main" data-ssr="community-list">
+      <p class="ssr-eyebrow">Community gallery</p>
+      <h1 class="ssr-title">Claude Code statusline examples, templates &amp; themes</h1>
+      <p class="ssr-description">${escapeHtml(LIST_DESCRIPTION)}</p>
+      <nav aria-label="Community statusline designs">
+        ${listBlock}
+      </nav>
+      <nav class="ssr-actions">
+        <a class="primary" href="/builder">Open builder</a>
+        <a href="/">statusline.sh home</a>
+      </nav>
+    </main></div>
+    <!--
+      Content-only SSR document — see renderCommunityDetailHtml for why the SPA
+      bundle is not referenced here. The <div id="root"> wrapper and real anchor
+      hrefs let a future hydration step mount React over this exact content.
     -->
   </body>
 </html>
