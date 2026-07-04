@@ -43,6 +43,11 @@ export const STATIC_SITEMAP_ROUTES: StaticSitemapRoute[] = [
 ];
 
 const STATIC_HTML_ROUTES = [
+  // The home route ("/") is prerendered too: it holds the site's external
+  // backlinks and is the crawl entry point, so it needs a real static body +
+  // link hub rather than an empty `<div id="root">`. It overwrites the base
+  // `dist/index.html` (see the special-case in `writeStaticRouteHtmlShells`).
+  "/",
   "/builder",
   "/community",
   STATUSLINE_GUIDE_PATH,
@@ -201,7 +206,9 @@ async function writeStaticRouteHtmlShells(): Promise<void> {
       const meta = STATIC_ROUTE_META[route];
       if (!meta) throw new Error(`Missing static route metadata for ${route}`);
 
-      const filename = `${route.slice(1)}.html`;
+      // `route.slice(1)` yields "" for the home route, which would produce a
+      // bogus ".html" file — the home shell must overwrite `index.html` itself.
+      const filename = route === "/" ? "index.html" : `${route.slice(1)}.html`;
       return writeFile(
         path.join(outdir, filename),
         renderStaticRouteHtmlShell(indexHtml, meta),

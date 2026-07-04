@@ -152,6 +152,49 @@ const GUIDE_CONTENT: StaticPageContent = {
   ],
 };
 
+const HOME_CONTENT: StaticPageContent = {
+  eyebrow: "Claude Code statusline builder",
+  h1: "Design your Claude Code statusline.",
+  lede: "statusline.sh is a free, visual builder for the Claude Code status line — the terminal status bar at the bottom of your session. Drag elements onto a canvas, style them with ANSI colors, preview the exact terminal output live, and install with a single command on macOS, Linux, or Windows.",
+  sections: [
+    {
+      heading: "A visual builder for your terminal status bar.",
+      paragraphs: [
+        "Claude Code renders a status line at the bottom of every session — a terminal status bar that can show the active model, working directory, git branch, context-window usage, running cost, session duration, and Claude Code's rate-limit budgets. statusline.sh turns that bar into something you design visually instead of hand-writing a shell script.",
+        "Add elements from a palette, reorder them by dragging, and style each one with bold, italic, dim, and 16-color, 256-color, or truecolor ANSI styling. A live preview re-renders on every change using the same interpreter that drives the installed script, so what you see in the browser is byte-for-byte what your terminal will print.",
+      ],
+    },
+    {
+      heading: "Every Claude Code session field, ready to drop in.",
+      paragraphs: [
+        "On every render, Claude Code pipes the current session to your status line command as JSON on stdin, so the bar can reflect anything in that payload. statusline.sh ships ready-made elements for the fields people reach for most: the model name, the current directory, the active git branch and dirty state, a context-window progress bar or percentage, the session's running USD cost, elapsed duration, and the 5-hour and 7-day rate-limit meters.",
+        "Separators, glyphs, and a rotator for cycling content let you shape the layout, while conditional elements hide a segment until it matters. Whether you want a minimalist single-line bar or a dense, context-aware dashboard, you compose it here and carry it to any machine with one install command.",
+      ],
+    },
+    {
+      heading: "Install with one command.",
+      paragraphs: [
+        "When your status line looks right, statusline.sh generates a self-contained bash or PowerShell installer. It structurally merges the statusLine setting into your Claude Code settings.json and writes a timestamped backup first, so every other key — model, permissions, MCP servers — survives untouched. No manual JSON editing, no sign-up, no account.",
+        "Not sure where to start? Browse the community gallery for real status line examples, fork any design straight into the builder, or read the full guide on how a Claude Code statusline works.",
+      ],
+    },
+  ],
+  cta: { href: "/builder", label: "Open the builder" },
+  related: [
+    { href: "/builder", label: "Open the builder" },
+    { href: "/community", label: "Browse community designs" },
+    { href: STATUSLINE_GUIDE_PATH, label: "How to make a statusline" },
+    {
+      href: "/claude-code-statusline-git-branch",
+      label: "Add a git branch element",
+    },
+    {
+      href: "/claude-code-statusline-token-usage",
+      label: "Add token-usage tracking",
+    },
+  ],
+};
+
 const BUILDER_CONTENT: StaticPageContent = {
   eyebrow: "Visual builder",
   h1: "Build a Claude Code statusline.",
@@ -193,13 +236,13 @@ const BUILDER_CONTENT: StaticPageContent = {
 const COMMUNITY_CONTENT: StaticPageContent = {
   eyebrow: "Community gallery",
   h1: "Claude Code statusline examples.",
-  lede: "Browse statuslines published by the community, preview each one in a live terminal, and fork any design straight into the builder to make it your own.",
+  lede: "Browse real Claude Code statusline examples, templates, and themes — copy-paste to install in one command, or fork any design straight into the builder to make it your own.",
   sections: [
     {
       heading: "Find a statusline you like.",
       paragraphs: [
-        "The community gallery collects Claude Code statusline designs shared by other developers — minimalist single-line bars, context-aware dashboards with usage bars, cost-conscious layouts, and more. Each design lists its elements and renders a live preview so you can see exactly what it produces.",
-        "Found one you like? Fork it into the builder with a click, then tweak the colors, elements, and ordering before installing your own version.",
+        "The community gallery collects Claude Code statusline designs shared by other developers — minimalist single-line bars, context-aware dashboards with usage bars, cost-conscious layouts, and more. Browse them as ready-made templates and themes: each design lists its elements and renders a live preview so you can see exactly what it produces.",
+        "Found one you like? Copy-paste install it with the generated command, or fork it into the builder with a click, then tweak the colors, elements, and ordering before installing your own version.",
       ],
     },
   ],
@@ -259,6 +302,7 @@ const TERMS_CONTENT: StaticPageContent = {
 
 /** Resolve the crawlable content for a given canonical route path. */
 function contentForPath(path: string): StaticPageContent | undefined {
+  if (path === "/") return HOME_CONTENT;
   if (path === STATUSLINE_GUIDE_PATH) return GUIDE_CONTENT;
   if (path === "/builder") return BUILDER_CONTENT;
   if (path === "/community") return COMMUNITY_CONTENT;

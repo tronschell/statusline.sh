@@ -7,7 +7,10 @@
   "cleanUrls": true,
   "trailingSlash": false,
   "rewrites": [
-    { "source": "/community", "destination": "/community.html" },
+    {
+      "source": "/community",
+      "destination": "https://statusline-community.zoniixyt.workers.dev/ssr/community"
+    },
     { "source": "/builder", "destination": "/builder.html" },
     {
       "source": "/how-to-make-a-claude-code-statusline",
