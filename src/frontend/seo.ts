@@ -417,7 +417,7 @@ export const STATIC_ROUTE_META: Record<string, RouteMeta> = {
     title:
       "Free Claude Code Statusline Builder — Visual Status Line Maker | statusline.sh",
     description:
-      "Build a Claude Code statusline (status line) visually — drag elements, live-preview the terminal output, and install with one command on macOS, Linux, and Windows. Free, no sign-up.",
+      "Build a Claude Code statusline (status line) visually, fork community examples, and install in one command on macOS, Linux, or Windows. Free, no sign-up.",
     canonicalPath: "/",
     jsonLd: [buildWebSiteJsonLd(), buildSoftwareApplicationJsonLd()],
   },
