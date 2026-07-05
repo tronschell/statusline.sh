@@ -403,7 +403,7 @@ export function CommunityDetailPage({ slug: slugProp }: CommunityDetailPageProps
                   title="How to make a Claude Code statusline"
                   className="text-[#E8E8E6] underline decoration-white/20 underline-offset-[4px] hover:decoration-white/50"
                 >
-                  Learn how to make your own Claude Code statusline
+                  Learn how to make your own Claude Code status line
                 </Link>
                 .
               </p>

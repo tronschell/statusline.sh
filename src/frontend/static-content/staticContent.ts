@@ -83,7 +83,7 @@ interface StaticPageContent {
 const FOOTER_LINKS: Array<{ href: string; label: string }> = [
   { href: "/builder", label: "Builder" },
   { href: "/community", label: "Community designs" },
-  { href: STATUSLINE_GUIDE_PATH, label: "How to make a statusline" },
+  { href: STATUSLINE_GUIDE_PATH, label: "How to make a status line" },
   ...PROGRAMMATIC_PAGES.map((page) => ({
     href: page.path,
     label: page.h1.replace(/^Claude Code statusline /, "Statusline "),
