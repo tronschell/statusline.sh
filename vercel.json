@@ -76,6 +76,14 @@
       "source": "/claude-code-statusline-windows",
       "destination": "/claude-code-statusline-windows.html"
     },
+    {
+      "source": "/claude-code-statusline-vs-ccstatusline",
+      "destination": "/claude-code-statusline-vs-ccstatusline.html"
+    },
+    {
+      "source": "/claude-code-statusline-not-showing",
+      "destination": "/claude-code-statusline-not-showing.html"
+    },
     { "source": "/privacy", "destination": "/privacy.html" },
     { "source": "/terms", "destination": "/terms.html" },
     {

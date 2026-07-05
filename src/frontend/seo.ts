@@ -2,6 +2,7 @@ import {
   BEST_TOOLS_FAQS,
   STATUSLINE_TOOLS,
 } from "./components/Compare/tools";
+import { NOT_SHOWING_FAQS } from "./components/Programmatic/programmatic";
 
 export const SITE_NAME = "statusline.sh";
 export const SITE_URL = "https://statusline.sh";
@@ -444,6 +445,15 @@ export interface ProgrammaticRouteMeta {
   title: string;
   description: string;
   h1: string;
+  /**
+   * Optional FAQ Q&A for pages that back a FAQPage rich result. When present,
+   * `buildProgrammaticRouteMeta` appends a `FAQPage` JSON-LD node built from
+   * these entries. Each `{ q, a }` MUST also appear verbatim as a visible
+   * section on the page (Google requires FAQ structured data to match the
+   * on-page content) — the troubleshooting page sources both from the single
+   * `NOT_SHOWING_FAQS` array to keep them in lockstep.
+   */
+  faqs?: { q: string; a: string }[];
 }
 
 export const PROGRAMMATIC_ROUTE_META: ProgrammaticRouteMeta[] = [
@@ -545,30 +555,62 @@ export const PROGRAMMATIC_ROUTE_META: ProgrammaticRouteMeta[] = [
       "Install a Claude Code statusline on Windows with one PowerShell command. Native ConvertFrom-Json settings merge, raw UTF-8 output, no WSL or bash required.",
     h1: "Claude Code statusline on Windows",
   },
+  {
+    path: "/claude-code-statusline-vs-ccstatusline",
+    title:
+      "Claude Code Statusline: statusline.sh vs ccstatusline | statusline.sh",
+    description:
+      "An honest, evergreen comparison of statusline.sh and ccstatusline for building a Claude Code statusline — a web visual builder with a live preview versus a terminal-native CLI configurator. See which fits your workflow.",
+    h1: "Claude Code statusline: statusline.sh vs ccstatusline",
+  },
+  {
+    path: "/claude-code-statusline-not-showing",
+    title:
+      "Claude Code Statusline Not Showing? Troubleshooting | statusline.sh",
+    description:
+      "Claude Code statusline not showing or not working? Common causes and fixes: missing statusLine config, a non-executable script or wrong path, absent jq or python3, PowerShell issues, and needing to restart Claude Code.",
+    h1: "Claude Code statusline not showing",
+    faqs: NOT_SHOWING_FAQS,
+  },
 ];
 
 function buildProgrammaticRouteMeta(): Record<string, RouteMeta> {
   const entries: Record<string, RouteMeta> = {};
   for (const item of PROGRAMMATIC_ROUTE_META) {
+    const jsonLd: JsonLdObject[] = [
+      buildBreadcrumbJsonLd([
+        { name: "Home", path: "/" },
+        { name: item.h1, path: item.path },
+      ]),
+      {
+        "@context": "https://schema.org",
+        "@type": "Article",
+        headline: item.h1,
+        description: item.description,
+        mainEntityOfPage: canonicalUrl(item.path),
+        author: { "@type": "Organization", name: SITE_NAME },
+        publisher: { "@type": "Organization", name: SITE_NAME },
+      },
+    ];
+    // FAQ-schema pages (e.g. the "not showing" troubleshooting page) append a
+    // FAQPage node built from the SAME Q&A that render as visible sections on
+    // the page, so the structured data matches the on-page content.
+    if (item.faqs && item.faqs.length > 0) {
+      jsonLd.push({
+        "@context": "https://schema.org",
+        "@type": "FAQPage",
+        mainEntity: item.faqs.map((faq) => ({
+          "@type": "Question",
+          name: faq.q,
+          acceptedAnswer: { "@type": "Answer", text: faq.a },
+        })),
+      });
+    }
     entries[item.path] = {
       title: item.title,
       description: item.description,
       canonicalPath: item.path,
-      jsonLd: [
-        buildBreadcrumbJsonLd([
-          { name: "Home", path: "/" },
-          { name: item.h1, path: item.path },
-        ]),
-        {
-          "@context": "https://schema.org",
-          "@type": "Article",
-          headline: item.h1,
-          description: item.description,
-          mainEntityOfPage: canonicalUrl(item.path),
-          author: { "@type": "Organization", name: SITE_NAME },
-          publisher: { "@type": "Organization", name: SITE_NAME },
-        },
-      ],
+      jsonLd,
     };
   }
   return entries;

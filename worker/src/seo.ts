@@ -96,6 +96,16 @@ export const STATIC_SITEMAP_ROUTES: StaticSitemapRoute[] = [
     priority: "0.6",
     changefreq: "monthly",
   },
+  {
+    path: "/claude-code-statusline-vs-ccstatusline",
+    priority: "0.6",
+    changefreq: "monthly",
+  },
+  {
+    path: "/claude-code-statusline-not-showing",
+    priority: "0.6",
+    changefreq: "monthly",
+  },
   { path: "/privacy", priority: "0.2", changefreq: "yearly" },
   { path: "/terms", priority: "0.2", changefreq: "yearly" },
 ];

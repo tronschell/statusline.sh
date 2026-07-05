@@ -512,6 +512,80 @@ const DESIGNS: Record<string, Design> = {
       },
     ],
   },
+  "vs-ccstatusline": {
+    version: 1,
+    name: "Comparison statusline",
+    elements: [
+      {
+        id: "model",
+        type: "model",
+        style: { bold: true, fg: COLOR_WHITE },
+        suffix: "  ",
+      },
+      {
+        id: "cwd",
+        type: "cwd",
+        mode: "basename",
+        style: { fg: COLOR_BLUE },
+        suffix: "  ",
+      },
+      {
+        id: "branch",
+        type: "gitBranch",
+        style: { fg: COLOR_GREEN },
+        suffix: "  ",
+      },
+      {
+        id: "ctxLabel",
+        type: "separator",
+        text: "ctx ",
+        style: { fg: COLOR_GRAY_DIM },
+      },
+      {
+        id: "ctxPct",
+        type: "contextPct",
+        colorMode: "percentage",
+        style: {},
+      },
+    ],
+  },
+  "not-showing": {
+    version: 1,
+    name: "Working statusline",
+    elements: [
+      {
+        id: "model",
+        type: "model",
+        style: { bold: true, fg: COLOR_WHITE },
+        suffix: "  ",
+      },
+      {
+        id: "cwd",
+        type: "cwd",
+        mode: "basename",
+        style: { fg: COLOR_BLUE },
+        suffix: "  ",
+      },
+      {
+        id: "branch",
+        type: "gitBranch",
+        style: { fg: COLOR_GREEN },
+        suffix: "  ",
+      },
+      {
+        id: "costLabel",
+        type: "separator",
+        text: "$ ",
+        style: { fg: COLOR_GRAY_DIM },
+      },
+      {
+        id: "cost",
+        type: "cost",
+        precision: 2,
+        style: { fg: COLOR_YELLOW },
+      },
+    ],
+  },
 };
 
 function design(topic: string): Design {
@@ -519,6 +593,51 @@ function design(topic: string): Design {
   if (!d) throw new Error(`Missing sample design for topic ${topic}`);
   return d;
 }
+
+/**
+ * Q&A for the "Claude Code statusline not showing" troubleshooting page.
+ *
+ * Single source of truth: the page config below turns each entry into a
+ * visible section (heading = question, paragraph = answer), and `seo.ts`
+ * imports this same array to emit the FAQPage JSON-LD. One array guarantees
+ * the structured data matches the on-page content byte-for-byte, which Google
+ * requires for FAQ rich results. Every answer is accurate to how this repo's
+ * installer actually works (self-contained script + structural settings merge).
+ */
+export const NOT_SHOWING_FAQS: { q: string; a: string }[] = [
+  {
+    q: "Why is my Claude Code statusline not showing?",
+    a: "The most common reason is that no statusLine command is configured. Claude Code only renders a status line when ~/.claude/settings.json contains a top-level statusLine object pointing at a command to run. If that key is missing, empty, or misspelled, the bar never appears. The checks below cover the other common causes in order.",
+  },
+  {
+    q: "Is the statusLine command configured in settings.json?",
+    a: 'Open ~/.claude/settings.json and confirm it has a top-level statusLine block of the form { "type": "command", "command": "/path/to/statusline.sh" }. The type must be "command" and the command must point at a script that exists. Hand-editing this is error-prone — a stray comma or a wrong path leaves the statusline blank.',
+  },
+  {
+    q: "Is the statusline script executable and at the right path?",
+    a: "The command path must exist and be executable. If the script was moved, deleted, or lacks the execute bit, Claude Code runs nothing and the bar stays empty. On macOS and Linux, use an absolute path and make the script executable with chmod +x — the one-command installer writes it to ~/.claude/statusline.sh and sets the execute bit for you.",
+  },
+  {
+    q: "Do I have jq or python3 installed for JSON parsing?",
+    a: "The bash statusline reads Claude Code's session JSON with jq, falling back to python3 and then python. If none of those are on your PATH, the fields come out blank and the line can look broken or empty. Install jq (brew install jq or apt-get install jq) or make sure python3 is available, then restart Claude Code.",
+  },
+  {
+    q: "Why is my statusline not working on Windows PowerShell?",
+    a: "On Windows the command should invoke the PowerShell script the installer writes (~/.claude/statusline.ps1). If a bash script is configured instead, or PowerShell's execution policy blocks scripts, nothing renders. Use the PowerShell one-command install so the correct shell, path, and raw UTF-8 output are wired up for you.",
+  },
+  {
+    q: "How do I test the statusline command manually?",
+    a: "Run the command yourself and pipe in mock session JSON, for example: echo '{}' | ~/.claude/statusline.sh. If it errors or exits non-zero, Claude Code hides the output, so a manual run surfaces the real problem — a missing dependency, a syntax error, or a bad path — that is otherwise invisible inside a session.",
+  },
+  {
+    q: "I edited settings.json but the statusline still will not show — do I need to restart?",
+    a: "Yes. Claude Code reads settings.json at startup, so a change to the statusLine command only takes effect after you restart Claude Code. The status line also only appears inside an active session, not at an empty prompt — start or resume a session to see it render.",
+  },
+  {
+    q: "What is the most reliable way to fix a statusline that will not show?",
+    a: "Build your statusline in the visual builder and run the generated one-command install. It writes a self-contained script (served from /i/:id.sh or /i/:id.ps1) that embeds everything it needs, then structurally merges the statusLine setting into settings.json — preserving your other keys and saving a timestamped .bak backup first. That removes the hand-editing, wrong-path, and shell mistakes behind most missing statuslines.",
+  },
+];
 
 export const PROGRAMMATIC_PAGES: ProgrammaticPageConfig[] = [
   {
@@ -1232,6 +1351,93 @@ export const PROGRAMMATIC_PAGES: ProgrammaticPageConfig[] = [
       {
         href: "/claude-code-statusline-powerline",
         label: "Build a powerline bar",
+      },
+    ],
+  },
+  {
+    topic: "vs-ccstatusline",
+    path: "/claude-code-statusline-vs-ccstatusline",
+    h1: "Claude Code statusline: statusline.sh vs ccstatusline",
+    eyebrow: "Tool comparison",
+    lede: "statusline.sh and ccstatusline both build a Claude Code statusline — one is a web-based visual builder, the other an interactive terminal configurator. Here is an honest look at which fits your workflow.",
+    metaTitle:
+      "Claude Code Statusline: statusline.sh vs ccstatusline | statusline.sh",
+    metaDescription:
+      "An honest, evergreen comparison of statusline.sh and ccstatusline for building a Claude Code statusline — a web visual builder with a live preview versus a terminal-native CLI configurator. See which fits your workflow.",
+    ctaHref: "/builder",
+    ctaLabel: "Open the builder",
+    sampleDesign: design("vs-ccstatusline"),
+    sections: [
+      {
+        heading: "Two ways to build the same statusline",
+        paragraphs: [
+          "statusline.sh and ccstatusline solve the same problem — configuring the executable command Claude Code runs to render its status line — and both are legitimate, well-liked tools. The difference is where you do the work. statusline.sh is a web-based visual builder you open in a browser; ccstatusline is an interactive command-line configurator you run in your terminal. Neither is strictly better; they suit different workflows.",
+          "Whichever you choose, the result is the same kind of artifact: a `statusLine` command wired into `~/.claude/settings.json` that prints a styled bar from the session JSON Claude Code pipes in on every render.",
+        ],
+      },
+      {
+        heading: "Where statusline.sh fits",
+        paragraphs: [
+          "statusline.sh is the better fit when you want to see your statusline as you design it. You drag elements onto a canvas, style them with ANSI colors, and a live terminal preview renders the exact bytes your terminal will print — so there is no trial-and-error loop inside a real session. There is nothing to install to try it and no sign-up: you build in the browser and install with a single bash or PowerShell command that structurally merges the setting into settings.json and backs up the old file first.",
+          "It is also the option built for sharing and for Windows. Every design is a shareable link, and the community gallery lets you fork another developer's statusline into your own builder as a starting point. A first-class PowerShell installer means the same design runs natively on Windows as well as macOS and Linux, with no WSL required.",
+        ],
+      },
+      {
+        heading: "Where ccstatusline fits — and how to choose",
+        paragraphs: [
+          "ccstatusline is the better fit if you would rather never leave the terminal. It is an interactive CLI configurator: you run it, step through prompts to assemble and style the line, and it writes the result into your Claude Code settings. For developers who live in the shell and prefer configuring tools through a fast, keyboard-driven prompt, that terminal-native flow is exactly right.",
+          "So the choice comes down to workflow, not quality. Reach for statusline.sh when you value a visual builder, a live preview, a shareable gallery, and a one-command cross-platform install including Windows. Reach for ccstatusline when you want terminal-native, interactive configuration without opening a browser. For a wider view of the ecosystem — claude-powerline, CCometixLine, ccusage, and more — see the full comparison of Claude Code statusline tools.",
+        ],
+      },
+    ],
+    related: [
+      {
+        href: "/best-claude-code-statusline",
+        label: "Compare all Claude Code statusline tools",
+      },
+      { href: "/builder", label: "Open the visual builder" },
+      { href: "/community", label: "Browse community designs" },
+      {
+        href: "/claude-code-statusline-windows",
+        label: "Statusline on Windows (PowerShell)",
+      },
+      {
+        href: "/how-to-make-a-claude-code-statusline",
+        label: "Full guide: how to make a Claude Code statusline",
+      },
+    ],
+  },
+  {
+    topic: "not-showing",
+    path: "/claude-code-statusline-not-showing",
+    h1: "Claude Code statusline not showing",
+    eyebrow: "Troubleshooting",
+    lede: "If your Claude Code statusline is not showing — blank, missing, or not updating — it is almost always one of a handful of causes. Work through these checks, then use the one-command install to get a reliable, self-contained script.",
+    metaTitle:
+      "Claude Code Statusline Not Showing? Troubleshooting | statusline.sh",
+    metaDescription:
+      "Claude Code statusline not showing or not working? Common causes and fixes: missing statusLine config, a non-executable script or wrong path, absent jq or python3, PowerShell issues, and needing to restart Claude Code.",
+    ctaHref: "/builder",
+    ctaLabel: "Build a reliable statusline",
+    sampleDesign: design("not-showing"),
+    sections: NOT_SHOWING_FAQS.map((faq) => ({
+      heading: faq.q,
+      paragraphs: [faq.a],
+    })),
+    related: [
+      { href: "/builder", label: "Build a reliable statusline" },
+      {
+        href: "/how-to-make-a-claude-code-statusline",
+        label: "Full guide: how to make a Claude Code statusline",
+      },
+      {
+        href: "/claude-code-statusline-windows",
+        label: "Statusline on Windows (PowerShell)",
+      },
+      { href: "/community", label: "Browse community designs" },
+      {
+        href: "/best-claude-code-statusline",
+        label: "Compare Claude Code statusline tools",
       },
     ],
   },

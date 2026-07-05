@@ -23,6 +23,10 @@ import {
   metaForPath,
   resolveHeadMeta,
 } from "../src/frontend/seo";
+import {
+  NOT_SHOWING_FAQS,
+  findProgrammaticPageByPath,
+} from "../src/frontend/components/Programmatic/programmatic";
 import { makeStubDocument } from "./helpers/domStub";
 
 describe("static SEO assets", () => {
@@ -156,6 +160,62 @@ describe("static SEO assets", () => {
     ]) {
       expect(serialized).toContain(tool);
     }
+  });
+
+  test("returns vs-ccstatusline route metadata (Breadcrumb + Article, no FAQ)", () => {
+    const meta = metaForPath("/claude-code-statusline-vs-ccstatusline");
+    expect(meta.title).toBe(
+      "Claude Code Statusline: statusline.sh vs ccstatusline | statusline.sh",
+    );
+    expect(meta.canonicalPath).toBe("/claude-code-statusline-vs-ccstatusline");
+    expect(canonicalUrl(meta.canonicalPath)).toBe(
+      "https://statusline.sh/claude-code-statusline-vs-ccstatusline",
+    );
+
+    // The vs page stays Breadcrumb + Article — no FAQ schema.
+    const types = (meta.jsonLd ?? []).map((j) => j["@type"]);
+    expect(types).toEqual(["BreadcrumbList", "Article"]);
+    // Honest, evergreen comparison names the competitor.
+    expect(JSON.stringify(meta.jsonLd)).toContain("ccstatusline");
+  });
+
+  test("not-showing page emits a FAQPage whose Q&A match the visible sections", () => {
+    const meta = metaForPath("/claude-code-statusline-not-showing");
+    expect(meta.title).toBe(
+      "Claude Code Statusline Not Showing? Troubleshooting | statusline.sh",
+    );
+    expect(meta.canonicalPath).toBe("/claude-code-statusline-not-showing");
+
+    const jsonLd = meta.jsonLd ?? [];
+    const types = jsonLd.map((j) => j["@type"]);
+    expect(types).toEqual(["BreadcrumbList", "Article", "FAQPage"]);
+
+    const faqNode = jsonLd.find((j) => j["@type"] === "FAQPage") as
+      | Record<string, unknown>
+      | undefined;
+    expect(faqNode).toBeDefined();
+    const mainEntity = faqNode!["mainEntity"] as Array<Record<string, unknown>>;
+    expect(mainEntity.length).toBe(NOT_SHOWING_FAQS.length);
+    expect(NOT_SHOWING_FAQS.length).toBeGreaterThan(0);
+
+    // Google requires FAQ structured data to match the on-page content: every
+    // JSON-LD Q&A is sourced from the same array that renders as a visible
+    // section (heading = question, paragraph = answer).
+    const page = findProgrammaticPageByPath(
+      "/claude-code-statusline-not-showing",
+    );
+    expect(page).toBeDefined();
+    NOT_SHOWING_FAQS.forEach((faq, i) => {
+      const question = mainEntity[i]!;
+      expect(question["name"]).toBe(faq.q);
+      expect(
+        (question["acceptedAnswer"] as Record<string, unknown>)["text"],
+      ).toBe(faq.a);
+
+      const section = page!.sections[i]!;
+      expect(section.heading).toBe(faq.q);
+      expect(section.paragraphs).toContain(faq.a);
+    });
   });
 
   test("builds SoftwareApplication JSON-LD", () => {
