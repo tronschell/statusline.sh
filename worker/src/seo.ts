@@ -22,6 +22,11 @@ export const STATIC_SITEMAP_ROUTES: StaticSitemapRoute[] = [
     changefreq: "monthly",
   },
   {
+    path: "/best-claude-code-statusline",
+    priority: "0.7",
+    changefreq: "monthly",
+  },
+  {
     path: "/claude-code-statusline-git-branch",
     priority: "0.6",
     changefreq: "monthly",

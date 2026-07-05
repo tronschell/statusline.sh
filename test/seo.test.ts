@@ -127,6 +127,37 @@ describe("static SEO assets", () => {
     });
   });
 
+  test("returns comparison-hub route metadata with breadcrumb, item list, and FAQ", () => {
+    const meta = metaForPath("/best-claude-code-statusline");
+    expect(meta.title).toBe(
+      "Best Claude Code Statusline Tools (2026) | statusline.sh",
+    );
+    expect(meta.canonicalPath).toBe("/best-claude-code-statusline");
+    expect(canonicalUrl(meta.canonicalPath)).toBe(
+      "https://statusline.sh/best-claude-code-statusline",
+    );
+
+    const types = (meta.jsonLd ?? []).map((j) => j["@type"]);
+    expect(types).toEqual([
+      "BreadcrumbList",
+      "Article",
+      "ItemList",
+      "FAQPage",
+    ]);
+
+    // The roundup names the real competitor tools + statusline.sh.
+    const serialized = JSON.stringify(meta.jsonLd);
+    for (const tool of [
+      "statusline.sh",
+      "ccstatusline",
+      "claude-powerline",
+      "CCometixLine",
+      "ccusage",
+    ]) {
+      expect(serialized).toContain(tool);
+    }
+  });
+
   test("builds SoftwareApplication JSON-LD", () => {
     const jsonLd = buildSoftwareApplicationJsonLd();
 
@@ -402,6 +433,45 @@ describe("static SEO assets (guide body)", () => {
     expect(html).toContain("How to make a Claude Code status line.");
     expect(html).toContain("Claude Code calls the bottom bar a statusline");
     expect(html).toContain('"@type":"HowTo"');
+    expect(html).toContain('"@type":"FAQPage"');
+  });
+
+  test("renders crawlable comparison body naming every tool + the differentiator", () => {
+    const html = renderStaticRouteHtmlShell(
+      [
+        "<html><head>",
+        '<meta name="description" content="Home" />',
+        '<meta name="robots" content="index,follow" />',
+        '<meta property="og:title" content="Home" />',
+        '<meta property="og:description" content="Home" />',
+        '<meta property="og:url" content="https://statusline.sh/" />',
+        '<meta property="og:image" content="https://statusline.sh/og-default.png" />',
+        '<meta name="twitter:title" content="Home" />',
+        '<meta name="twitter:description" content="Home" />',
+        '<meta name="twitter:image" content="https://statusline.sh/og-default.png" />',
+        '<link rel="canonical" href="https://statusline.sh/" />',
+        "<title>Home</title>",
+        '<script type="application/ld+json">{}</script>',
+        '</head><body><div id="root"></div></body></html>',
+      ].join("\n"),
+      STATIC_ROUTE_META["/best-claude-code-statusline"]!,
+    );
+
+    expect(html).toContain(
+      "<title>Best Claude Code Statusline Tools (2026) | statusline.sh</title>",
+    );
+    expect(html).toContain("Best Claude Code Statusline Tools (2026).");
+    // Every competitor named, plus statusline.sh positioned as the web builder.
+    for (const tool of [
+      "ccstatusline",
+      "claude-powerline",
+      "CCometixLine",
+      "ccusage",
+    ]) {
+      expect(html).toContain(tool);
+    }
+    expect(html).toContain("web-based visual builder");
+    expect(html).toContain('"@type":"ItemList"');
     expect(html).toContain('"@type":"FAQPage"');
   });
 });

@@ -1,3 +1,8 @@
+import {
+  BEST_TOOLS_FAQS,
+  STATUSLINE_TOOLS,
+} from "./components/Compare/tools";
+
 export const SITE_NAME = "statusline.sh";
 export const SITE_URL = "https://statusline.sh";
 // Social link previewers (Twitter/X, Slack, Discord, iMessage, LinkedIn,
@@ -12,6 +17,7 @@ export const DEFAULT_OG_IMAGE = "/og-default.png";
 // would be useless to them. Per-design OG URLs always need to be absolute.
 export const OG_IMAGE_ORIGIN = "https://statusline-community.zoniixyt.workers.dev";
 export const STATUSLINE_GUIDE_PATH = "/how-to-make-a-claude-code-statusline";
+export const BEST_TOOLS_PATH = "/best-claude-code-statusline";
 
 /**
  * Build the per-design OG share image URL. Returns the `.png` Worker
@@ -381,6 +387,50 @@ export function buildGuideFaqJsonLd(): JsonLdObject {
 }
 
 /**
+ * JSON-LD for the "Best Claude Code Statusline Tools (2026)" comparison hub.
+ * An Article node (matching the programmatic pages), an ItemList enumerating
+ * the roundup's tools, and a FAQPage. Tool + FAQ copy is sourced from
+ * `components/Compare/tools.ts` so the structured data cannot drift from the
+ * rendered comparison. Returns valid schema.org blocks only.
+ */
+export function buildBestToolsJsonLd(): JsonLdObject[] {
+  const h1 = "Best Claude Code Statusline Tools (2026)";
+  const description =
+    "An honest comparison of Claude Code statusline tools — ccstatusline, claude-powerline, CCometixLine, and ccusage — and where statusline.sh, the only web-based visual builder, fits.";
+  return [
+    {
+      "@context": "https://schema.org",
+      "@type": "Article",
+      headline: h1,
+      description,
+      mainEntityOfPage: canonicalUrl(BEST_TOOLS_PATH),
+      author: { "@type": "Organization", name: SITE_NAME },
+      publisher: { "@type": "Organization", name: SITE_NAME },
+    },
+    {
+      "@context": "https://schema.org",
+      "@type": "ItemList",
+      name: h1,
+      itemListElement: STATUSLINE_TOOLS.map((tool, index) => ({
+        "@type": "ListItem",
+        position: index + 1,
+        name: tool.name,
+        description: tool.blurb,
+      })),
+    },
+    {
+      "@context": "https://schema.org",
+      "@type": "FAQPage",
+      mainEntity: BEST_TOOLS_FAQS.map((item) => ({
+        "@type": "Question",
+        name: item.question,
+        acceptedAnswer: { "@type": "Answer", text: item.answer },
+      })),
+    },
+  ];
+}
+
+/**
  * Programmatic SEO landing pages — one per Claude Code statusline element.
  *
  * Each page targets a long-tail keyword like "claude code statusline with
@@ -511,6 +561,19 @@ export const STATIC_ROUTE_META: Record<string, RouteMeta> = {
       ]),
       buildGuideHowToJsonLd(),
       buildGuideFaqJsonLd(),
+    ],
+  },
+  [BEST_TOOLS_PATH]: {
+    title: "Best Claude Code Statusline Tools (2026) | statusline.sh",
+    description:
+      "Compare Claude Code statusline tools in 2026 — ccstatusline, claude-powerline, CCometixLine, ccusage — and statusline.sh, the only visual web builder.",
+    canonicalPath: BEST_TOOLS_PATH,
+    jsonLd: [
+      buildBreadcrumbJsonLd([
+        { name: "Home", path: "/" },
+        { name: "Best Claude Code Statusline Tools", path: BEST_TOOLS_PATH },
+      ]),
+      ...buildBestToolsJsonLd(),
     ],
   },
   "/privacy": {

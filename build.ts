@@ -3,6 +3,7 @@ import { copyFile, mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { Resvg } from "@resvg/resvg-js";
 import {
+  BEST_TOOLS_PATH,
   DEFAULT_OG_IMAGE,
   PROGRAMMATIC_ROUTE_META,
   SITE_NAME,
@@ -31,6 +32,7 @@ export const STATIC_SITEMAP_ROUTES: StaticSitemapRoute[] = [
   { path: "/builder", priority: "0.9", changefreq: "weekly" },
   { path: "/community", priority: "0.8", changefreq: "daily" },
   { path: STATUSLINE_GUIDE_PATH, priority: "0.7", changefreq: "monthly" },
+  { path: BEST_TOOLS_PATH, priority: "0.7", changefreq: "monthly" },
   ...PROGRAMMATIC_ROUTE_META.map(
     (item): StaticSitemapRoute => ({
       path: item.path,
@@ -51,6 +53,7 @@ const STATIC_HTML_ROUTES = [
   "/builder",
   "/community",
   STATUSLINE_GUIDE_PATH,
+  BEST_TOOLS_PATH,
   ...PROGRAMMATIC_ROUTE_META.map((item) => item.path),
   "/privacy",
   "/terms",
