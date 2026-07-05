@@ -432,9 +432,11 @@ export function renderCommunityDetailHtml({ row, related = [] }: SsrInput): stri
 
 const LIST_TITLE =
   "Claude Code Statusline Examples, Templates & Themes | statusline.sh";
+// Kept in lockstep with the canonical `/community` description in
+// src/frontend/seo.ts so the crawlable SSR intro and the SPA <meta> agree.
 const LIST_DESCRIPTION =
-  "Browse a gallery of Claude Code statusline examples, templates and themes. " +
-  "Preview any community design, fork it in the builder, and install it with a single command.";
+  "Browse Claude Code statusline examples, templates, and themes. " +
+  "Preview each design in a live terminal, copy-paste install in one command, or fork it into the builder.";
 const LIST_CANONICAL = `${SITE_ORIGIN}/community`;
 // Static 1200×630 PNG built by build.ts and served by Vercel. Social previewers
 // refuse SVG, so we reuse the site's default PNG OG asset for the list page.

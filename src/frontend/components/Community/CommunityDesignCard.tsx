@@ -2,6 +2,7 @@ import { GitForkIcon, EyeIcon, ArrowRightIcon, DownloadSimpleIcon } from "@phosp
 import type { CommunityCardSummary } from "@statusline/shared/types";
 import { Link } from "../../router";
 import { StaticPreview } from "../Preview/StaticPreview";
+import { CopyInstallButton } from "./CopyInstallButton";
 
 export interface CommunityDesignCardProps {
   summary: CommunityCardSummary;
@@ -81,39 +82,44 @@ export function CommunityDesignCard({ summary }: CommunityDesignCardProps) {
           {summary.description || " "}
         </p>
 
-        {/* Footer pinned with mt-auto so cards line up vertically */}
-        <div className="mt-auto flex items-center justify-between gap-3 border-t border-white/[0.04] pt-3">
-          <div className="flex items-center gap-3 text-[11px] text-[#6F6F6B]">
-            <span className="inline-flex items-center gap-1" title="Installs">
-              <DownloadSimpleIcon size={11} weight="bold" />
-              {summary.installs}
-            </span>
-            <span className="inline-flex items-center gap-1" title="Forks">
-              <GitForkIcon size={11} weight="bold" />
-              {summary.forks}
-            </span>
-            <span className="inline-flex items-center gap-1" title="Views">
-              <EyeIcon size={11} weight="bold" />
-              {summary.views}
-            </span>
+        {/* Footer pinned with mt-auto so cards line up vertically. Two rows:
+            metadata + Fork/Open on top, then the copy-install affordance. */}
+        <div className="mt-auto flex flex-col gap-2.5 border-t border-white/[0.04] pt-3">
+          <div className="flex items-center justify-between gap-3">
+            <div className="flex items-center gap-3 text-[11px] text-[#6F6F6B]">
+              <span className="inline-flex items-center gap-1" title="Installs">
+                <DownloadSimpleIcon size={11} weight="bold" />
+                {summary.installs}
+              </span>
+              <span className="inline-flex items-center gap-1" title="Forks">
+                <GitForkIcon size={11} weight="bold" />
+                {summary.forks}
+              </span>
+              <span className="inline-flex items-center gap-1" title="Views">
+                <EyeIcon size={11} weight="bold" />
+                {summary.views}
+              </span>
+            </div>
+
+            <div className="flex items-center gap-2">
+              <Link
+                href={detailHref}
+                className="inline-flex items-center gap-1.5 rounded-[6px] border border-white/[0.06] bg-[#1C1C1F] px-2.5 py-1 text-[11px] text-[#E8E8E6] no-underline transition-colors hover:border-white/[0.14] hover:bg-[#222226] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/40"
+              >
+                <GitForkIcon size={12} weight="bold" />
+                Fork
+              </Link>
+              <Link
+                href={detailHref}
+                className="inline-flex items-center gap-1 text-[11px] text-[#8A8A86] no-underline transition-colors hover:text-[#E8E8E6] group-hover:text-[#E8E8E6]"
+              >
+                Open
+                <ArrowRightIcon size={11} weight="bold" />
+              </Link>
+            </div>
           </div>
 
-          <div className="flex items-center gap-2">
-            <Link
-              href={detailHref}
-              className="inline-flex items-center gap-1.5 rounded-[6px] border border-white/[0.06] bg-[#1C1C1F] px-2.5 py-1 text-[11px] text-[#E8E8E6] no-underline transition-colors hover:border-white/[0.14] hover:bg-[#222226] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/40"
-            >
-              <GitForkIcon size={12} weight="bold" />
-              Fork
-            </Link>
-            <Link
-              href={detailHref}
-              className="inline-flex items-center gap-1 text-[11px] text-[#8A8A86] no-underline transition-colors hover:text-[#E8E8E6] group-hover:text-[#E8E8E6]"
-            >
-              Open
-              <ArrowRightIcon size={11} weight="bold" />
-            </Link>
-          </div>
+          <CopyInstallButton id={summary.id} />
         </div>
       </div>
     </article>

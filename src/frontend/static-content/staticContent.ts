@@ -236,7 +236,7 @@ const BUILDER_CONTENT: StaticPageContent = {
 const COMMUNITY_CONTENT: StaticPageContent = {
   eyebrow: "Community gallery",
   h1: "Claude Code statusline examples.",
-  lede: "Browse real Claude Code statusline examples, templates, and themes — copy-paste to install in one command, or fork any design straight into the builder to make it your own.",
+  lede: "Browse real Claude Code statusline examples, templates, and themes — preview each design in a live terminal, copy-paste the one-line install command, or fork any design straight into the builder to make it your own.",
   sections: [
     {
       heading: "Find a statusline you like.",
