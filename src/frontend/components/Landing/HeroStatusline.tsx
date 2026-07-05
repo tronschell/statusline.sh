@@ -53,8 +53,20 @@ export function HeroStatusline() {
   const [phase, setPhase] = useState<Phase>("idle");
   const [isHovered, setIsHovered] = useState(false);
   const [isPaused, setIsPaused] = useState(false);
+  const [reducedMotion, setReducedMotion] = useState(false);
 
-  const paused = isHovered || isPaused;
+  // Honor prefers-reduced-motion: treat it exactly like a manual pause so both
+  // the auto-cycle state machine and the live mock drift freeze.
+  useEffect(() => {
+    const mq = window.matchMedia?.("(prefers-reduced-motion: reduce)");
+    if (!mq) return;
+    setReducedMotion(mq.matches);
+    const onChange = () => setReducedMotion(mq.matches);
+    mq.addEventListener?.("change", onChange);
+    return () => mq.removeEventListener?.("change", onChange);
+  }, []);
+
+  const paused = isHovered || isPaused || reducedMotion;
   const mock = useAnimatedMock({
     baseline: DEFAULT_MOCK_STDIN,
     paused,
@@ -70,7 +82,9 @@ export function HeroStatusline() {
   // The index only advances when we leave `exiting`, so the old template is
   // what swipes out and the new one is what fades in.
   useEffect(() => {
-    if (templates.length < 2) return;
+    // Reduced motion: never advance the state machine (the CSS swipe is
+    // already suppressed below, so the current bar just holds).
+    if (templates.length < 2 || reducedMotion) return;
     if (phase === "idle") {
       if (paused) return;
       const t = setTimeout(() => setPhase("exiting"), DWELL_MS);
@@ -86,7 +100,7 @@ export function HeroStatusline() {
     // entering
     const t = setTimeout(() => setPhase("idle"), ENTER_MS);
     return () => clearTimeout(t);
-  }, [phase, paused, templates.length]);
+  }, [phase, paused, reducedMotion, templates.length]);
 
   const design: Design = current?.design ?? {
     version: 1,
@@ -149,7 +163,7 @@ export function HeroStatusline() {
             <span className="text-[#E8E8E6]/80">
               {current?.name ?? "Verbose Dev"}
             </span>
-            <span className="ml-2 text-[#8A8A86]/60">
+            <span className="ml-2 text-[#8A8A86]">
               {isPaused ? "(paused)" : "cycling live"}
             </span>
           </span>

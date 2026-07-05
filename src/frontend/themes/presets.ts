@@ -72,7 +72,9 @@ function makeTheme(args: {
 /**
  * Curated color schemes. Hex values are taken from each project's official
  * palette docs (Catppuccin, Tokyo Night, Gruvbox, Nord, Solarized, Dracula).
- * Monochrome is a custom grayscale ramp for minimalist users.
+ * Monochrome is a custom grayscale ramp for minimalist users. Colorblind Safe
+ * uses the Okabe-Ito palette so the added/removed pair reads as bluish-green
+ * vs vermillion rather than the deuteranopia-hostile green vs red.
  */
 export const THEME_PRESETS: ReadonlyArray<ThemePreset> = [
   makeTheme({
@@ -221,6 +223,29 @@ export const THEME_PRESETS: ReadonlyArray<ThemePreset> = [
     linesAdded: rgb(212, 212, 216),
     linesRemoved: rgb(113, 113, 122),
     glyph: rgb(244, 244, 245),
+  }),
+  makeTheme({
+    id: "colorblind-safe",
+    name: "Colorblind Safe",
+    description: "Deuteranopia/protanopia-friendly — avoids red/green pairs",
+    // Okabe-Ito palette. added/removed read as bluish-green vs vermillion,
+    // which stay distinct under red/green color blindness (green vs red do not).
+    swatch: ["#0072B2", "#56B4E9", "#009E73", "#D55E00", "#F0E442", "#CC79A7"],
+    default_: rgb(86, 180, 233), // sky — high contrast on dark for body text
+    model: rgb(0, 114, 178), // blue
+    cwd: rgb(86, 180, 233), // sky
+    gitBranch: rgb(204, 121, 167), // reddish-purple
+    gitStatus: rgb(230, 159, 0), // orange (dirty = attention)
+    contextPct: rgb(86, 180, 233), // sky
+    contextBar: rgb(86, 180, 233),
+    rateLimit5h: rgb(230, 159, 0), // orange (warning)
+    rateLimit7d: rgb(230, 159, 0),
+    cost: rgb(240, 228, 66), // yellow (legible on near-black)
+    sessionDuration: rgb(110, 127, 153), // muted blue-gray
+    separator: rgb(75, 85, 99), // dim slate
+    linesAdded: rgb(0, 158, 115), // bluish-green (positive)
+    linesRemoved: rgb(213, 94, 0), // vermillion (negative — distinct from green)
+    glyph: rgb(204, 121, 167), // reddish-purple
   }),
 ];
 

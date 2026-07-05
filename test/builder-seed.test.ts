@@ -32,7 +32,20 @@ describe("parseBuilderQuery", () => {
     });
   });
 
-  test("ignores ?fork= (no longer parsed)", () => {
-    expect(parseBuilderQuery("?fork=abc123")).toEqual({});
+  test("parses ?fork=<slug> (loads the fetched community design)", () => {
+    expect(parseBuilderQuery("?fork=abc123")).toEqual({ forkId: "abc123" });
+  });
+
+  test("parses valueless ?new as a start-from-scratch flag", () => {
+    expect(parseBuilderQuery("?new")).toEqual({ isNew: true });
+    expect(parseBuilderQuery("?new=1")).toEqual({ isNew: true });
+  });
+
+  test("parses all params together (fork wins seeding precedence in the effect)", () => {
+    expect(parseBuilderQuery("?fork=abc&template=minimal&new")).toEqual({
+      forkId: "abc",
+      templateId: "minimal",
+      isNew: true,
+    });
   });
 });

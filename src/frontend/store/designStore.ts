@@ -165,6 +165,13 @@ export interface DesignState {
    */
   duplicateElement(id: string): void;
   reorder(fromIdx: number, toIdx: number): void;
+  /**
+   * Move the currently selected element one slot left (`delta < 0`) or right
+   * (`delta > 0`) in the flat element list. No-op when nothing is selected or
+   * the move would fall out of bounds. Delegates to `reorder`, so it is a
+   * single history step.
+   */
+  moveSelected(delta: number): void;
   select(id: string | null): void;
   setName(name: string): void;
   undo(): void;
@@ -343,6 +350,16 @@ export const useDesignStore = create<DesignState>()(
             elements.splice(toIdx, 0, moved);
             return { ...design, elements };
           });
+        },
+
+        moveSelected(delta) {
+          const { selectedId, design } = get();
+          if (!selectedId) return;
+          const i = design.elements.findIndex((el) => el.id === selectedId);
+          if (i < 0) return;
+          const to = i + delta;
+          if (to < 0 || to >= design.elements.length) return;
+          get().reorder(i, to);
         },
 
         select(id) {

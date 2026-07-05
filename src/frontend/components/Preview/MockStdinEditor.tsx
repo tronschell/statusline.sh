@@ -2,6 +2,33 @@ import { useMemo, useState } from "react";
 import { useUiStore } from "../../store/uiStore";
 import { MOCK_PRESETS } from "@statusline/shared/mockStdin";
 
+// Human-readable labels for the known preset keys. The option `value` stays
+// the raw key so `onPreset` still resolves against MOCK_PRESETS.
+const PRESET_LABELS: Record<string, string> = {
+  fresh: "Fresh",
+  deep: "Deep session",
+  highTokens: "High tokens",
+  mainBranch: "Main branch",
+  noGit: "No git",
+  thinkingOff: "Thinking off",
+  fastMode: "Fast mode",
+  defaultStyle: "Default style",
+};
+
+// Fallback for any preset key not in the map: camelCase → "Title case".
+function humanizePresetKey(key: string): string {
+  const spaced = key
+    .replace(/([a-z0-9])([A-Z])/g, "$1 $2")
+    .replace(/[_-]+/g, " ")
+    .trim();
+  if (!spaced) return key;
+  return spaced.charAt(0).toUpperCase() + spaced.slice(1);
+}
+
+function presetLabel(key: string): string {
+  return PRESET_LABELS[key] ?? humanizePresetKey(key);
+}
+
 export function MockStdinEditor() {
   const mockStdinJson = useUiStore((s) => s.mockStdinJson);
   const setMockStdinJson = useUiStore((s) => s.setMockStdinJson);
@@ -48,12 +75,12 @@ export function MockStdinEditor() {
             <select
               defaultValue="__custom"
               onChange={(e) => onPreset(e.target.value)}
-              className="bg-[#161618] border border-white/[0.06] rounded-[4px] text-xs px-2 py-1 text-[#E8E8E6]"
+              className="cursor-pointer bg-[#161618] border border-white/[0.06] rounded-[6px] text-xs px-2.5 py-1.5 text-[#E8E8E6] transition-colors hover:border-white/[0.18] focus:border-white/[0.18] focus:outline-none"
             >
               <option value="__custom">Custom</option>
               {Object.keys(MOCK_PRESETS).map((k) => (
                 <option key={k} value={k}>
-                  {k}
+                  {presetLabel(k)}
                 </option>
               ))}
             </select>

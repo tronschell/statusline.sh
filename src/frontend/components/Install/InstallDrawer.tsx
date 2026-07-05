@@ -218,6 +218,7 @@ export default function InstallDrawer({
             </p>
             <TurnstileWidget
               key={turnstileError ?? "ok"}
+              theme="dark"
               onToken={(t) => {
                 setTurnstileError(null);
                 setToken(t);

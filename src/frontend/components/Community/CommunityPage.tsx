@@ -1,4 +1,5 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { MagnifyingGlass } from "@phosphor-icons/react";
 import type { CommunityCardSummary } from "@statusline/shared/types";
 import { Link } from "../../router";
 import { api } from "../../lib/api";
@@ -49,6 +50,7 @@ export function CommunityPage() {
   const [loading, setLoading] = useState(false);
   const [loadingMore, setLoadingMore] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [query, setQuery] = useState("");
 
   // Coalesce concurrent loadMore calls. Without this, a fast scroll can fire
   // the observer multiple times before the in-flight request settles.
@@ -107,12 +109,32 @@ export function CommunityPage() {
     }
   }, [nextCursor, sort]);
 
+  // Client-side search over the already-loaded pages. Case-insensitive
+  // substring match across name / author / description. This only narrows the
+  // items already fetched — it is not a full-corpus search.
+  const trimmedQuery = query.trim();
+  const filteredItems = useMemo(() => {
+    const q = trimmedQuery.toLowerCase();
+    if (!q) return items;
+    return items.filter((item) => {
+      const haystack = [item.name, item.author_name, item.description]
+        .filter((v): v is string => Boolean(v))
+        .join(" ")
+        .toLowerCase();
+      return haystack.includes(q);
+    });
+  }, [items, trimmedQuery]);
+
+  const searching = trimmedQuery.length > 0;
+
   // IntersectionObserver auto-load. A sentinel `<div>` sits below the grid;
   // when it scrolls into view we fire `loadMore`. The button below remains for
   // a11y/keyboard users and as a no-JS-observer fallback.
   useEffect(() => {
     const el = sentinelRef.current;
-    if (!el || !nextCursor) return;
+    // While searching we only narrow the loaded pages — pausing infinite
+    // scroll keeps the visible result set stable.
+    if (!el || !nextCursor || searching) return;
     if (typeof IntersectionObserver === "undefined") return;
 
     const observer = new IntersectionObserver(
@@ -129,7 +151,7 @@ export function CommunityPage() {
     );
     observer.observe(el);
     return () => observer.disconnect();
-  }, [loadMore, nextCursor]);
+  }, [loadMore, nextCursor, searching]);
 
   return (
     <div className="min-h-screen w-full bg-[#0E0E10] text-[#E8E8E6]">
@@ -173,13 +195,35 @@ export function CommunityPage() {
             </p>
           </div>
 
-          <div className="flex items-center justify-between gap-6 md:flex-col md:items-end">
-            <div className="text-[13px] text-[#8A8A86]">
-              {loading
-                ? "Loading…"
-                : `${items.length} design${items.length === 1 ? "" : "s"}`}
+          <div className="flex flex-col gap-4 md:items-end">
+            <div className="flex items-center justify-between gap-6">
+              <div className="text-[13px] text-[#8A8A86]">
+                {loading
+                  ? "Loading…"
+                  : `${filteredItems.length} design${filteredItems.length === 1 ? "" : "s"}`}
+              </div>
+              <SortToggle value={sort} onChange={setSort} />
             </div>
-            <SortToggle value={sort} onChange={setSort} />
+            <div className="flex flex-col gap-1.5 md:items-end">
+              <div className="relative">
+                <MagnifyingGlass
+                  size={14}
+                  weight="bold"
+                  className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[#8A8A86]"
+                />
+                <input
+                  type="text"
+                  value={query}
+                  onChange={(e) => setQuery(e.target.value)}
+                  placeholder="Search loaded designs…"
+                  aria-label="Search loaded designs"
+                  className="w-full rounded-[8px] border border-white/[0.06] bg-[#161618] py-2 pl-9 pr-3 text-[13px] text-[#E8E8E6] placeholder:text-[#5A5A57] transition-colors hover:border-white/[0.18] focus:border-white/[0.18] focus:outline-none md:w-64"
+                />
+              </div>
+              <span className="text-[11px] text-[#8A8A86]">
+                Searches loaded designs
+              </span>
+            </div>
           </div>
         </header>
 
@@ -209,15 +253,19 @@ export function CommunityPage() {
           <div className="rounded-[10px] border border-white/[0.06] py-24 text-center text-[#8A8A86]">
             No designs yet. Be the first to publish.
           </div>
+        ) : searching && filteredItems.length === 0 ? (
+          <div className="rounded-[10px] border border-white/[0.06] py-24 text-center text-[#8A8A86]">
+            No loaded designs match “{trimmedQuery}”.
+          </div>
         ) : (
           <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
-            {items.map((item) => (
+            {filteredItems.map((item) => (
               <CommunityDesignCard key={item.id} summary={item} />
             ))}
           </div>
         )}
 
-        {nextCursor ? (
+        {nextCursor && !searching ? (
           <>
             <div ref={sentinelRef} aria-hidden="true" className="h-px w-full" />
             <div className="mt-12 flex justify-center">

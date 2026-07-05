@@ -11,7 +11,7 @@ import { ELEMENT_ICONS } from "../Palette/ElementPalette";
 const TYPE_LABEL: Record<ElementType, string> = {
   static: "Static",
   model: "Model",
-  cwd: "CWD",
+  cwd: "Working dir",
   gitBranch: "Branch",
   gitStatus: "Status",
   linesAdded: "Added",

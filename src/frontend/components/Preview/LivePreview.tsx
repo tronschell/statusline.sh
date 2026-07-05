@@ -1,6 +1,6 @@
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useDroppable } from "@dnd-kit/core";
-import { Copy, Trash } from "@phosphor-icons/react";
+import { ArrowLeft, ArrowRight, Copy, Moon, Sun, Trash } from "@phosphor-icons/react";
 import { useDesignStore } from "../../store/designStore";
 import { useUiStore } from "../../store/uiStore";
 import { renderToAnsi } from "@statusline/shared/compiler/interpret";
@@ -14,10 +14,11 @@ import {
   useRegisterInsertionResolver,
   type InsertionResolver,
 } from "../../hooks/useDnd";
+import { ELEMENT_LABELS } from "../Palette/ElementPalette";
 import { TerminalFrame } from "../Layout/TerminalFrame";
 import { AnsiToHtml } from "./AnsiToHtml";
 import { MockStdinEditor } from "./MockStdinEditor";
-import { ContextMenu } from "../ContextMenu/ContextMenu";
+import { ContextMenu, type ContextMenuItem } from "../ContextMenu/ContextMenu";
 
 function parseMock(json: string): ClaudeStdin {
   try {
@@ -155,6 +156,7 @@ function resolvePreviewInsertion(
 interface PreviewSpanProps {
   id: string;
   ansi: string;
+  label: string;
   isSelected: boolean;
   onSelect: () => void;
   onContextMenu: (clientX: number, clientY: number) => void;
@@ -168,6 +170,7 @@ interface PreviewSpanProps {
 function PreviewSpan({
   id,
   ansi,
+  label,
   isSelected,
   onSelect,
   onContextMenu,
@@ -179,6 +182,8 @@ function PreviewSpan({
       data-preview-id={id}
       role="button"
       tabIndex={0}
+      aria-label={`${label} — click to select`}
+      aria-pressed={isSelected}
       onClick={(e) => {
         e.stopPropagation();
         onSelect();
@@ -212,7 +217,12 @@ export function LivePreview() {
   const select = useDesignStore((s) => s.select);
   const duplicateElement = useDesignStore((s) => s.duplicateElement);
   const removeElement = useDesignStore((s) => s.removeElement);
+  const reorder = useDesignStore((s) => s.reorder);
   const mockStdinJson = useUiStore((s) => s.mockStdinJson);
+
+  // Terminal background preview only — does not affect the exported statusline
+  // or its element colours. Local state; not persisted.
+  const [previewTheme, setPreviewTheme] = useState<"dark" | "light">("dark");
   const { pending } = useInsertionPreview();
   const { setNodeRef: setDroppableRootRef } = useDroppable({
     id: PREVIEW_ROOT_DROPPABLE,
@@ -260,10 +270,15 @@ export function LivePreview() {
     const mock = parseMock(mockStdinJson);
     return design.elements.map((el) => {
       try {
-        return { id: el.id, ansi: renderToAnsi(singleElementDesign(design, el), mock) };
+        return {
+          id: el.id,
+          type: el.type,
+          ansi: renderToAnsi(singleElementDesign(design, el), mock),
+        };
       } catch (e) {
         return {
           id: el.id,
+          type: el.type,
           ansi: `[err: ${e instanceof Error ? e.message : String(e)}]`,
         };
       }
@@ -284,9 +299,78 @@ export function LivePreview() {
 
   const empty = pieces.every((p) => p.ansi.length === 0) && !pending;
 
+  // Right-click menu for a preview span. "Move left/right" only appear when the
+  // move is in-bounds so the menu never offers a no-op.
+  function menuItemsFor(elementId: string): ContextMenuItem[] {
+    const idx = design.elements.findIndex((el) => el.id === elementId);
+    const items: ContextMenuItem[] = [
+      {
+        label: "Duplicate",
+        Icon: Copy,
+        onSelect: () => duplicateElement(elementId),
+      },
+    ];
+    if (idx > 0) {
+      items.push({
+        label: "Move left",
+        Icon: ArrowLeft,
+        onSelect: () => reorder(idx, idx - 1),
+      });
+    }
+    if (idx >= 0 && idx < design.elements.length - 1) {
+      items.push({
+        label: "Move right",
+        Icon: ArrowRight,
+        onSelect: () => reorder(idx, idx + 1),
+      });
+    }
+    items.push({
+      label: "Delete",
+      Icon: Trash,
+      destructive: true,
+      onSelect: () => removeElement(elementId),
+    });
+    return items;
+  }
+
   return (
     <div>
-      <TerminalFrame>
+      <div className="mb-2 flex items-center justify-end">
+        <div
+          role="group"
+          aria-label="Terminal background preview"
+          title="Preview the terminal background only — this does not change your statusline or its colours"
+          className="inline-flex items-center rounded-[8px] border border-white/[0.08] p-0.5"
+        >
+          <button
+            type="button"
+            onClick={() => setPreviewTheme("dark")}
+            aria-pressed={previewTheme === "dark"}
+            aria-label="Dark terminal background"
+            className={`flex items-center justify-center rounded-[6px] px-2 py-1 transition-colors ${
+              previewTheme === "dark"
+                ? "bg-[#1C1C1F] text-[#E8E8E6]"
+                : "text-[#8A8A86] hover:text-[#E8E8E6]"
+            }`}
+          >
+            <Moon size={13} weight="bold" />
+          </button>
+          <button
+            type="button"
+            onClick={() => setPreviewTheme("light")}
+            aria-pressed={previewTheme === "light"}
+            aria-label="Light terminal background"
+            className={`flex items-center justify-center rounded-[6px] px-2 py-1 transition-colors ${
+              previewTheme === "light"
+                ? "bg-[#1C1C1F] text-[#E8E8E6]"
+                : "text-[#8A8A86] hover:text-[#E8E8E6]"
+            }`}
+          >
+            <Sun size={13} weight="bold" />
+          </button>
+        </div>
+      </div>
+      <TerminalFrame theme={previewTheme}>
         <div ref={setRootRef} className="block min-h-[1.5em]">
           {empty ? (
             <span className="text-[#8A8A86] italic">
@@ -307,6 +391,7 @@ export function LivePreview() {
                     <PreviewSpan
                       id={p.id}
                       ansi={p.ansi}
+                      label={ELEMENT_LABELS[p.type] ?? p.type}
                       isSelected={selectedId === p.id}
                       onSelect={() => select(p.id)}
                       onContextMenu={(x, y) =>
@@ -330,19 +415,7 @@ export function LivePreview() {
           x={menu.x}
           y={menu.y}
           onClose={() => setMenu(null)}
-          items={[
-            {
-              label: "Duplicate",
-              Icon: Copy,
-              onSelect: () => duplicateElement(menu.elementId),
-            },
-            {
-              label: "Delete",
-              Icon: Trash,
-              destructive: true,
-              onSelect: () => removeElement(menu.elementId),
-            },
-          ]}
+          items={menuItemsFor(menu.elementId)}
         />
       ) : null}
     </div>

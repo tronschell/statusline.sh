@@ -15,6 +15,7 @@ import {
   KeyboardSensor,
   useSensor,
   useSensors,
+  type Announcements,
   type DragEndEvent,
   type DragMoveEvent,
   type DragOverEvent,
@@ -501,6 +502,40 @@ export function DndProvider({ children }: DndProviderProps) {
     };
   }, [active]);
 
+  // Resolve a human-readable element name for a drag id so screen-reader
+  // announcements say "Branch" instead of the raw "palette:gitBranch" id.
+  function labelForDragId(id: string | number): string {
+    const parsed = parseDragId(id);
+    if (!parsed) return "element";
+    if (parsed.kind === "palette") {
+      return ELEMENT_LABELS[parsed.type] ?? parsed.type;
+    }
+    const el = elements.find((e) => e.id === parsed.id);
+    return el ? (ELEMENT_LABELS[el.type] ?? el.type) : "element";
+  }
+
+  const announcements: Announcements = {
+    onDragStart({ active }) {
+      return `Picked up ${labelForDragId(active.id)}.`;
+    },
+    onDragOver({ active, over }) {
+      const name = labelForDragId(active.id);
+      return over
+        ? `${name} is over a drop target.`
+        : `${name} is no longer over a drop target.`;
+    },
+    onDragEnd({ active, over }) {
+      const name = labelForDragId(active.id);
+      if (!over) return `${name} was dropped. Nothing changed.`;
+      return parseDragId(active.id)?.kind === "palette"
+        ? `Added ${name} to your statusline.`
+        : `Moved ${name}.`;
+    },
+    onDragCancel({ active }) {
+      return `Dropped ${labelForDragId(active.id)}. Nothing changed.`;
+    },
+  };
+
   let overlay: ReactNode = null;
   if (active?.kind === "palette") {
     const Icon = ELEMENT_ICONS[active.type];
@@ -528,6 +563,7 @@ export function DndProvider({ children }: DndProviderProps) {
   return (
     <DndContext
       sensors={sensors}
+      accessibility={{ announcements }}
       onDragStart={handleDragStart}
       onDragMove={handleDragMove}
       onDragOver={handleDragOver}

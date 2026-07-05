@@ -48,6 +48,10 @@ export default function ThemePresets({ onClose }: ThemePresetsProps) {
         Recolors every element. Use Cmd/Ctrl+Z to revert.
       </p>
 
+      <p className="m-0 text-[11px] leading-snug text-[var(--color-text-muted)]/80">
+        Colorblind Safe avoids red/green cues for deuteranopia/protanopia.
+      </p>
+
       {disabled && (
         <p className="m-0 text-[11px] leading-snug text-[var(--color-text-muted)]/80">
           Add elements to apply a theme.

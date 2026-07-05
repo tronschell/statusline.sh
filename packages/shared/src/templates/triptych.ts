@@ -90,7 +90,6 @@ export const template: TemplateMeta = {
         type: "cost",
         precision: 2,
         style: s({ fg: { kind: "rgb", r: 0xfe, g: 0xf3, b: 0xc7 } }),
-        prefix: "$",
       }),
       el({ id: "tri_lb2", type: "lineBreak", style: s({}) }),
       el({
