@@ -200,7 +200,63 @@ export function buildWebSiteJsonLd(): JsonLdObject {
     url: canonicalUrl("/"),
     description:
       "Design, preview, share, and install Claude Code statuslines from a browser-based builder.",
+    // A Sitelinks `SearchAction` (potentialAction) is intentionally NOT emitted
+    // here. Google requires the SearchAction `target` to resolve to a working
+    // full-text search-results URL (`?q={search_term_string}`), and
+    // statusline.sh has no such endpoint: `/community` offers only client-side
+    // sort + category facets over an infinite-scroll list — there is no
+    // server-side `?q=` query that actually filters results. Pointing a
+    // SearchAction at a non-filtering URL is invalid/misleading structured data
+    // (and penalised), so it is deferred until a real `/community?q=` (or a
+    // dedicated search) endpoint exists.
   };
+}
+
+/**
+ * The site's publishing Organization. Emitted once — on the homepage — so
+ * search engines can attach a defined brand entity (name + canonical URL +
+ * logo) for richer results / a knowledge panel. `sameAs` links the project's
+ * public source repository, the canonical off-site reference for the same
+ * entity. Other schemas that name a string `"Organization"` publisher/author
+ * stay as-is (still valid); this is the single fully-defined node.
+ */
+export function buildOrganizationJsonLd(): JsonLdObject {
+  return {
+    "@context": "https://schema.org",
+    "@type": "Organization",
+    name: SITE_NAME,
+    url: SITE_URL,
+    logo: absoluteUrl("/logo.svg"),
+    sameAs: ["https://github.com/tronschell/statusline.sh"],
+  };
+}
+
+/**
+ * Build the schema.org `interactionStatistic` array from a design's engagement
+ * counts. Each present, finite count becomes an `InteractionCounter` keyed to a
+ * standard schema.org action (installs → InstallAction, forks → ShareAction,
+ * views → ViewAction). Returns `undefined` when no counts are available so the
+ * property is omitted rather than emitted with misleading NaN/absent values.
+ */
+export function buildInteractionStatistic(counts: {
+  installs?: number | null;
+  forks?: number | null;
+  views?: number | null;
+}): JsonLdObject[] | undefined {
+  const stats: JsonLdObject[] = [];
+  const add = (interactionType: string, value: number | null | undefined) => {
+    if (typeof value === "number" && Number.isFinite(value)) {
+      stats.push({
+        "@type": "InteractionCounter",
+        interactionType,
+        userInteractionCount: value,
+      });
+    }
+  };
+  add("https://schema.org/InstallAction", counts.installs);
+  add("https://schema.org/ShareAction", counts.forks);
+  add("https://schema.org/ViewAction", counts.views);
+  return stats.length > 0 ? stats : undefined;
 }
 
 export function buildSoftwareApplicationJsonLd(): JsonLdObject {
@@ -419,7 +475,11 @@ export const STATIC_ROUTE_META: Record<string, RouteMeta> = {
     description:
       "Build a Claude Code statusline (status line) visually, fork community examples, and install in one command on macOS, Linux, or Windows. Free, no sign-up.",
     canonicalPath: "/",
-    jsonLd: [buildWebSiteJsonLd(), buildSoftwareApplicationJsonLd()],
+    jsonLd: [
+      buildWebSiteJsonLd(),
+      buildSoftwareApplicationJsonLd(),
+      buildOrganizationJsonLd(),
+    ],
   },
   "/builder": {
     title: "Build a Claude Code Statusline | statusline.sh",
@@ -500,6 +560,15 @@ export interface CommunityDetailMetaInput {
   author_name?: string | null;
   /** Epoch milliseconds; flows into `datePublished` on the JSON-LD. */
   published_at?: number | null;
+  /**
+   * Engagement counts for the design. When present they flow into an
+   * `interactionStatistic` array on the SoftwareApplication JSON-LD node
+   * (installs → InstallAction, forks → ShareAction, views → ViewAction),
+   * mirroring the server-rendered detail JSON-LD in `worker/src/ssr.ts`.
+   */
+  installs?: number | null;
+  forks?: number | null;
+  views?: number | null;
 }
 
 /**
@@ -530,9 +599,22 @@ export function buildCommunityDetailMeta(
   const authorNode = author.length > 0
     ? { "@type": "Person", name: author }
     : { "@type": "Organization", name: SITE_NAME };
+  // Runtime equivalent of the SSR detail InteractionCounter block. Only emitted
+  // when the caller supplies counts; the current SPA caller
+  // (`CommunityDetailPage`) has `installs`/`forks`/`views` on its loaded
+  // summary but does not yet pass them here — the crawler-visible SSR HTML
+  // (worker/src/ssr.ts) is the authoritative surface for these stats.
+  const interactionStatistic = buildInteractionStatistic({
+    installs: input.installs,
+    forks: input.forks,
+    views: input.views,
+  });
 
   return {
-    title: `${displayName} | Community Statusline | ${SITE_NAME}`,
+    // Reconciled with the server-rendered detail title in `worker/src/ssr.ts`
+    // (`${name} — Claude Code Statusline | statusline.sh`) so the crawler-seen
+    // SSR `<title>` and the client-side SPA title are byte-identical.
+    title: `${displayName} — Claude Code Statusline | ${SITE_NAME}`,
     description,
     canonicalPath,
     // A shared design is a piece of authored content, not a website — flag it
@@ -560,6 +642,7 @@ export function buildCommunityDetailMeta(
         author: authorNode,
         isAccessibleForFree: true,
         ...(datePublished ? { datePublished } : {}),
+        ...(interactionStatistic ? { interactionStatistic } : {}),
         offers: { "@type": "Offer", price: "0", priceCurrency: "USD" },
       },
       {

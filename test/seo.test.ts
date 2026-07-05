@@ -16,6 +16,8 @@ import {
   buildCommunityDetailMeta,
   buildGuideFaqJsonLd,
   buildGuideHowToJsonLd,
+  buildInteractionStatistic,
+  buildOrganizationJsonLd,
   buildSoftwareApplicationJsonLd,
   canonicalUrl,
   metaForPath,
@@ -112,7 +114,8 @@ describe("static SEO assets", () => {
       "Free Claude Code Statusline Builder — Visual Status Line Maker | statusline.sh",
     );
     expect(metaForPath("/community/example-statusline")).toMatchObject({
-      title: "Example Statusline | Community Statusline | statusline.sh",
+      // Reconciled to match the SSR detail title format exactly.
+      title: "Example Statusline — Claude Code Statusline | statusline.sh",
       canonicalPath: "/community/example-statusline",
       // Per-design OG image points at the Worker PNG endpoint so social
       // crawlers see a card with the design's actual name + author.
@@ -194,6 +197,8 @@ describe("static SEO assets", () => {
       author_name: "ada",
       published_at: Date.UTC(2026, 0, 2),
     });
+    // Title reconciled with the SSR detail format (worker/src/ssr.ts).
+    expect(meta.title).toBe("Neon Bar — Claude Code Statusline | statusline.sh");
     expect(meta.ogType).toBe("article");
     expect(meta.image).toBe(
       "https://statusline-community.zoniixyt.workers.dev/og/community/neon-bar.png",
@@ -208,6 +213,84 @@ describe("static SEO assets", () => {
     expect(serialized).toContain('"datePublished":"2026-01-02T00:00:00.000Z"');
     expect(serialized).toContain('"name":"ada"');
     expect(serialized).toContain('"genre":"Claude Code statusline"');
+  });
+
+  test("homepage JSON-LD includes a defined Organization with logo + sameAs", () => {
+    const org = buildOrganizationJsonLd();
+    expect(org["@type"]).toBe("Organization");
+    expect(org["name"]).toBe("statusline.sh");
+    expect(org["url"]).toBe("https://statusline.sh");
+    expect(org["logo"]).toBe("https://statusline.sh/logo.svg");
+    expect(org["sameAs"]).toEqual([
+      "https://github.com/tronschell/statusline.sh",
+    ]);
+
+    // ...and it is actually wired into the homepage route metadata.
+    const homeJsonLd = STATIC_ROUTE_META["/"]!.jsonLd ?? [];
+    const homeTypes = homeJsonLd.map((j) => j["@type"]);
+    expect(homeTypes).toContain("Organization");
+    expect(homeTypes).toContain("WebSite");
+    expect(homeTypes).toContain("SoftwareApplication");
+  });
+
+  test("WebSite JSON-LD does not emit a SearchAction (no real search endpoint)", () => {
+    const home = (STATIC_ROUTE_META["/"]!.jsonLd ?? []).find(
+      (j) => j["@type"] === "WebSite",
+    );
+    expect(home).toBeDefined();
+    // SearchAction is deferred until a real `?q=` search endpoint exists —
+    // emitting one that points at a non-filtering URL is invalid structured data.
+    expect(home!["potentialAction"]).toBeUndefined();
+  });
+
+  test("buildInteractionStatistic maps counts to schema.org InteractionCounters", () => {
+    const stats = buildInteractionStatistic({ installs: 128, forks: 7, views: 42 });
+    expect(stats).toBeDefined();
+    const byType = Object.fromEntries(
+      (stats ?? []).map((s) => [s["interactionType"], s["userInteractionCount"]]),
+    );
+    expect(byType["https://schema.org/InstallAction"]).toBe(128);
+    expect(byType["https://schema.org/ShareAction"]).toBe(7);
+    expect(byType["https://schema.org/ViewAction"]).toBe(42);
+    for (const s of stats ?? []) {
+      expect(s["@type"]).toBe("InteractionCounter");
+    }
+    // No counts at all → undefined so the property is omitted, not emitted empty.
+    expect(buildInteractionStatistic({})).toBeUndefined();
+  });
+
+  test("community detail meta emits InteractionCounter stats when counts are supplied", () => {
+    const meta = buildCommunityDetailMeta({
+      slug: "neon-bar",
+      name: "Neon Bar",
+      author_name: "ada",
+      installs: 128,
+      forks: 7,
+      views: 42,
+    });
+    const software = (meta.jsonLd ?? []).find(
+      (j) => j["@type"] === "SoftwareApplication",
+    ) as Record<string, unknown> | undefined;
+    expect(software).toBeDefined();
+    const stats = software!["interactionStatistic"] as
+      | Array<Record<string, unknown>>
+      | undefined;
+    expect(Array.isArray(stats)).toBe(true);
+    expect(stats!.length).toBe(3);
+    const byType = Object.fromEntries(
+      stats!.map((s) => [s["interactionType"], s["userInteractionCount"]]),
+    );
+    expect(byType["https://schema.org/InstallAction"]).toBe(128);
+    expect(byType["https://schema.org/ShareAction"]).toBe(7);
+    expect(byType["https://schema.org/ViewAction"]).toBe(42);
+  });
+
+  test("community detail meta omits InteractionCounter when no counts are supplied", () => {
+    const meta = buildCommunityDetailMeta({ slug: "neon-bar", name: "Neon Bar" });
+    const software = (meta.jsonLd ?? []).find(
+      (j) => j["@type"] === "SoftwareApplication",
+    ) as Record<string, unknown>;
+    expect(software["interactionStatistic"]).toBeUndefined();
   });
 });
 

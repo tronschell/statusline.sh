@@ -103,6 +103,27 @@ function buildJsonLd(row: DesignRow, ogImage: string): string {
     "@type": "Person",
     name: row.author_name,
   };
+  // Engagement counts as schema.org InteractionCounters — richer-result
+  // eligibility for the design. installs → InstallAction, forks → ShareAction,
+  // views → ViewAction (all standard schema.org action types). Kept in lockstep
+  // with the SPA `buildInteractionStatistic` in src/frontend/seo.ts.
+  const interactionStatistic = [
+    {
+      "@type": "InteractionCounter",
+      interactionType: "https://schema.org/InstallAction",
+      userInteractionCount: row.installs,
+    },
+    {
+      "@type": "InteractionCounter",
+      interactionType: "https://schema.org/ShareAction",
+      userInteractionCount: row.forks,
+    },
+    {
+      "@type": "InteractionCounter",
+      interactionType: "https://schema.org/ViewAction",
+      userInteractionCount: row.views,
+    },
+  ];
   const software = {
     "@context": "https://schema.org",
     "@type": "SoftwareApplication",
@@ -115,6 +136,7 @@ function buildJsonLd(row: DesignRow, ogImage: string): string {
     author,
     datePublished,
     isAccessibleForFree: true,
+    interactionStatistic,
     offers: {
       "@type": "Offer",
       price: "0",
@@ -504,6 +526,8 @@ function buildListJsonLd(designs: RelatedDesign[]): string {
   const itemList = {
     "@context": "https://schema.org",
     "@type": "ItemList",
+    name: "Claude Code statusline community designs",
+    numberOfItems: designs.length,
     itemListElement: designs.map((d, i) => ({
       "@type": "ListItem",
       position: i + 1,
