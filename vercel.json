@@ -44,6 +44,38 @@
       "source": "/claude-code-statusline-rate-limit",
       "destination": "/claude-code-statusline-rate-limit.html"
     },
+    {
+      "source": "/claude-code-statusline-directory",
+      "destination": "/claude-code-statusline-directory.html"
+    },
+    {
+      "source": "/claude-code-statusline-lines-changed",
+      "destination": "/claude-code-statusline-lines-changed.html"
+    },
+    {
+      "source": "/claude-code-statusline-context-window",
+      "destination": "/claude-code-statusline-context-window.html"
+    },
+    {
+      "source": "/claude-code-statusline-output-style",
+      "destination": "/claude-code-statusline-output-style.html"
+    },
+    {
+      "source": "/claude-code-statusline-thinking-effort",
+      "destination": "/claude-code-statusline-thinking-effort.html"
+    },
+    {
+      "source": "/claude-code-statusline-nerd-font",
+      "destination": "/claude-code-statusline-nerd-font.html"
+    },
+    {
+      "source": "/claude-code-statusline-powerline",
+      "destination": "/claude-code-statusline-powerline.html"
+    },
+    {
+      "source": "/claude-code-statusline-windows",
+      "destination": "/claude-code-statusline-windows.html"
+    },
     { "source": "/privacy", "destination": "/privacy.html" },
     { "source": "/terms", "destination": "/terms.html" },
     {

@@ -489,6 +489,62 @@ export const PROGRAMMATIC_ROUTE_META: ProgrammaticRouteMeta[] = [
       "Add the 5h and 7d Claude Code rate limit bars or percentages to your terminal statusline. Two element variants, configurable width, one-command install.",
     h1: "Claude Code statusline with rate limit",
   },
+  {
+    path: "/claude-code-statusline-directory",
+    title: "Claude Code Statusline with Directory (cwd) | statusline.sh",
+    description:
+      "Add the working directory to your Claude Code statusline. Choose basename, full, tilde, or compact path modes, style it, and install in one command.",
+    h1: "Claude Code statusline with the working directory",
+  },
+  {
+    path: "/claude-code-statusline-lines-changed",
+    title: "Claude Code Statusline with Lines Changed (+/-) | statusline.sh",
+    description:
+      "Add live added and removed line counts to your Claude Code statusline. Two elements, +green / -red styling, one-command install on macOS, Linux, and Windows.",
+    h1: "Claude Code statusline with lines changed",
+  },
+  {
+    path: "/claude-code-statusline-context-window",
+    title: "Claude Code Statusline Context Window Gauge | statusline.sh",
+    description:
+      "Show how full the Claude Code context window is as a live bar plus a used/total token ratio. Threshold colors warn before compaction. One-command install.",
+    h1: "Claude Code statusline with a context window gauge",
+  },
+  {
+    path: "/claude-code-statusline-output-style",
+    title: "Claude Code Statusline with Output Style | statusline.sh",
+    description:
+      "Show the active Claude Code output style in your statusline. It auto-hides on the default style or can be pinned always-on. Style it and install in one command.",
+    h1: "Claude Code statusline with the output style",
+  },
+  {
+    path: "/claude-code-statusline-thinking-effort",
+    title: "Claude Code Statusline with Thinking Effort | statusline.sh",
+    description:
+      "Display the Claude Code extended-thinking effort level in your statusline. It only renders when thinking is enabled. Style it and install in one command.",
+    h1: "Claude Code statusline with thinking effort",
+  },
+  {
+    path: "/claude-code-statusline-nerd-font",
+    title: "Claude Code Statusline with Nerd Font Icons | statusline.sh",
+    description:
+      "Use Nerd Font glyph icons in your Claude Code statusline. Drop folder, branch, and cost icons in front of each segment with the Glyph element. One-command install.",
+    h1: "Claude Code statusline with Nerd Font icons",
+  },
+  {
+    path: "/claude-code-statusline-powerline",
+    title: "Claude Code Powerline Statusline | statusline.sh",
+    description:
+      "Create a powerline Claude Code statusline with colored segment backgrounds and arrow separators. No plugin manager, no config file — build it visually and install in one command.",
+    h1: "Claude Code powerline statusline",
+  },
+  {
+    path: "/claude-code-statusline-windows",
+    title: "Claude Code Statusline on Windows (PowerShell) | statusline.sh",
+    description:
+      "Install a Claude Code statusline on Windows with one PowerShell command. Native ConvertFrom-Json settings merge, raw UTF-8 output, no WSL or bash required.",
+    h1: "Claude Code statusline on Windows",
+  },
 ];
 
 function buildProgrammaticRouteMeta(): Record<string, RouteMeta> {

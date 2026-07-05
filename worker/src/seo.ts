@@ -56,6 +56,46 @@ export const STATIC_SITEMAP_ROUTES: StaticSitemapRoute[] = [
     priority: "0.6",
     changefreq: "monthly",
   },
+  {
+    path: "/claude-code-statusline-directory",
+    priority: "0.6",
+    changefreq: "monthly",
+  },
+  {
+    path: "/claude-code-statusline-lines-changed",
+    priority: "0.6",
+    changefreq: "monthly",
+  },
+  {
+    path: "/claude-code-statusline-context-window",
+    priority: "0.6",
+    changefreq: "monthly",
+  },
+  {
+    path: "/claude-code-statusline-output-style",
+    priority: "0.6",
+    changefreq: "monthly",
+  },
+  {
+    path: "/claude-code-statusline-thinking-effort",
+    priority: "0.6",
+    changefreq: "monthly",
+  },
+  {
+    path: "/claude-code-statusline-nerd-font",
+    priority: "0.6",
+    changefreq: "monthly",
+  },
+  {
+    path: "/claude-code-statusline-powerline",
+    priority: "0.6",
+    changefreq: "monthly",
+  },
+  {
+    path: "/claude-code-statusline-windows",
+    priority: "0.6",
+    changefreq: "monthly",
+  },
   { path: "/privacy", priority: "0.2", changefreq: "yearly" },
   { path: "/terms", priority: "0.2", changefreq: "yearly" },
 ];
