@@ -775,9 +775,9 @@ describe("GET /ssr/community/:slug", () => {
       description,
       forked_from: null,
       published_at: Date.parse("2026-04-12T08:30:00.000Z"),
-      views: 0,
-      forks: 0,
-      installs: 0,
+      views: 42,
+      forks: 7,
+      installs: 128,
     });
     return { slug, name, author, description, id };
   }
@@ -879,6 +879,22 @@ describe("GET /ssr/community/:slug", () => {
     expect(software!["url"]).toBe(canonical);
     expect(software!["datePublished"]).toBe("2026-04-12T08:30:00.000Z");
     expect((software!["author"] as { name: string }).name).toBe(author);
+    // InteractionCounters expose installs/forks/views for richer-result
+    // eligibility (installs → InstallAction, forks → ShareAction, views →
+    // ViewAction). Values come straight from the seeded DesignRow.
+    const stats = software!["interactionStatistic"] as Array<{
+      "@type": string;
+      interactionType: string;
+      userInteractionCount: number;
+    }>;
+    expect(Array.isArray(stats)).toBe(true);
+    for (const s of stats) expect(s["@type"]).toBe("InteractionCounter");
+    const byType = Object.fromEntries(
+      stats.map((s) => [s.interactionType, s.userInteractionCount]),
+    );
+    expect(byType["https://schema.org/InstallAction"]).toBe(128);
+    expect(byType["https://schema.org/ShareAction"]).toBe(7);
+    expect(byType["https://schema.org/ViewAction"]).toBe(42);
     // CreativeWork describes the same artefact with image + publish date.
     expect(creativeWork).toBeDefined();
     expect(creativeWork!["name"]).toBe(name);
@@ -1084,6 +1100,44 @@ describe("GET /ssr/community (list)", () => {
       `<meta property="og:image" content="https://statusline.sh/og-default.png" />`,
     );
     expect(html).toContain(`href="/builder">Open builder</a>`);
+  });
+
+  test("embeds a well-formed ItemList of designs", async () => {
+    seedTwo();
+    const res = await worker.fetch(
+      new Request("https://worker.example.com/ssr/community"),
+      env,
+      makeCtx(),
+    );
+    const html = await res.text();
+    const scripts = [
+      ...html.matchAll(
+        /<script type="application\/ld\+json">([\s\S]*?)<\/script>/g,
+      ),
+    ].map((m) => JSON.parse(m[1]!.replace(/\\u003c/g, "<")));
+    const itemList = scripts.find(
+      (s) => (s as { "@type": string })["@type"] === "ItemList",
+    ) as
+      | {
+          numberOfItems: number;
+          itemListElement: Array<{
+            "@type": string;
+            position: number;
+            name: string;
+            url: string;
+          }>;
+        }
+      | undefined;
+    expect(itemList).toBeDefined();
+    expect(itemList!.numberOfItems).toBe(2);
+    expect(itemList!.itemListElement.length).toBe(2);
+    itemList!.itemListElement.forEach((el, i) => {
+      expect(el["@type"]).toBe("ListItem");
+      expect(el.position).toBe(i + 1);
+      expect(typeof el.name).toBe("string");
+      expect(el.name.length).toBeGreaterThan(0);
+      expect(el.url).toMatch(/^https:\/\/statusline\.sh\/community\//);
+    });
   });
 
   test("dedupes designs that appear in both recent and popular", async () => {

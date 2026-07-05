@@ -1,3 +1,9 @@
+import {
+  BEST_TOOLS_FAQS,
+  STATUSLINE_TOOLS,
+} from "./components/Compare/tools";
+import { NOT_SHOWING_FAQS } from "./components/Programmatic/programmatic";
+
 export const SITE_NAME = "statusline.sh";
 export const SITE_URL = "https://statusline.sh";
 // Social link previewers (Twitter/X, Slack, Discord, iMessage, LinkedIn,
@@ -12,6 +18,7 @@ export const DEFAULT_OG_IMAGE = "/og-default.png";
 // would be useless to them. Per-design OG URLs always need to be absolute.
 export const OG_IMAGE_ORIGIN = "https://statusline-community.zoniixyt.workers.dev";
 export const STATUSLINE_GUIDE_PATH = "/how-to-make-a-claude-code-statusline";
+export const BEST_TOOLS_PATH = "/best-claude-code-statusline";
 
 /**
  * Build the per-design OG share image URL. Returns the `.png` Worker
@@ -200,7 +207,63 @@ export function buildWebSiteJsonLd(): JsonLdObject {
     url: canonicalUrl("/"),
     description:
       "Design, preview, share, and install Claude Code statuslines from a browser-based builder.",
+    // A Sitelinks `SearchAction` (potentialAction) is intentionally NOT emitted
+    // here. Google requires the SearchAction `target` to resolve to a working
+    // full-text search-results URL (`?q={search_term_string}`), and
+    // statusline.sh has no such endpoint: `/community` offers only client-side
+    // sort + category facets over an infinite-scroll list — there is no
+    // server-side `?q=` query that actually filters results. Pointing a
+    // SearchAction at a non-filtering URL is invalid/misleading structured data
+    // (and penalised), so it is deferred until a real `/community?q=` (or a
+    // dedicated search) endpoint exists.
   };
+}
+
+/**
+ * The site's publishing Organization. Emitted once — on the homepage — so
+ * search engines can attach a defined brand entity (name + canonical URL +
+ * logo) for richer results / a knowledge panel. `sameAs` links the project's
+ * public source repository, the canonical off-site reference for the same
+ * entity. Other schemas that name a string `"Organization"` publisher/author
+ * stay as-is (still valid); this is the single fully-defined node.
+ */
+export function buildOrganizationJsonLd(): JsonLdObject {
+  return {
+    "@context": "https://schema.org",
+    "@type": "Organization",
+    name: SITE_NAME,
+    url: SITE_URL,
+    logo: absoluteUrl("/logo.svg"),
+    sameAs: ["https://github.com/tronschell/statusline.sh"],
+  };
+}
+
+/**
+ * Build the schema.org `interactionStatistic` array from a design's engagement
+ * counts. Each present, finite count becomes an `InteractionCounter` keyed to a
+ * standard schema.org action (installs → InstallAction, forks → ShareAction,
+ * views → ViewAction). Returns `undefined` when no counts are available so the
+ * property is omitted rather than emitted with misleading NaN/absent values.
+ */
+export function buildInteractionStatistic(counts: {
+  installs?: number | null;
+  forks?: number | null;
+  views?: number | null;
+}): JsonLdObject[] | undefined {
+  const stats: JsonLdObject[] = [];
+  const add = (interactionType: string, value: number | null | undefined) => {
+    if (typeof value === "number" && Number.isFinite(value)) {
+      stats.push({
+        "@type": "InteractionCounter",
+        interactionType,
+        userInteractionCount: value,
+      });
+    }
+  };
+  add("https://schema.org/InstallAction", counts.installs);
+  add("https://schema.org/ShareAction", counts.forks);
+  add("https://schema.org/ViewAction", counts.views);
+  return stats.length > 0 ? stats : undefined;
 }
 
 export function buildSoftwareApplicationJsonLd(): JsonLdObject {
@@ -325,6 +388,50 @@ export function buildGuideFaqJsonLd(): JsonLdObject {
 }
 
 /**
+ * JSON-LD for the "Best Claude Code Statusline Tools (2026)" comparison hub.
+ * An Article node (matching the programmatic pages), an ItemList enumerating
+ * the roundup's tools, and a FAQPage. Tool + FAQ copy is sourced from
+ * `components/Compare/tools.ts` so the structured data cannot drift from the
+ * rendered comparison. Returns valid schema.org blocks only.
+ */
+export function buildBestToolsJsonLd(): JsonLdObject[] {
+  const h1 = "Best Claude Code Statusline Tools (2026)";
+  const description =
+    "An honest comparison of Claude Code statusline tools — ccstatusline, claude-powerline, CCometixLine, and ccusage — and where statusline.sh, the only web-based visual builder, fits.";
+  return [
+    {
+      "@context": "https://schema.org",
+      "@type": "Article",
+      headline: h1,
+      description,
+      mainEntityOfPage: canonicalUrl(BEST_TOOLS_PATH),
+      author: { "@type": "Organization", name: SITE_NAME },
+      publisher: { "@type": "Organization", name: SITE_NAME },
+    },
+    {
+      "@context": "https://schema.org",
+      "@type": "ItemList",
+      name: h1,
+      itemListElement: STATUSLINE_TOOLS.map((tool, index) => ({
+        "@type": "ListItem",
+        position: index + 1,
+        name: tool.name,
+        description: tool.blurb,
+      })),
+    },
+    {
+      "@context": "https://schema.org",
+      "@type": "FAQPage",
+      mainEntity: BEST_TOOLS_FAQS.map((item) => ({
+        "@type": "Question",
+        name: item.question,
+        acceptedAnswer: { "@type": "Answer", text: item.answer },
+      })),
+    },
+  ];
+}
+
+/**
  * Programmatic SEO landing pages — one per Claude Code statusline element.
  *
  * Each page targets a long-tail keyword like "claude code statusline with
@@ -338,6 +445,15 @@ export interface ProgrammaticRouteMeta {
   title: string;
   description: string;
   h1: string;
+  /**
+   * Optional FAQ Q&A for pages that back a FAQPage rich result. When present,
+   * `buildProgrammaticRouteMeta` appends a `FAQPage` JSON-LD node built from
+   * these entries. Each `{ q, a }` MUST also appear verbatim as a visible
+   * section on the page (Google requires FAQ structured data to match the
+   * on-page content) — the troubleshooting page sources both from the single
+   * `NOT_SHOWING_FAQS` array to keep them in lockstep.
+   */
+  faqs?: { q: string; a: string }[];
 }
 
 export const PROGRAMMATIC_ROUTE_META: ProgrammaticRouteMeta[] = [
@@ -383,30 +499,118 @@ export const PROGRAMMATIC_ROUTE_META: ProgrammaticRouteMeta[] = [
       "Add the 5h and 7d Claude Code rate limit bars or percentages to your terminal statusline. Two element variants, configurable width, one-command install.",
     h1: "Claude Code statusline with rate limit",
   },
+  {
+    path: "/claude-code-statusline-directory",
+    title: "Claude Code Statusline with Directory (cwd) | statusline.sh",
+    description:
+      "Add the working directory to your Claude Code statusline. Choose basename, full, tilde, or compact path modes, style it, and install in one command.",
+    h1: "Claude Code statusline with the working directory",
+  },
+  {
+    path: "/claude-code-statusline-lines-changed",
+    title: "Claude Code Statusline with Lines Changed (+/-) | statusline.sh",
+    description:
+      "Add live added and removed line counts to your Claude Code statusline. Two elements, +green / -red styling, one-command install on macOS, Linux, and Windows.",
+    h1: "Claude Code statusline with lines changed",
+  },
+  {
+    path: "/claude-code-statusline-context-window",
+    title: "Claude Code Statusline Context Window Gauge | statusline.sh",
+    description:
+      "Show how full the Claude Code context window is as a live bar plus a used/total token ratio. Threshold colors warn before compaction. One-command install.",
+    h1: "Claude Code statusline with a context window gauge",
+  },
+  {
+    path: "/claude-code-statusline-output-style",
+    title: "Claude Code Statusline with Output Style | statusline.sh",
+    description:
+      "Show the active Claude Code output style in your statusline. It auto-hides on the default style or can be pinned always-on. Style it and install in one command.",
+    h1: "Claude Code statusline with the output style",
+  },
+  {
+    path: "/claude-code-statusline-thinking-effort",
+    title: "Claude Code Statusline with Thinking Effort | statusline.sh",
+    description:
+      "Display the Claude Code extended-thinking effort level in your statusline. It only renders when thinking is enabled. Style it and install in one command.",
+    h1: "Claude Code statusline with thinking effort",
+  },
+  {
+    path: "/claude-code-statusline-nerd-font",
+    title: "Claude Code Statusline with Nerd Font Icons | statusline.sh",
+    description:
+      "Use Nerd Font glyph icons in your Claude Code statusline. Drop folder, branch, and cost icons in front of each segment with the Glyph element. One-command install.",
+    h1: "Claude Code statusline with Nerd Font icons",
+  },
+  {
+    path: "/claude-code-statusline-powerline",
+    title: "Claude Code Powerline Statusline | statusline.sh",
+    description:
+      "Create a powerline Claude Code statusline with colored segment backgrounds and arrow separators. No plugin manager, no config file — build it visually and install in one command.",
+    h1: "Claude Code powerline statusline",
+  },
+  {
+    path: "/claude-code-statusline-windows",
+    title: "Claude Code Statusline on Windows (PowerShell) | statusline.sh",
+    description:
+      "Install a Claude Code statusline on Windows with one PowerShell command. Native ConvertFrom-Json settings merge, raw UTF-8 output, no WSL or bash required.",
+    h1: "Claude Code statusline on Windows",
+  },
+  {
+    path: "/claude-code-statusline-vs-ccstatusline",
+    title:
+      "Claude Code Statusline: statusline.sh vs ccstatusline | statusline.sh",
+    description:
+      "An honest, evergreen comparison of statusline.sh and ccstatusline for building a Claude Code statusline — a web visual builder with a live preview versus a terminal-native CLI configurator. See which fits your workflow.",
+    h1: "Claude Code statusline: statusline.sh vs ccstatusline",
+  },
+  {
+    path: "/claude-code-statusline-not-showing",
+    title:
+      "Claude Code Statusline Not Showing? Troubleshooting | statusline.sh",
+    description:
+      "Claude Code statusline not showing or not working? Common causes and fixes: missing statusLine config, a non-executable script or wrong path, absent jq or python3, PowerShell issues, and needing to restart Claude Code.",
+    h1: "Claude Code statusline not showing",
+    faqs: NOT_SHOWING_FAQS,
+  },
 ];
 
 function buildProgrammaticRouteMeta(): Record<string, RouteMeta> {
   const entries: Record<string, RouteMeta> = {};
   for (const item of PROGRAMMATIC_ROUTE_META) {
+    const jsonLd: JsonLdObject[] = [
+      buildBreadcrumbJsonLd([
+        { name: "Home", path: "/" },
+        { name: item.h1, path: item.path },
+      ]),
+      {
+        "@context": "https://schema.org",
+        "@type": "Article",
+        headline: item.h1,
+        description: item.description,
+        mainEntityOfPage: canonicalUrl(item.path),
+        author: { "@type": "Organization", name: SITE_NAME },
+        publisher: { "@type": "Organization", name: SITE_NAME },
+      },
+    ];
+    // FAQ-schema pages (e.g. the "not showing" troubleshooting page) append a
+    // FAQPage node built from the SAME Q&A that render as visible sections on
+    // the page, so the structured data matches the on-page content.
+    if (item.faqs && item.faqs.length > 0) {
+      jsonLd.push({
+        "@context": "https://schema.org",
+        "@type": "FAQPage",
+        mainEntity: item.faqs.map((faq) => ({
+          "@type": "Question",
+          name: faq.q,
+          acceptedAnswer: { "@type": "Answer", text: faq.a },
+        })),
+      });
+    }
     entries[item.path] = {
       title: item.title,
       description: item.description,
       canonicalPath: item.path,
-      jsonLd: [
-        buildBreadcrumbJsonLd([
-          { name: "Home", path: "/" },
-          { name: item.h1, path: item.path },
-        ]),
-        {
-          "@context": "https://schema.org",
-          "@type": "Article",
-          headline: item.h1,
-          description: item.description,
-          mainEntityOfPage: canonicalUrl(item.path),
-          author: { "@type": "Organization", name: SITE_NAME },
-          publisher: { "@type": "Organization", name: SITE_NAME },
-        },
-      ],
+      jsonLd,
     };
   }
   return entries;
@@ -417,9 +621,13 @@ export const STATIC_ROUTE_META: Record<string, RouteMeta> = {
     title:
       "Free Claude Code Statusline Builder — Visual Status Line Maker | statusline.sh",
     description:
-      "Build a Claude Code statusline (status line) visually — drag elements, live-preview the terminal output, and install with one command on macOS, Linux, and Windows. Free, no sign-up.",
+      "Build a Claude Code statusline (status line) visually, fork community examples, and install in one command on macOS, Linux, or Windows. Free, no sign-up.",
     canonicalPath: "/",
-    jsonLd: [buildWebSiteJsonLd(), buildSoftwareApplicationJsonLd()],
+    jsonLd: [
+      buildWebSiteJsonLd(),
+      buildSoftwareApplicationJsonLd(),
+      buildOrganizationJsonLd(),
+    ],
   },
   "/builder": {
     title: "Build a Claude Code Statusline | statusline.sh",
@@ -451,6 +659,19 @@ export const STATIC_ROUTE_META: Record<string, RouteMeta> = {
       ]),
       buildGuideHowToJsonLd(),
       buildGuideFaqJsonLd(),
+    ],
+  },
+  [BEST_TOOLS_PATH]: {
+    title: "Best Claude Code Statusline Tools (2026) | statusline.sh",
+    description:
+      "Compare Claude Code statusline tools in 2026 — ccstatusline, claude-powerline, CCometixLine, ccusage — and statusline.sh, the only visual web builder.",
+    canonicalPath: BEST_TOOLS_PATH,
+    jsonLd: [
+      buildBreadcrumbJsonLd([
+        { name: "Home", path: "/" },
+        { name: "Best Claude Code Statusline Tools", path: BEST_TOOLS_PATH },
+      ]),
+      ...buildBestToolsJsonLd(),
     ],
   },
   "/privacy": {
@@ -500,6 +721,15 @@ export interface CommunityDetailMetaInput {
   author_name?: string | null;
   /** Epoch milliseconds; flows into `datePublished` on the JSON-LD. */
   published_at?: number | null;
+  /**
+   * Engagement counts for the design. When present they flow into an
+   * `interactionStatistic` array on the SoftwareApplication JSON-LD node
+   * (installs → InstallAction, forks → ShareAction, views → ViewAction),
+   * mirroring the server-rendered detail JSON-LD in `worker/src/ssr.ts`.
+   */
+  installs?: number | null;
+  forks?: number | null;
+  views?: number | null;
 }
 
 /**
@@ -530,9 +760,22 @@ export function buildCommunityDetailMeta(
   const authorNode = author.length > 0
     ? { "@type": "Person", name: author }
     : { "@type": "Organization", name: SITE_NAME };
+  // Runtime equivalent of the SSR detail InteractionCounter block. Only emitted
+  // when the caller supplies counts; the current SPA caller
+  // (`CommunityDetailPage`) has `installs`/`forks`/`views` on its loaded
+  // summary but does not yet pass them here — the crawler-visible SSR HTML
+  // (worker/src/ssr.ts) is the authoritative surface for these stats.
+  const interactionStatistic = buildInteractionStatistic({
+    installs: input.installs,
+    forks: input.forks,
+    views: input.views,
+  });
 
   return {
-    title: `${displayName} | Community Statusline | ${SITE_NAME}`,
+    // Reconciled with the server-rendered detail title in `worker/src/ssr.ts`
+    // (`${name} — Claude Code Statusline | statusline.sh`) so the crawler-seen
+    // SSR `<title>` and the client-side SPA title are byte-identical.
+    title: `${displayName} — Claude Code Statusline | ${SITE_NAME}`,
     description,
     canonicalPath,
     // A shared design is a piece of authored content, not a website — flag it
@@ -560,6 +803,7 @@ export function buildCommunityDetailMeta(
         author: authorNode,
         isAccessibleForFree: true,
         ...(datePublished ? { datePublished } : {}),
+        ...(interactionStatistic ? { interactionStatistic } : {}),
         offers: { "@type": "Offer", price: "0", priceCurrency: "USD" },
       },
       {

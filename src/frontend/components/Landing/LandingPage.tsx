@@ -41,7 +41,7 @@ export function LandingPage() {
               href="/how-to-make-a-claude-code-statusline"
               className="text-[#E8E8E6] underline decoration-white/20 underline-offset-[4px] transition-colors hover:decoration-white/50"
             >
-              How to make a Claude Code statusline
+              How to make a Claude Code status line
             </Link>
             , or{" "}
             <Link

@@ -103,6 +103,27 @@ function buildJsonLd(row: DesignRow, ogImage: string): string {
     "@type": "Person",
     name: row.author_name,
   };
+  // Engagement counts as schema.org InteractionCounters — richer-result
+  // eligibility for the design. installs → InstallAction, forks → ShareAction,
+  // views → ViewAction (all standard schema.org action types). Kept in lockstep
+  // with the SPA `buildInteractionStatistic` in src/frontend/seo.ts.
+  const interactionStatistic = [
+    {
+      "@type": "InteractionCounter",
+      interactionType: "https://schema.org/InstallAction",
+      userInteractionCount: row.installs,
+    },
+    {
+      "@type": "InteractionCounter",
+      interactionType: "https://schema.org/ShareAction",
+      userInteractionCount: row.forks,
+    },
+    {
+      "@type": "InteractionCounter",
+      interactionType: "https://schema.org/ViewAction",
+      userInteractionCount: row.views,
+    },
+  ];
   const software = {
     "@context": "https://schema.org",
     "@type": "SoftwareApplication",
@@ -115,6 +136,7 @@ function buildJsonLd(row: DesignRow, ogImage: string): string {
     author,
     datePublished,
     isAccessibleForFree: true,
+    interactionStatistic,
     offers: {
       "@type": "Offer",
       price: "0",
@@ -432,9 +454,11 @@ export function renderCommunityDetailHtml({ row, related = [] }: SsrInput): stri
 
 const LIST_TITLE =
   "Claude Code Statusline Examples, Templates & Themes | statusline.sh";
+// Kept in lockstep with the canonical `/community` description in
+// src/frontend/seo.ts so the crawlable SSR intro and the SPA <meta> agree.
 const LIST_DESCRIPTION =
-  "Browse a gallery of Claude Code statusline examples, templates and themes. " +
-  "Preview any community design, fork it in the builder, and install it with a single command.";
+  "Browse Claude Code statusline examples, templates, and themes. " +
+  "Preview each design in a live terminal, copy-paste install in one command, or fork it into the builder.";
 const LIST_CANONICAL = `${SITE_ORIGIN}/community`;
 // Static 1200×630 PNG built by build.ts and served by Vercel. Social previewers
 // refuse SVG, so we reuse the site's default PNG OG asset for the list page.
@@ -502,6 +526,8 @@ function buildListJsonLd(designs: RelatedDesign[]): string {
   const itemList = {
     "@context": "https://schema.org",
     "@type": "ItemList",
+    name: "Claude Code statusline community designs",
+    numberOfItems: designs.length,
     itemListElement: designs.map((d, i) => ({
       "@type": "ListItem",
       position: i + 1,

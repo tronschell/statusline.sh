@@ -1,5 +1,5 @@
-import { useCallback, useEffect, useRef, useState } from "react";
-import type { CommunityCardSummary } from "@statusline/shared/types";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import type { CommunityCardSummary, Design } from "@statusline/shared/types";
 import { Link } from "../../router";
 import { api } from "../../lib/api";
 import { CommunityDesignCard } from "./CommunityDesignCard";
@@ -24,11 +24,16 @@ const pageCache = new Map<Sort, CacheEntry>();
 const PAGE_SIZE = 24;
 
 /**
- * Category facets shown as indexable labels under the heading. They frame the
- * gallery as "examples, templates & themes" for search and give readers a
- * vocabulary for the kinds of designs published here. Wiring these to actual
- * filtering needs a per-design `category`/`tags` field on the D1 schema plus
- * store/router state — tracked as follow-up. For now they are static labels.
+ * Category facets shown under the heading. They frame the gallery as
+ * "examples, templates & themes" for search, give readers a vocabulary for the
+ * kinds of designs published here, and act as client-side filters.
+ *
+ * There is no `category` column on D1 — rather than a schema migration, we
+ * infer each design's bucket from its element composition (`categoryOf` below).
+ * Filtering is therefore a pure view over the designs already loaded into
+ * `items`; because the list is infinite-scroll paginated, a filter only sees
+ * what has been fetched so far (loading more pages widens the pool). This keeps
+ * the pagination code untouched and avoids a backend round-trip per facet.
  */
 const CATEGORY_FACETS = [
   "Minimal",
@@ -37,6 +42,48 @@ const CATEGORY_FACETS = [
   "Context / token",
   "Themes",
 ] as const;
+
+type CategoryFacet = (typeof CATEGORY_FACETS)[number];
+
+/**
+ * Infer a single browse category for a design from the elements it uses. Pure
+ * and deterministic; first matching rule wins. This is a heuristic for the
+ * facet filter, not a canonical taxonomy — a design that spans several themes
+ * is placed in its most distinctive bucket.
+ */
+export function categoryOf(design: Design): CategoryFacet {
+  const types = new Set(design.elements.map((e) => e.type));
+  const has = (...t: Design["elements"][number]["type"][]): boolean =>
+    t.some((x) => types.has(x));
+
+  // Powerline: segmented bars built from segmentSplit styling.
+  if (has("segmentSplit")) return "Powerline";
+
+  // Context / token: usage / progress bars and token-window readouts.
+  if (
+    has(
+      "contextBar",
+      "contextPct",
+      "contextTokens",
+      "rateLimit5h",
+      "rateLimit7d",
+    )
+  )
+    return "Context / token";
+
+  // Cost tracker: spend / session-cost oriented layouts.
+  if (has("cost")) return "Cost tracker";
+
+  // Minimal: a short single-line bar of a few basic elements, no theming.
+  const meaningful = design.elements.filter(
+    (e) =>
+      e.type !== "separator" && e.type !== "spacer" && e.type !== "lineBreak",
+  ).length;
+  if (!design.background && meaningful <= 4) return "Minimal";
+
+  // Everything else — decorated, multi-line, or background-themed designs.
+  return "Themes";
+}
 
 export function CommunityPage() {
   const [sort, setSort] = useState<Sort>("recent");
@@ -49,6 +96,19 @@ export function CommunityPage() {
   const [loading, setLoading] = useState(false);
   const [loadingMore, setLoadingMore] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // null = the "All" facet (no filter). Filtering is a pure view over the
+  // designs already loaded into `items` — see CATEGORY_FACETS note above.
+  const [activeCategory, setActiveCategory] = useState<CategoryFacet | null>(
+    null,
+  );
+
+  const visibleItems = useMemo(
+    () =>
+      activeCategory
+        ? items.filter((it) => categoryOf(it.design) === activeCategory)
+        : items,
+    [items, activeCategory],
+  );
 
   // Coalesce concurrent loadMore calls. Without this, a fast scroll can fire
   // the observer multiple times before the in-flight request settles.
@@ -148,10 +208,11 @@ export function CommunityPage() {
             >
               Claude Code statusline examples
             </h1>
-            <p className="mt-4 max-w-[56ch] text-[15px] leading-relaxed text-[#8A8A86]">
+            <p className="mt-4 max-w-[58ch] text-[15px] leading-relaxed text-[#8A8A86]">
               Browse real Claude Code statusline examples, templates, and themes
-              published by the community — copy-paste to install, or fork any
-              design into the builder.
+              published by the community — preview each design in a live
+              terminal, copy-paste the one-line install command, or fork any
+              design into the builder to make it your own.
             </p>
             <p className="mt-3 max-w-[60ch] text-[14px] leading-relaxed text-[#8A8A86]">
               <Link
@@ -177,25 +238,34 @@ export function CommunityPage() {
             <div className="text-[13px] text-[#8A8A86]">
               {loading
                 ? "Loading…"
-                : `${items.length} design${items.length === 1 ? "" : "s"}`}
+                : `${visibleItems.length} design${visibleItems.length === 1 ? "" : "s"}`}
             </div>
             <SortToggle value={sort} onChange={setSort} />
           </div>
         </header>
 
-        {/* Indexable category facets. Static labels for now — see
-            CATEGORY_FACETS note above for the filtering follow-up. */}
+        {/* Indexable category facets, wired as client-side filters over the
+            loaded designs (see CATEGORY_FACETS + categoryOf above). */}
         <div className="mb-10 flex flex-wrap items-center gap-2 md:mb-12">
           <span className="mr-1 text-[11px] uppercase tracking-[0.14em] text-[#6F6F6B]">
             Browse by
           </span>
+          <FacetPill
+            active={activeCategory === null}
+            onClick={() => setActiveCategory(null)}
+          >
+            All
+          </FacetPill>
           {CATEGORY_FACETS.map((label) => (
-            <span
+            <FacetPill
               key={label}
-              className="inline-flex items-center rounded-[999px] border border-white/[0.08] bg-[#161618] px-3 py-1 text-[12px] text-[#A8A8A4]"
+              active={activeCategory === label}
+              onClick={() =>
+                setActiveCategory((cur) => (cur === label ? null : label))
+              }
             >
               {label}
-            </span>
+            </FacetPill>
           ))}
         </div>
 
@@ -209,9 +279,23 @@ export function CommunityPage() {
           <div className="rounded-[10px] border border-white/[0.06] py-24 text-center text-[#8A8A86]">
             No designs yet. Be the first to publish.
           </div>
+        ) : !loading && visibleItems.length === 0 ? (
+          <div className="rounded-[10px] border border-white/[0.06] py-24 text-center text-[#8A8A86]">
+            No{" "}
+            <span className="text-[#E8E8E6]">{activeCategory}</span> designs
+            among the {items.length} loaded so far.{" "}
+            <button
+              type="button"
+              onClick={() => setActiveCategory(null)}
+              className="text-[#E8E8E6] underline decoration-white/20 underline-offset-[4px] hover:decoration-white/50"
+            >
+              Show all
+            </button>
+            {nextCursor ? " or load more below." : "."}
+          </div>
         ) : (
           <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
-            {items.map((item) => (
+            {visibleItems.map((item) => (
               <CommunityDesignCard key={item.id} summary={item} />
             ))}
           </div>
@@ -234,6 +318,30 @@ export function CommunityPage() {
         ) : null}
       </div>
     </div>
+  );
+}
+
+interface FacetPillProps {
+  active: boolean;
+  onClick: () => void;
+  children: React.ReactNode;
+}
+
+function FacetPill({ active, onClick, children }: FacetPillProps) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-pressed={active}
+      className={
+        "inline-flex items-center rounded-[999px] border px-3 py-1 text-[12px] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/40 " +
+        (active
+          ? "border-white/[0.18] bg-[#222226] text-[#E8E8E6]"
+          : "border-white/[0.08] bg-[#161618] text-[#A8A8A4] hover:border-white/[0.14] hover:text-[#E8E8E6]")
+      }
+    >
+      {children}
+    </button>
   );
 }
 

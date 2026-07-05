@@ -23,6 +23,7 @@ import { CommunityPage } from "./frontend/components/Community/CommunityPage";
 import { CommunityDetailPage } from "./frontend/components/Community/CommunityDetailPage";
 import { ClaudeCodeStatuslineGuidePage } from "./frontend/components/Guides/ClaudeCodeStatuslineGuidePage";
 import { ProgrammaticRoute } from "./frontend/components/Programmatic/ProgrammaticRoute";
+import { BestStatuslineToolsPage } from "./frontend/components/Compare/BestStatuslineToolsPage";
 import { useShareState } from "./frontend/hooks/useShareState";
 import { useUndoRedo } from "./frontend/hooks/useUndoRedo";
 import { useDesignStore } from "./frontend/store/designStore";
@@ -60,6 +61,12 @@ export function App() {
 
       <Route path="/how-to-make-a-claude-code-statusline">
         <ClaudeCodeStatuslineGuidePage />
+      </Route>
+
+      {/* Exact path — must precede the /claude-code-statusline-:topic
+          wildcard so it isn't captured as a programmatic element topic. */}
+      <Route path="/best-claude-code-statusline">
+        <BestStatuslineToolsPage />
       </Route>
 
       <Route path="/claude-code-statusline-:topic">

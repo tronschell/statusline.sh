@@ -96,14 +96,41 @@ export function useParams<T extends Record<string, string> = Record<string, stri
  * Compile a route pattern into a matcher. Supports:
  *  - literal segments: `/community`
  *  - param segments: `/:slug` -> captures into params
+ *  - in-segment params: `/claude-code-statusline-:topic` -> literal text mixed
+ *    with one or more `:name` tokens; captured via a per-segment regex
  *  - wildcard suffix: `/community/*` -> matches any deeper path
  */
 interface CompiledRoute {
   segments: Array<
     | { kind: "literal"; value: string }
-    | { kind: "param"; name: string }
+    | { kind: "pattern"; regex: RegExp; keys: string[] }
     | { kind: "wildcard" }
   >;
+}
+
+/**
+ * Compile a single path segment. A segment that contains one or more `:name`
+ * tokens (whether it is a whole-segment param like `:slug` or an in-segment
+ * mix like `claude-code-statusline-:topic`) becomes a `pattern` segment: an
+ * anchored regex where each `:name` is a `([^/]+)` capture and the literal
+ * portions are matched verbatim.
+ *
+ * Mirrors `worker/src/router.ts`: regex metacharacters in the literal portions
+ * are escaped BEFORE substituting the placeholders, so dots/hyphens etc. match
+ * literally instead of acting as regex operators. The substitution runs on the
+ * escaped source and looks for `:(\w+)` (the `:` is not a metacharacter, so it
+ * survives escaping untouched).
+ */
+function compileSegment(part: string): CompiledRoute["segments"][number] {
+  if (part === "*") return { kind: "wildcard" };
+  if (!part.includes(":")) return { kind: "literal", value: part };
+  const keys: string[] = [];
+  const escaped = part.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const source = escaped.replace(/:(\w+)/g, (_, k: string) => {
+    keys.push(k);
+    return "([^/]+)";
+  });
+  return { kind: "pattern", regex: new RegExp("^" + source + "$"), keys };
 }
 
 function compileRoute(pattern: string): CompiledRoute {
@@ -111,12 +138,7 @@ function compileRoute(pattern: string): CompiledRoute {
   const raw = trimmed === "" ? "/" : trimmed;
   if (raw === "/") return { segments: [] };
   const parts = raw.split("/").filter((s) => s.length > 0);
-  const segments: CompiledRoute["segments"] = parts.map((p) => {
-    if (p === "*") return { kind: "wildcard" } as const;
-    if (p.startsWith(":")) return { kind: "param", name: p.slice(1) } as const;
-    return { kind: "literal", value: p } as const;
-  });
-  return { segments };
+  return { segments: parts.map(compileSegment) };
 }
 
 function matchRoute(
@@ -140,11 +162,19 @@ function matchRoute(
     if (s.kind === "literal") {
       if (piece !== s.value) return { matched: false, params: {} };
     } else {
-      // param
-      try {
-        params[s.name] = decodeURIComponent(piece);
-      } catch {
-        params[s.name] = piece;
+      // pattern: whole-segment or in-segment `:param` captures. The anchored
+      // regex must consume the entire piece, so an empty capture (e.g. the
+      // `/claude-code-statusline-` prefix with no topic) fails to match.
+      const m = s.regex.exec(piece);
+      if (!m) return { matched: false, params: {} };
+      for (let g = 0; g < s.keys.length; g++) {
+        const key = s.keys[g]!;
+        const raw = m[g + 1] ?? "";
+        try {
+          params[key] = decodeURIComponent(raw);
+        } catch {
+          params[key] = raw;
+        }
       }
     }
   }
@@ -152,6 +182,20 @@ function matchRoute(
   // No wildcard hit; must have consumed all of the path for exact match.
   if (i !== path.length) return { matched: false, params: {} };
   return { matched: true, params };
+}
+
+/**
+ * Match a route `pattern` against a `pathname`, returning whether it matched
+ * and any captured params — using the exact same normalization and exact-match
+ * semantics that `<Route>` applies at runtime (query string dropped, trailing
+ * slashes stripped). Exposed for unit tests; `<Route>` itself uses the memoized
+ * `compileRoute`/`matchRoute` pair below.
+ */
+export function matchPath(
+  pattern: string,
+  pathname: string,
+): { matched: boolean; params: Record<string, string> } {
+  return matchRoute(compileRoute(pattern), splitPath(pathname).pathname);
 }
 
 export interface RouteProps {

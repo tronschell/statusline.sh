@@ -23,6 +23,12 @@ import {
   type ProgrammaticPageConfig,
 } from "../components/Programmatic/programmatic";
 import {
+  BEST_TOOLS_FAQS,
+  STATUSLINE_DIFFERENTIATOR,
+  STATUSLINE_TOOLS,
+} from "../components/Compare/tools";
+import {
+  BEST_TOOLS_PATH,
   STATUSLINE_GUIDE_PATH,
   buildSoftwareApplicationJsonLd,
   type JsonLdObject,
@@ -83,7 +89,8 @@ interface StaticPageContent {
 const FOOTER_LINKS: Array<{ href: string; label: string }> = [
   { href: "/builder", label: "Builder" },
   { href: "/community", label: "Community designs" },
-  { href: STATUSLINE_GUIDE_PATH, label: "How to make a statusline" },
+  { href: STATUSLINE_GUIDE_PATH, label: "How to make a status line" },
+  { href: BEST_TOOLS_PATH, label: "Best statusline tools" },
   ...PROGRAMMATIC_PAGES.map((page) => ({
     href: page.path,
     label: page.h1.replace(/^Claude Code statusline /, "Statusline "),
@@ -236,7 +243,7 @@ const BUILDER_CONTENT: StaticPageContent = {
 const COMMUNITY_CONTENT: StaticPageContent = {
   eyebrow: "Community gallery",
   h1: "Claude Code statusline examples.",
-  lede: "Browse real Claude Code statusline examples, templates, and themes — copy-paste to install in one command, or fork any design straight into the builder to make it your own.",
+  lede: "Browse real Claude Code statusline examples, templates, and themes — preview each design in a live terminal, copy-paste the one-line install command, or fork any design straight into the builder to make it your own.",
   sections: [
     {
       heading: "Find a statusline you like.",
@@ -260,6 +267,46 @@ const COMMUNITY_CONTENT: StaticPageContent = {
     {
       href: "/claude-code-statusline-duration",
       label: "Add session duration",
+    },
+  ],
+};
+
+const BEST_TOOLS_CONTENT: StaticPageContent = {
+  eyebrow: "Comparison · 2026",
+  h1: "Best Claude Code Statusline Tools (2026).",
+  lede: "An honest roundup of the tools people use to build a Claude Code statusline — also written status line, or the status bar at the bottom of the terminal: ccstatusline, claude-powerline, CCometixLine, ccusage, and statusline.sh.",
+  sections: [
+    {
+      heading: "How statusline.sh is different.",
+      paragraphs: [STATUSLINE_DIFFERENTIATOR],
+    },
+    // One section per tool so every name + honest description is crawlable in
+    // the prerendered shell, drawn from the same data the React page renders.
+    ...STATUSLINE_TOOLS.map((tool) => ({
+      heading: tool.name,
+      paragraphs: [tool.blurb],
+    })),
+    {
+      heading: "Which should you pick?",
+      paragraphs: [
+        "If you want to design a statusline visually, preview it live, and install it with one command — with a shareable link and a community gallery to fork from — start with statusline.sh; it also ships a first-class Windows PowerShell installer.",
+        "If you would rather stay in the terminal, the alternatives are excellent: ccstatusline for an interactive CLI configurator, claude-powerline for the segmented powerline look, CCometixLine for a fast native binary, and ccusage when cost and usage analytics matter most.",
+      ],
+    },
+    {
+      heading: "Frequently asked",
+      paragraphs: BEST_TOOLS_FAQS.map((faq) => `${faq.question} ${faq.answer}`),
+    },
+  ],
+  cta: { href: "/builder", label: "Open the builder" },
+  related: [
+    { href: "/builder", label: "Open the builder" },
+    { href: "/community", label: "Browse community designs" },
+    { href: STATUSLINE_GUIDE_PATH, label: "How to make a statusline" },
+    { href: "/claude-code-statusline-cost", label: "Add a cost display" },
+    {
+      href: "/claude-code-statusline-token-usage",
+      label: "Add token-usage tracking",
     },
   ],
 };
@@ -306,6 +353,7 @@ function contentForPath(path: string): StaticPageContent | undefined {
   if (path === STATUSLINE_GUIDE_PATH) return GUIDE_CONTENT;
   if (path === "/builder") return BUILDER_CONTENT;
   if (path === "/community") return COMMUNITY_CONTENT;
+  if (path === BEST_TOOLS_PATH) return BEST_TOOLS_CONTENT;
   if (path === "/privacy") return PRIVACY_CONTENT;
   if (path === "/terms") return TERMS_CONTENT;
   const programmatic = PROGRAMMATIC_PAGES.find((page) => page.path === path);

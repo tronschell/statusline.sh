@@ -128,6 +128,9 @@ export function CommunityDetailPage({ slug: slugProp }: CommunityDetailPageProps
         description: data.description,
         author_name: data.author_name,
         published_at: data.published_at,
+        installs: data.installs,
+        forks: data.forks,
+        views: data.views,
       }),
     );
     return () => clearRouteMetaOverride(canonicalPath);
@@ -403,7 +406,7 @@ export function CommunityDetailPage({ slug: slugProp }: CommunityDetailPageProps
                   title="How to make a Claude Code statusline"
                   className="text-[#E8E8E6] underline decoration-white/20 underline-offset-[4px] hover:decoration-white/50"
                 >
-                  Learn how to make your own Claude Code statusline
+                  Learn how to make your own Claude Code status line
                 </Link>
                 .
               </p>

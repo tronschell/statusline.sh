@@ -16,11 +16,17 @@ import {
   buildCommunityDetailMeta,
   buildGuideFaqJsonLd,
   buildGuideHowToJsonLd,
+  buildInteractionStatistic,
+  buildOrganizationJsonLd,
   buildSoftwareApplicationJsonLd,
   canonicalUrl,
   metaForPath,
   resolveHeadMeta,
 } from "../src/frontend/seo";
+import {
+  NOT_SHOWING_FAQS,
+  findProgrammaticPageByPath,
+} from "../src/frontend/components/Programmatic/programmatic";
 import { makeStubDocument } from "./helpers/domStub";
 
 describe("static SEO assets", () => {
@@ -112,7 +118,8 @@ describe("static SEO assets", () => {
       "Free Claude Code Statusline Builder — Visual Status Line Maker | statusline.sh",
     );
     expect(metaForPath("/community/example-statusline")).toMatchObject({
-      title: "Example Statusline | Community Statusline | statusline.sh",
+      // Reconciled to match the SSR detail title format exactly.
+      title: "Example Statusline — Claude Code Statusline | statusline.sh",
       canonicalPath: "/community/example-statusline",
       // Per-design OG image points at the Worker PNG endpoint so social
       // crawlers see a card with the design's actual name + author.
@@ -121,6 +128,93 @@ describe("static SEO assets", () => {
     expect(metaForPath(STATUSLINE_GUIDE_PATH)).toMatchObject({
       title: "How to Make a Claude Code Status Line | statusline.sh",
       canonicalPath: STATUSLINE_GUIDE_PATH,
+    });
+  });
+
+  test("returns comparison-hub route metadata with breadcrumb, item list, and FAQ", () => {
+    const meta = metaForPath("/best-claude-code-statusline");
+    expect(meta.title).toBe(
+      "Best Claude Code Statusline Tools (2026) | statusline.sh",
+    );
+    expect(meta.canonicalPath).toBe("/best-claude-code-statusline");
+    expect(canonicalUrl(meta.canonicalPath)).toBe(
+      "https://statusline.sh/best-claude-code-statusline",
+    );
+
+    const types = (meta.jsonLd ?? []).map((j) => j["@type"]);
+    expect(types).toEqual([
+      "BreadcrumbList",
+      "Article",
+      "ItemList",
+      "FAQPage",
+    ]);
+
+    // The roundup names the real competitor tools + statusline.sh.
+    const serialized = JSON.stringify(meta.jsonLd);
+    for (const tool of [
+      "statusline.sh",
+      "ccstatusline",
+      "claude-powerline",
+      "CCometixLine",
+      "ccusage",
+    ]) {
+      expect(serialized).toContain(tool);
+    }
+  });
+
+  test("returns vs-ccstatusline route metadata (Breadcrumb + Article, no FAQ)", () => {
+    const meta = metaForPath("/claude-code-statusline-vs-ccstatusline");
+    expect(meta.title).toBe(
+      "Claude Code Statusline: statusline.sh vs ccstatusline | statusline.sh",
+    );
+    expect(meta.canonicalPath).toBe("/claude-code-statusline-vs-ccstatusline");
+    expect(canonicalUrl(meta.canonicalPath)).toBe(
+      "https://statusline.sh/claude-code-statusline-vs-ccstatusline",
+    );
+
+    // The vs page stays Breadcrumb + Article — no FAQ schema.
+    const types = (meta.jsonLd ?? []).map((j) => j["@type"]);
+    expect(types).toEqual(["BreadcrumbList", "Article"]);
+    // Honest, evergreen comparison names the competitor.
+    expect(JSON.stringify(meta.jsonLd)).toContain("ccstatusline");
+  });
+
+  test("not-showing page emits a FAQPage whose Q&A match the visible sections", () => {
+    const meta = metaForPath("/claude-code-statusline-not-showing");
+    expect(meta.title).toBe(
+      "Claude Code Statusline Not Showing? Troubleshooting | statusline.sh",
+    );
+    expect(meta.canonicalPath).toBe("/claude-code-statusline-not-showing");
+
+    const jsonLd = meta.jsonLd ?? [];
+    const types = jsonLd.map((j) => j["@type"]);
+    expect(types).toEqual(["BreadcrumbList", "Article", "FAQPage"]);
+
+    const faqNode = jsonLd.find((j) => j["@type"] === "FAQPage") as
+      | Record<string, unknown>
+      | undefined;
+    expect(faqNode).toBeDefined();
+    const mainEntity = faqNode!["mainEntity"] as Array<Record<string, unknown>>;
+    expect(mainEntity.length).toBe(NOT_SHOWING_FAQS.length);
+    expect(NOT_SHOWING_FAQS.length).toBeGreaterThan(0);
+
+    // Google requires FAQ structured data to match the on-page content: every
+    // JSON-LD Q&A is sourced from the same array that renders as a visible
+    // section (heading = question, paragraph = answer).
+    const page = findProgrammaticPageByPath(
+      "/claude-code-statusline-not-showing",
+    );
+    expect(page).toBeDefined();
+    NOT_SHOWING_FAQS.forEach((faq, i) => {
+      const question = mainEntity[i]!;
+      expect(question["name"]).toBe(faq.q);
+      expect(
+        (question["acceptedAnswer"] as Record<string, unknown>)["text"],
+      ).toBe(faq.a);
+
+      const section = page!.sections[i]!;
+      expect(section.heading).toBe(faq.q);
+      expect(section.paragraphs).toContain(faq.a);
     });
   });
 
@@ -194,6 +288,8 @@ describe("static SEO assets", () => {
       author_name: "ada",
       published_at: Date.UTC(2026, 0, 2),
     });
+    // Title reconciled with the SSR detail format (worker/src/ssr.ts).
+    expect(meta.title).toBe("Neon Bar — Claude Code Statusline | statusline.sh");
     expect(meta.ogType).toBe("article");
     expect(meta.image).toBe(
       "https://statusline-community.zoniixyt.workers.dev/og/community/neon-bar.png",
@@ -208,6 +304,84 @@ describe("static SEO assets", () => {
     expect(serialized).toContain('"datePublished":"2026-01-02T00:00:00.000Z"');
     expect(serialized).toContain('"name":"ada"');
     expect(serialized).toContain('"genre":"Claude Code statusline"');
+  });
+
+  test("homepage JSON-LD includes a defined Organization with logo + sameAs", () => {
+    const org = buildOrganizationJsonLd();
+    expect(org["@type"]).toBe("Organization");
+    expect(org["name"]).toBe("statusline.sh");
+    expect(org["url"]).toBe("https://statusline.sh");
+    expect(org["logo"]).toBe("https://statusline.sh/logo.svg");
+    expect(org["sameAs"]).toEqual([
+      "https://github.com/tronschell/statusline.sh",
+    ]);
+
+    // ...and it is actually wired into the homepage route metadata.
+    const homeJsonLd = STATIC_ROUTE_META["/"]!.jsonLd ?? [];
+    const homeTypes = homeJsonLd.map((j) => j["@type"]);
+    expect(homeTypes).toContain("Organization");
+    expect(homeTypes).toContain("WebSite");
+    expect(homeTypes).toContain("SoftwareApplication");
+  });
+
+  test("WebSite JSON-LD does not emit a SearchAction (no real search endpoint)", () => {
+    const home = (STATIC_ROUTE_META["/"]!.jsonLd ?? []).find(
+      (j) => j["@type"] === "WebSite",
+    );
+    expect(home).toBeDefined();
+    // SearchAction is deferred until a real `?q=` search endpoint exists —
+    // emitting one that points at a non-filtering URL is invalid structured data.
+    expect(home!["potentialAction"]).toBeUndefined();
+  });
+
+  test("buildInteractionStatistic maps counts to schema.org InteractionCounters", () => {
+    const stats = buildInteractionStatistic({ installs: 128, forks: 7, views: 42 });
+    expect(stats).toBeDefined();
+    const byType = Object.fromEntries(
+      (stats ?? []).map((s) => [s["interactionType"], s["userInteractionCount"]]),
+    );
+    expect(byType["https://schema.org/InstallAction"]).toBe(128);
+    expect(byType["https://schema.org/ShareAction"]).toBe(7);
+    expect(byType["https://schema.org/ViewAction"]).toBe(42);
+    for (const s of stats ?? []) {
+      expect(s["@type"]).toBe("InteractionCounter");
+    }
+    // No counts at all → undefined so the property is omitted, not emitted empty.
+    expect(buildInteractionStatistic({})).toBeUndefined();
+  });
+
+  test("community detail meta emits InteractionCounter stats when counts are supplied", () => {
+    const meta = buildCommunityDetailMeta({
+      slug: "neon-bar",
+      name: "Neon Bar",
+      author_name: "ada",
+      installs: 128,
+      forks: 7,
+      views: 42,
+    });
+    const software = (meta.jsonLd ?? []).find(
+      (j) => j["@type"] === "SoftwareApplication",
+    ) as Record<string, unknown> | undefined;
+    expect(software).toBeDefined();
+    const stats = software!["interactionStatistic"] as
+      | Array<Record<string, unknown>>
+      | undefined;
+    expect(Array.isArray(stats)).toBe(true);
+    expect(stats!.length).toBe(3);
+    const byType = Object.fromEntries(
+      stats!.map((s) => [s["interactionType"], s["userInteractionCount"]]),
+    );
+    expect(byType["https://schema.org/InstallAction"]).toBe(128);
+    expect(byType["https://schema.org/ShareAction"]).toBe(7);
+    expect(byType["https://schema.org/ViewAction"]).toBe(42);
+  });
+
+  test("community detail meta omits InteractionCounter when no counts are supplied", () => {
+    const meta = buildCommunityDetailMeta({ slug: "neon-bar", name: "Neon Bar" });
+    const software = (meta.jsonLd ?? []).find(
+      (j) => j["@type"] === "SoftwareApplication",
+    ) as Record<string, unknown>;
+    expect(software["interactionStatistic"]).toBeUndefined();
   });
 });
 
@@ -319,6 +493,45 @@ describe("static SEO assets (guide body)", () => {
     expect(html).toContain("How to make a Claude Code status line.");
     expect(html).toContain("Claude Code calls the bottom bar a statusline");
     expect(html).toContain('"@type":"HowTo"');
+    expect(html).toContain('"@type":"FAQPage"');
+  });
+
+  test("renders crawlable comparison body naming every tool + the differentiator", () => {
+    const html = renderStaticRouteHtmlShell(
+      [
+        "<html><head>",
+        '<meta name="description" content="Home" />',
+        '<meta name="robots" content="index,follow" />',
+        '<meta property="og:title" content="Home" />',
+        '<meta property="og:description" content="Home" />',
+        '<meta property="og:url" content="https://statusline.sh/" />',
+        '<meta property="og:image" content="https://statusline.sh/og-default.png" />',
+        '<meta name="twitter:title" content="Home" />',
+        '<meta name="twitter:description" content="Home" />',
+        '<meta name="twitter:image" content="https://statusline.sh/og-default.png" />',
+        '<link rel="canonical" href="https://statusline.sh/" />',
+        "<title>Home</title>",
+        '<script type="application/ld+json">{}</script>',
+        '</head><body><div id="root"></div></body></html>',
+      ].join("\n"),
+      STATIC_ROUTE_META["/best-claude-code-statusline"]!,
+    );
+
+    expect(html).toContain(
+      "<title>Best Claude Code Statusline Tools (2026) | statusline.sh</title>",
+    );
+    expect(html).toContain("Best Claude Code Statusline Tools (2026).");
+    // Every competitor named, plus statusline.sh positioned as the web builder.
+    for (const tool of [
+      "ccstatusline",
+      "claude-powerline",
+      "CCometixLine",
+      "ccusage",
+    ]) {
+      expect(html).toContain(tool);
+    }
+    expect(html).toContain("web-based visual builder");
+    expect(html).toContain('"@type":"ItemList"');
     expect(html).toContain('"@type":"FAQPage"');
   });
 });

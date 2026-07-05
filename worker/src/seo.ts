@@ -22,6 +22,11 @@ export const STATIC_SITEMAP_ROUTES: StaticSitemapRoute[] = [
     changefreq: "monthly",
   },
   {
+    path: "/best-claude-code-statusline",
+    priority: "0.7",
+    changefreq: "monthly",
+  },
+  {
     path: "/claude-code-statusline-git-branch",
     priority: "0.6",
     changefreq: "monthly",
@@ -48,6 +53,56 @@ export const STATIC_SITEMAP_ROUTES: StaticSitemapRoute[] = [
   },
   {
     path: "/claude-code-statusline-rate-limit",
+    priority: "0.6",
+    changefreq: "monthly",
+  },
+  {
+    path: "/claude-code-statusline-directory",
+    priority: "0.6",
+    changefreq: "monthly",
+  },
+  {
+    path: "/claude-code-statusline-lines-changed",
+    priority: "0.6",
+    changefreq: "monthly",
+  },
+  {
+    path: "/claude-code-statusline-context-window",
+    priority: "0.6",
+    changefreq: "monthly",
+  },
+  {
+    path: "/claude-code-statusline-output-style",
+    priority: "0.6",
+    changefreq: "monthly",
+  },
+  {
+    path: "/claude-code-statusline-thinking-effort",
+    priority: "0.6",
+    changefreq: "monthly",
+  },
+  {
+    path: "/claude-code-statusline-nerd-font",
+    priority: "0.6",
+    changefreq: "monthly",
+  },
+  {
+    path: "/claude-code-statusline-powerline",
+    priority: "0.6",
+    changefreq: "monthly",
+  },
+  {
+    path: "/claude-code-statusline-windows",
+    priority: "0.6",
+    changefreq: "monthly",
+  },
+  {
+    path: "/claude-code-statusline-vs-ccstatusline",
+    priority: "0.6",
+    changefreq: "monthly",
+  },
+  {
+    path: "/claude-code-statusline-not-showing",
     priority: "0.6",
     changefreq: "monthly",
   },
