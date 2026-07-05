@@ -109,7 +109,7 @@ describe("static SEO assets", () => {
 
   test("returns static and community detail route metadata", () => {
     expect(metaForPath("/").title).toBe(
-      "Claude Code Statusline Builder | statusline.sh",
+      "Free Claude Code Statusline Builder — Visual Status Line Maker | statusline.sh",
     );
     expect(metaForPath("/community/example-statusline")).toMatchObject({
       title: "Example Statusline | Community Statusline | statusline.sh",
@@ -167,10 +167,10 @@ describe("static SEO assets", () => {
     );
 
     expect(html).toContain(
-      "<title>Claude Code Statusline Examples | statusline.sh Community</title>",
+      "<title>Claude Code Statusline Examples, Templates &amp; Themes | statusline.sh</title>",
     );
     expect(html).toContain(
-      '<meta name="description" content="Browse community-made Claude Code statusline examples, preview them, and fork any design into your own builder." />',
+      '<meta name="description" content="Browse Claude Code statusline examples, templates, and themes. Preview each design in a live terminal, copy-paste install in one command, or fork it into the builder." />',
     );
     expect(html).toContain(
       '<link rel="canonical" href="https://statusline.sh/community" />',
@@ -228,7 +228,7 @@ describe("runtime Seo head application", () => {
 
     applyHeadMeta(metaForPath("/"), doc as unknown as Document);
     expect(doc.title).toBe(
-      "Claude Code Statusline Builder | statusline.sh",
+      "Free Claude Code Statusline Builder — Visual Status Line Maker | statusline.sh",
     );
     expect(
       doc.head.querySelector('link[rel="canonical"]')?.getAttribute("href"),
@@ -236,7 +236,7 @@ describe("runtime Seo head application", () => {
 
     applyHeadMeta(metaForPath("/community"), doc as unknown as Document);
     expect(doc.title).toBe(
-      "Claude Code Statusline Examples | statusline.sh Community",
+      "Claude Code Statusline Examples, Templates & Themes | statusline.sh",
     );
     expect(
       doc.head.querySelector('link[rel="canonical"]')?.getAttribute("href"),

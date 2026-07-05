@@ -414,9 +414,10 @@ function buildProgrammaticRouteMeta(): Record<string, RouteMeta> {
 
 export const STATIC_ROUTE_META: Record<string, RouteMeta> = {
   "/": {
-    title: "Claude Code Statusline Builder | statusline.sh",
+    title:
+      "Free Claude Code Statusline Builder — Visual Status Line Maker | statusline.sh",
     description:
-      "Build a custom Claude Code statusline visually. Drag, preview, share, and install with one terminal command.",
+      "Build a Claude Code statusline (status line) visually — drag elements, live-preview the terminal output, and install with one command on macOS, Linux, and Windows. Free, no sign-up.",
     canonicalPath: "/",
     jsonLd: [buildWebSiteJsonLd(), buildSoftwareApplicationJsonLd()],
   },
@@ -427,9 +428,9 @@ export const STATIC_ROUTE_META: Record<string, RouteMeta> = {
     canonicalPath: "/builder",
   },
   "/community": {
-    title: "Claude Code Statusline Examples | statusline.sh Community",
+    title: "Claude Code Statusline Examples, Templates & Themes | statusline.sh",
     description:
-      "Browse community-made Claude Code statusline examples, preview them, and fork any design into your own builder.",
+      "Browse Claude Code statusline examples, templates, and themes. Preview each design in a live terminal, copy-paste install in one command, or fork it into the builder.",
     canonicalPath: "/community",
     jsonLd: [
       buildBreadcrumbJsonLd([

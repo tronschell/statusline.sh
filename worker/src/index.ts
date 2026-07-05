@@ -21,7 +21,11 @@ import { renderCommunityOgSvg } from "./og";
 import { renderOgPng } from "./og-png";
 import { renderRobotsTxt, renderSitemapXml } from "./seo";
 import { rollupViewsFromAE } from "./views";
-import { renderCommunityDetailHtml, type RelatedDesign } from "./ssr";
+import {
+  renderCommunityDetailHtml,
+  renderCommunityListHtml,
+  type RelatedDesign,
+} from "./ssr";
 
 export interface RateLimitBinding {
   limit(opts: { key: string }): Promise<{ success: boolean }>;
@@ -84,6 +88,13 @@ route("GET", "/og/community/:slug.png", (req, env, ctx, params) =>
 );
 route("GET", "/community/:slug", (req, env, _ctx, params) =>
   handleGetCommunityBySlug(req, env as Env, params),
+);
+// SSR for the community LIST (Vercel rewrites `/community` → `/ssr/community`).
+// Registered before `/ssr/community/:slug`; the two patterns are anchored and
+// disjoint (`/ssr/community` matches only the exact path), so order is not
+// load-bearing — kept adjacent for readability.
+route("GET", "/ssr/community", (req, env, ctx, params) =>
+  handleSsrCommunityList(req, env as Env, ctx, params),
 );
 route("GET", "/ssr/community/:slug", (req, env, ctx, params) =>
   handleSsrCommunityBySlug(req, env as Env, ctx, params),
@@ -467,6 +478,94 @@ async function handleGetCommunityBySlug(
 const SSR_DETAIL_FRESH_SECONDS = 300;
 const SSR_DETAIL_SWR_SECONDS = 3600;
 
+// Edge-cache TTL for the SSR community LIST HTML. Same shape as the detail
+// page: short fresh window + long stale-while-revalidate so crawlers get a
+// low-latency, always-populated page while a freshly published design shows up
+// within a minute or two. New designs appear on the list within
+// SSR_LIST_FRESH_SECONDS of a cache miss.
+const SSR_LIST_FRESH_SECONDS = 300;
+const SSR_LIST_SWR_SECONDS = 3600;
+// How many designs to surface as crawlable anchors on the list page. We pull
+// recent + popular and dedupe, so this is the post-merge cap.
+const SSR_LIST_MAX_DESIGNS = 60;
+
+async function handleSsrCommunityList(
+  req: Request,
+  env: Env,
+  ctx: ExecutionContext,
+  _params: Record<string, string>,
+): Promise<Response> {
+  const cacheKey = buildSsrListCacheKey();
+  const edgeCache = getEdgeCache();
+
+  if (edgeCache) {
+    const hit = await edgeCache.match(cacheKey);
+    if (hit) {
+      const headers = new Headers(hit.headers);
+      headers.set("x-cache", "HIT");
+      return new Response(hit.body, { status: hit.status, headers });
+    }
+  }
+
+  // Cache miss — apply the list rate limit before touching D1, matching the
+  // JSON list handler.
+  const ip = getClientIp(req) ?? "anon";
+  const rl = await checkRateLimit(env, "list", ip);
+  if (rl) return rl;
+
+  // Query recent + popular and merge (deduped by slug) so the page links to a
+  // broad, crawl-worthy slice of the community graph. A D1/listCommunity
+  // failure must NOT 500 the route — degrade to an empty (but valid) page and
+  // skip the long edge-cache write so a transient outage isn't pinned.
+  let designs: RelatedDesign[] = [];
+  let degraded = false;
+  try {
+    const [recent, popular] = await Promise.all([
+      listCommunity(env, { sort: "recent", limit: 50 }),
+      listCommunity(env, { sort: "popular", limit: 50 }),
+    ]);
+    const seen = new Set<string>();
+    for (const item of [...recent.items, ...popular.items]) {
+      if (seen.has(item.slug)) continue;
+      seen.add(item.slug);
+      designs.push({
+        slug: item.slug,
+        name: item.name,
+        author_name: item.author_name,
+      });
+      if (designs.length >= SSR_LIST_MAX_DESIGNS) break;
+    }
+  } catch (err) {
+    console.warn("ssr: community list lookup failed", err);
+    designs = [];
+    degraded = true;
+  }
+
+  const html = renderCommunityListHtml({ designs });
+  const cacheControl = degraded
+    ? // Short TTL, no SWR, and NOT stored in the edge cache below so a transient
+      // D1 failure can't serve a stale empty page for the full fresh+SWR window.
+      "public, s-maxage=30"
+    : `public, s-maxage=${SSR_LIST_FRESH_SECONDS}, stale-while-revalidate=${SSR_LIST_SWR_SECONDS}`;
+  const response = new Response(html, {
+    status: 200,
+    headers: {
+      "content-type": "text/html; charset=utf-8",
+      "cache-control": cacheControl,
+      "x-cache": "MISS",
+    },
+  });
+
+  if (edgeCache && !degraded) {
+    ctx.waitUntil(edgeCache.put(cacheKey, response.clone()));
+  }
+  return response;
+}
+
+function buildSsrListCacheKey(): Request {
+  return new Request("https://ssr-cache.invalid/community");
+}
+
 async function handleSsrCommunityBySlug(
   req: Request,
   env: Env,
@@ -712,6 +811,7 @@ export {
   handleListCommunity,
   handleGetCommunityBySlug,
   handleSsrCommunityBySlug,
+  handleSsrCommunityList,
   handleForkBump,
   handlePublish,
   handleInstallAnonymous,

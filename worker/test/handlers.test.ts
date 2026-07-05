@@ -836,9 +836,13 @@ describe("GET /ssr/community/:slug", () => {
     expect(html).toContain(
       `<meta property="og:url" content="https://statusline.sh/community/${slug}" />`,
     );
+    // Social previewers refuse SVG — the detail OG image must be the PNG variant.
     expect(html).toContain(
-      `<meta property="og:image" content="https://statusline-community.zoniixyt.workers.dev/og/community/${slug}.svg" />`,
+      `<meta property="og:image" content="https://statusline-community.zoniixyt.workers.dev/og/community/${slug}.png" />`,
     );
+    expect(html).toContain(`<meta property="og:image:width" content="1200" />`);
+    expect(html).toContain(`<meta property="og:image:height" content="630" />`);
+    expect(html).toContain(`<meta property="og:image:alt" content=`);
     expect(html).toContain(`<meta name="twitter:card" content="summary_large_image" />`);
     expect(html).toContain(name);
   });
@@ -857,7 +861,7 @@ describe("GET /ssr/community/:slug", () => {
         /<script type="application\/ld\+json">([\s\S]*?)<\/script>/g,
       ),
     ].map((m) => JSON.parse(m[1]!.replace(/\\u003c/g, "<")));
-    const ogImage = `https://statusline-community.zoniixyt.workers.dev/og/community/${slug}.svg`;
+    const ogImage = `https://statusline-community.zoniixyt.workers.dev/og/community/${slug}.png`;
     const canonical = `https://statusline.sh/community/${slug}`;
     const software = scripts.find(
       (s) => (s as { "@type": string })["@type"] === "SoftwareApplication",
@@ -992,6 +996,186 @@ describe("GET /ssr/community/:slug", () => {
     expect(ssrRes.headers.get("content-type")).toBe(
       "text/html; charset=utf-8",
     );
+  });
+});
+
+// ---------------------------------------------------------------------------
+// SSR community LIST handler
+// ---------------------------------------------------------------------------
+//
+// Vercel rewrites `/community` → `https://…workers.dev/ssr/community`, so the
+// Worker must return a full HTML document whose body contains real `<a href>`
+// anchors to every `/community/:slug` detail page — otherwise the detail pages
+// are orphaned and never indexed. These tests pin the crawlable contract and
+// the graceful-degradation path.
+
+describe("GET /ssr/community (list)", () => {
+  let db: FakeDb;
+  let env: Env;
+
+  beforeEach(() => {
+    db = makeDb();
+    env = makeEnv(db);
+  });
+
+  function seedTwo(): void {
+    db.designs.push({
+      id: "listaaaa01",
+      json: JSON.stringify(minimalDesign()),
+      slug: "snazzy-bar-list1",
+      name: "Snazzy Bar",
+      author_name: "Grace Hopper",
+      description: "",
+      forked_from: null,
+      published_at: Date.parse("2026-04-13T08:30:00.000Z"),
+      views: 5,
+      forks: 2,
+      installs: 0,
+    });
+    db.designs.push({
+      id: "listbbbb02",
+      json: JSON.stringify(minimalDesign()),
+      slug: "tidy-line-list2",
+      name: "Tidy Line",
+      author_name: "Alan Turing",
+      description: "",
+      forked_from: null,
+      published_at: Date.parse("2026-04-14T08:30:00.000Z"),
+      views: 1,
+      forks: 0,
+      installs: 0,
+    });
+  }
+
+  test("returns 200 + text/html with the exact list title", async () => {
+    seedTwo();
+    const res = await worker.fetch(
+      new Request("https://worker.example.com/ssr/community"),
+      env,
+      makeCtx(),
+    );
+    expect(res.status).toBe(200);
+    expect(res.headers.get("content-type")).toBe("text/html; charset=utf-8");
+    const html = await res.text();
+    expect(html).toContain(
+      "<title>Claude Code Statusline Examples, Templates &amp; Themes | statusline.sh</title>",
+    );
+  });
+
+  test("body contains real slug anchors + canonical + og:image PNG", async () => {
+    seedTwo();
+    const res = await worker.fetch(
+      new Request("https://worker.example.com/ssr/community"),
+      env,
+      makeCtx(),
+    );
+    const html = await res.text();
+    expect(html).toContain(
+      `<a href="https://statusline.sh/community/snazzy-bar-list1">Snazzy Bar`,
+    );
+    expect(html).toContain(
+      `<a href="https://statusline.sh/community/tidy-line-list2">Tidy Line`,
+    );
+    expect(html).toContain(
+      `<link rel="canonical" href="https://statusline.sh/community" />`,
+    );
+    // List OG image is the static site PNG (social previewers refuse SVG).
+    expect(html).toContain(
+      `<meta property="og:image" content="https://statusline.sh/og-default.png" />`,
+    );
+    expect(html).toContain(`href="/builder">Open builder</a>`);
+  });
+
+  test("dedupes designs that appear in both recent and popular", async () => {
+    seedTwo();
+    const res = await worker.fetch(
+      new Request("https://worker.example.com/ssr/community"),
+      env,
+      makeCtx(),
+    );
+    const html = await res.text();
+    // Each slug appears in both the recent and popular queries, but must be
+    // rendered exactly once (one anchor + one ItemList entry).
+    const anchorCount = (
+      html.match(
+        /href="https:\/\/statusline\.sh\/community\/snazzy-bar-list1"/g,
+      ) ?? []
+    ).length;
+    expect(anchorCount).toBe(1);
+  });
+
+  test("sets stale-while-revalidate cache header", async () => {
+    seedTwo();
+    const res = await worker.fetch(
+      new Request("https://worker.example.com/ssr/community"),
+      env,
+      makeCtx(),
+    );
+    const cache = res.headers.get("cache-control") ?? "";
+    expect(cache).toContain("s-maxage=300");
+    expect(cache).toContain("stale-while-revalidate=3600");
+  });
+
+  test("degrades to a valid 200 page (no long cache) when D1 fails", async () => {
+    // DB whose query throws on execution — the handler must catch it and still
+    // return a valid, crawlable document rather than 500ing.
+    const explodingEnv: Env = {
+      ...makeEnv(makeDb()),
+      DB: {
+        prepare() {
+          return {
+            bind() {
+              return this;
+            },
+            async all() {
+              throw new Error("D1 unavailable");
+            },
+            async first() {
+              throw new Error("D1 unavailable");
+            },
+            async run() {
+              throw new Error("D1 unavailable");
+            },
+          };
+        },
+      } as unknown as D1Database,
+    };
+    const res = await worker.fetch(
+      new Request("https://worker.example.com/ssr/community"),
+      explodingEnv,
+      makeCtx(),
+    );
+    expect(res.status).toBe(200);
+    expect(res.headers.get("content-type")).toBe("text/html; charset=utf-8");
+    const html = await res.text();
+    expect(html).toContain(
+      "<title>Claude Code Statusline Examples, Templates &amp; Themes | statusline.sh</title>",
+    );
+    // Empty-state copy renders, and the failure page is NOT pinned for the full
+    // fresh + SWR window.
+    expect(html).toContain("No community statuslines have been published yet");
+    const cache = res.headers.get("cache-control") ?? "";
+    expect(cache).not.toContain("stale-while-revalidate");
+  });
+
+  test("does not break the JSON list endpoint", async () => {
+    seedTwo();
+    const jsonRes = await worker.fetch(
+      new Request("https://worker.example.com/community"),
+      env,
+      makeCtx(),
+    );
+    expect(jsonRes.status).toBe(200);
+    expect(jsonRes.headers.get("content-type")).toBe(
+      "application/json; charset=utf-8",
+    );
+    const ssrRes = await worker.fetch(
+      new Request("https://worker.example.com/ssr/community"),
+      env,
+      makeCtx(),
+    );
+    expect(ssrRes.status).toBe(200);
+    expect(ssrRes.headers.get("content-type")).toBe("text/html; charset=utf-8");
   });
 });
 
