@@ -1,4 +1,4 @@
-import { useEffect, type ReactNode } from "react";
+import { useEffect, useRef, type ReactNode } from "react";
 import { useDesignStore } from "../../store/designStore";
 import { TEMPLATES } from "@statusline/shared/templates";
 import { api } from "../../lib/api";
@@ -56,6 +56,32 @@ export interface BuilderPageProps {
   children: ReactNode;
 }
 
+// Subscribe before URL seeding so successful template/fork imports count too.
+// The ref survives StrictMode's effect replay; a plain page load, selection,
+// preview change, or same-value edit is not a builder start.
+export function subscribeToBuilderStart(started: { current: boolean }): () => void {
+  return useDesignStore.subscribe((state, previous) => {
+    if (
+      started.current ||
+      state.design === previous.design ||
+      JSON.stringify(state.design) === JSON.stringify(previous.design)
+    ) {
+      return;
+    }
+
+    try {
+      const w = window as unknown as { gtag?: (...args: unknown[]) => void };
+      if (typeof w.gtag !== "function") return;
+      w.gtag("event", "builder_start", {
+        element_count: state.design.elements.length,
+      });
+      started.current = true;
+    } catch {
+      // Analytics must never interrupt a design edit.
+    }
+  });
+}
+
 /**
  * Layout pass-through wrapper that seeds the design store from the URL and
  * wires the builder's global keyboard shortcuts.
@@ -73,6 +99,9 @@ export interface BuilderPageProps {
  * a text field); Alt+ArrowLeft / Alt+ArrowRight nudge the selected element.
  */
 export function BuilderPage({ children }: BuilderPageProps) {
+  const started = useRef(false);
+  useEffect(() => subscribeToBuilderStart(started), []);
+
   useEffect(() => {
     const search = typeof window !== "undefined" ? window.location.search : "";
     const q = parseBuilderQuery(search);

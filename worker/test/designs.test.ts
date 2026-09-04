@@ -1,9 +1,11 @@
 /// <reference types="bun" />
 import { describe, expect, test } from "bun:test";
+import { Database } from "bun:sqlite";
 import {
   decodeCursor,
   encodeCursor,
   kebabCase,
+  isCommunityIndexable,
   listCommunitySitemapEntries,
 } from "../src/designs";
 
@@ -98,6 +100,64 @@ describe("encodeCursor / decodeCursor round-trip", () => {
 });
 
 describe("listCommunitySitemapEntries", () => {
+  test("filters unusable rows using SQLite without excluding legitimate forks", async () => {
+    const db = new Database(":memory:");
+    try {
+      db.exec(await Bun.file(new URL("../migrations/0001_init.sql", import.meta.url)).text());
+      db.exec(await Bun.file(new URL("../migrations/0002_installs.sql", import.meta.url)).text());
+      const design = {
+        version: 1,
+        name: "Minimal",
+        elements: [{ id: "model", type: "model", style: {} }],
+      };
+      const insert = db.prepare(
+        `INSERT INTO designs (id, json, slug, name, author_name, description, forked_from, published_at)
+         VALUES (?, ?, ?, ?, ?, '', ?, ?)`,
+      );
+      const rows = [
+        { id: "original", json: JSON.stringify(design) },
+        // Same title and no description or usage do not prove duplication.
+        { id: "fork", json: JSON.stringify({ ...design, elements: [
+          { id: "branch", type: "gitBranch", style: {}, showWhen: { field: "git.branch", op: "exists" } },
+        ] }), forked_from: "original" },
+        { id: "legacy", json: JSON.stringify({ ...design, elements: [
+          { id: "rate", type: "rateLimit5hPct", style: {} },
+        ] }) },
+        { id: "empty", json: JSON.stringify({ ...design, elements: [] }) },
+        { id: "malformed", json: "{broken" },
+        { id: "missing-elements", json: "{}" },
+        { id: "null", json: "null" },
+        { id: "object-elements", json: JSON.stringify({ ...design, elements: {} }) },
+        { id: "blank-name", json: JSON.stringify(design), name: " \t\n" },
+        { id: "blank-author", json: JSON.stringify(design), author_name: "\u00a0" },
+        { id: "blank-slug", json: JSON.stringify(design), slug: " " },
+      ];
+      for (const [i, row] of rows.entries()) {
+        insert.run(row.id, row.json, row.slug ?? row.id, row.name ?? "Minimal",
+          row.author_name ?? "Author", row.forked_from ?? null, 1_700_000_000_000 + i);
+      }
+
+      const env = {
+        DB: {
+          prepare(sql: string) {
+            const statement = db.prepare(sql);
+            return {
+              bind(limit: number) {
+                return { async all() { return { results: statement.all(limit) }; } };
+              },
+            };
+          },
+        },
+      } as unknown as Parameters<typeof listCommunitySitemapEntries>[0];
+      const entries = await listCommunitySitemapEntries(env);
+      expect(entries.map((row) => row.slug)).toEqual(["legacy", "fork", "original"]);
+      expect(entries.every((row) => Object.keys(row).sort().join() === "published_at,slug")).toBe(true);
+      expect(db.query("SELECT COUNT(*) AS count FROM designs").get()).toEqual({ count: rows.length });
+    } finally {
+      db.close();
+    }
+  });
+
   test("issues a bounded query (LIMIT) and never returns more than the cap", async () => {
     let capturedSql = "";
     let boundLimit: number | undefined;
@@ -117,6 +177,9 @@ describe("listCommunitySitemapEntries", () => {
               const limit = boundLimit ?? 0;
               const results = Array.from({ length: limit }, (_v, i) => ({
                 slug: `design-${i}`,
+                name: "Minimal",
+                author_name: "Author",
+                element_count: 1,
                 published_at: i,
               })) as T[];
               return { results };
@@ -137,5 +200,17 @@ describe("listCommunitySitemapEntries", () => {
     expect(boundLimit).toBe(50000);
     // Sitemaps protocol caps a single file at 50,000 URLs.
     expect(entries.length).toBeLessThanOrEqual(50000);
+    expect(entries.length).toBe(50000);
+  });
+});
+
+describe("community indexability", () => {
+  test("requires nonblank metadata and elements, without popularity or description thresholds", () => {
+    const row = { slug: "new-fork", name: "Minimal (fork)", author_name: "Author" };
+    expect(isCommunityIndexable(row, 1)).toBe(true);
+    expect(isCommunityIndexable(row, 0)).toBe(false);
+    for (const field of ["slug", "name", "author_name"] as const) {
+      expect(isCommunityIndexable({ ...row, [field]: " \t\n\u00a0" }, 1)).toBe(false);
+    }
   });
 });

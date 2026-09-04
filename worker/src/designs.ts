@@ -64,6 +64,22 @@ export interface CommunitySitemapEntry {
   published_at: number;
 }
 
+/**
+ * All rows in `designs` are published. Only reject demonstrably empty content:
+ * required display metadata or an element array is missing. Descriptions are
+ * optional; forks and usage counters say nothing about a design's usefulness.
+ * ponytail: no semantic deduplication without a reviewed content identity;
+ * matching names or fork ancestry must never hide a distinct design.
+ */
+export function isCommunityIndexable(
+  row: Pick<DesignRow, "slug" | "name" | "author_name">,
+  elementCount: number,
+): boolean {
+  return Boolean(
+    row.slug.trim() && row.name.trim() && row.author_name.trim() && elementCount > 0,
+  );
+}
+
 export interface CommunitySeoRow {
   slug: string;
   name: string;
@@ -351,8 +367,8 @@ export async function listCommunity(
   return { items, nextCursor };
 }
 
-// The sitemaps protocol caps a single sitemap file at 50,000 URLs; bound the
-// query so a large table can't trigger a full-table scan on every request.
+// The sitemaps protocol caps a single sitemap file at 50,000 URLs. Bound the
+// returned metadata; JSON structure checks stay in D1 instead of Worker memory.
 const SITEMAP_MAX_ENTRIES = 50000;
 
 export async function listCommunitySitemapEntries(
@@ -360,14 +376,27 @@ export async function listCommunitySitemapEntries(
 ): Promise<CommunitySitemapEntry[]> {
   const res = await env.DB
     .prepare(
-      `SELECT slug, published_at
+      `SELECT slug, name, author_name, published_at,
+         CASE WHEN json_valid(json) THEN
+           CASE WHEN json_type(json, '$.elements') = 'array'
+             THEN json_array_length(json, '$.elements') ELSE 0 END
+           ELSE 0 END AS element_count
        FROM designs
+       WHERE element_count > 0
        ORDER BY published_at DESC, id ASC
        LIMIT ?`,
     )
     .bind(SITEMAP_MAX_ENTRIES)
-    .all<CommunitySitemapEntry>();
-  return res.results;
+    .all<CommunitySitemapEntry & {
+      name: string;
+      author_name: string;
+      element_count: number;
+    }>();
+  // Keep the sitemap read bounded without transferring up to 50,000 design
+  // JSON blobs. D1 checks the array; JS uses the same metadata policy as SSR.
+  return res.results
+    .filter((row) => isCommunityIndexable(row, row.element_count))
+    .map(({ slug, published_at }) => ({ slug, published_at }));
 }
 
 export async function getCommunitySeoBySlug(

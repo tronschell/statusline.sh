@@ -63,6 +63,19 @@ export default function PublishDialog({
         turnstile_token: token,
       });
       setPublishedSlug(res.slug);
+      if (
+        typeof res.id === "string" && res.id &&
+        typeof res.slug === "string" && res.slug
+      ) {
+        try {
+          const w = window as unknown as { gtag?: (...args: unknown[]) => void };
+          w.gtag?.("event", "publish_success", {
+            element_count: design.elements.length,
+          });
+        } catch {
+          // A telemetry failure must not turn a successful publish into an error.
+        }
+      }
       onPublished?.(res.slug);
     } catch (e) {
       setError((e as Error).message || "Failed to publish");

@@ -123,10 +123,18 @@ const GUIDE_CONTENT: StaticPageContent = {
       ],
     },
     {
+      heading: "Before you start",
+      paragraphs: [
+        "Install Claude Code and use a local terminal. On macOS or Linux, the generated Bash installer needs jq or Python to merge your settings; on Windows, choose the PowerShell installer. The manual Bash example requires jq.",
+        "The manual setup uses ~/.claude/statusline.sh and ~/.claude/settings.json. Adjust both paths if you use a custom Claude config directory. Keep a copy of an existing script and back up settings.json before editing them by hand; merge the statusLine entry while preserving other settings.",
+      ],
+    },
+    {
       heading: "Build it visually.",
       paragraphs: [
         "Use the builder to add model, directory, git branch, context, cost, duration, separators, glyphs, and ANSI styling. A live preview renders the exact bytes your terminal will show, using the same interpreter that powers the installed script.",
         "When the design looks right, install it with a generated bash or PowerShell command. The installer structurally merges the statusLine setting into settings.json and writes a timestamped backup first, so every other key — model, permissions, MCP servers — survives untouched.",
+        "Run the generated command in the matching shell, then restart Claude Code. The browser preview uses mock session data; the installed statusline reads your current session. For a manual script, make it executable with chmod +x ~/.claude/statusline.sh and pipe sample session JSON into it before changing settings. Running the script without JSON input waits for stdin.",
       ],
     },
     {
@@ -136,7 +144,7 @@ const GUIDE_CONTENT: StaticPageContent = {
       ],
     },
   ],
-  cta: { href: "/builder", label: "Open the builder" },
+  cta: { href: "/builder", label: "Open the Claude Code statusline builder" },
   related: [
     { href: "/builder", label: "Open the builder" },
     { href: "/community", label: "Browse community designs" },

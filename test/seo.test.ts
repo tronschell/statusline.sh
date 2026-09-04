@@ -26,7 +26,7 @@ import { makeStubDocument } from "./helpers/domStub";
 describe("static SEO assets", () => {
   test("renders robots.txt pointing at the static sitemap index", () => {
     expect(renderRobotsTxt()).toBe(
-      "User-agent: *\nAllow: /\n\nSitemap: https://statusline.sh/sitemap.xml\n",
+      "User-agent: *\nAllow: /\n\nUser-agent: OAI-SearchBot\nAllow: /\n\nUser-agent: Claude-SearchBot\nAllow: /\n\nUser-agent: Claude-User\nAllow: /\n\nUser-agent: ClaudeBot\nAllow: /\n\nSitemap: https://statusline.sh/sitemap.xml\n",
     );
   });
 

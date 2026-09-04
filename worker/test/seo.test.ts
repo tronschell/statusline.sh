@@ -19,6 +19,8 @@ import {
 } from "../src/seo";
 import { STATIC_SITEMAP_ROUTES as BUILD_STATIC_SITEMAP_ROUTES } from "../../build";
 import { renderCommunityOgSvg } from "../src/og";
+import { renderCommunityDetailHtml } from "../src/ssr";
+import type { DesignRow } from "../src/designs";
 
 interface FakeDesignRow {
   slug: string;
@@ -50,15 +52,14 @@ function makeEnv(rows: FakeDesignRow[]): Env {
           return stmt;
         },
         async all<T = unknown>(): Promise<{ results: T[] }> {
-          // The sitemap/list path must never pull design JSON — enforcing it
-          // here (rather than in prepare()) keeps the invariant on the .all()
-          // surface while letting single-row .first() reads select `json`.
-          if (/\bjson\b/.test(norm)) {
-            throw new Error("sitemap must not query design JSON");
+          // JSON functions may inspect structure in D1, but large raw payloads
+          // must not be transferred into Worker memory for every sitemap row.
+          if (/(?:SELECT|,)\s*(?:\*|json)\s*(?:,|FROM|$)/i.test(norm)) {
+            throw new Error("sitemap must not select raw design JSON");
           }
           if (
-            norm ===
-            "SELECT slug, published_at FROM designs ORDER BY published_at DESC, id ASC LIMIT ?"
+            norm.startsWith("SELECT slug, name, author_name, published_at,") &&
+            norm.endsWith("ORDER BY published_at DESC, id ASC LIMIT ?")
           ) {
             // The bound LIMIT is the last (only) bind arg — honour it so a
             // table larger than the cap returns at most that many rows.
@@ -67,7 +68,9 @@ function makeEnv(rows: FakeDesignRow[]): Env {
               results: [...rows]
                 .sort((a, b) => b.published_at - a.published_at)
                 .slice(0, limit)
-                .map(({ slug, published_at }) => ({ slug, published_at })) as T[],
+                .map(({ slug, name, author_name, published_at }) => ({
+                  slug, name, author_name: author_name ?? "Anonymous", published_at, element_count: 1,
+                })) as T[],
             };
           }
           throw new Error("unexpected all() SQL: " + norm);
@@ -120,7 +123,7 @@ describe("SEO render helpers", () => {
 
   test("renders robots.txt with sitemap location", () => {
     expect(renderRobotsTxt()).toBe(
-      "User-agent: *\nAllow: /\nSitemap: https://statusline.sh/sitemap.xml\n",
+      "User-agent: *\nAllow: /\n\nUser-agent: OAI-SearchBot\nAllow: /\n\nUser-agent: Claude-SearchBot\nAllow: /\n\nUser-agent: Claude-User\nAllow: /\n\nUser-agent: ClaudeBot\nAllow: /\n\nSitemap: https://statusline.sh/sitemap.xml\n",
     );
   });
 
@@ -199,6 +202,48 @@ describe("SEO render helpers", () => {
 
   test("worker STATIC_SITEMAP_ROUTES stays in sync with build.ts [[seo-routes-mirror]]", () => {
     expect(STATIC_SITEMAP_ROUTES).toEqual(BUILD_STATIC_SITEMAP_ROUTES);
+  });
+});
+
+describe("community detail indexability", () => {
+  const row: DesignRow = {
+    id: "fork000001",
+    slug: "minimal-fork",
+    name: "Minimal (fork)",
+    author_name: "Author",
+    description: "",
+    forked_from: "original01",
+    published_at: 1_700_000_000_000,
+    views: 0,
+    forks: 0,
+    installs: 0,
+    design: { version: 1, name: "Minimal", elements: [
+      { id: "model", type: "model", style: {}, showWhen: { field: "absent", op: "exists" } },
+    ] },
+  };
+
+  test("keeps a new fork indexable even with an empty description and conditional preview", () => {
+    const html = renderCommunityDetailHtml({ row });
+    expect(html).toContain('<meta name="robots" content="index,follow" />');
+    expect(html).toContain('"@type":"SoftwareApplication"');
+    expect(html).toContain('rel="canonical" href="https://statusline.sh/community/minimal-fork"');
+    expect(html).toContain("/i/fork000001.sh");
+  });
+
+  test("noindexes empty or structurally missing designs without hiding their page", () => {
+    for (const design of [{ ...row.design, elements: [] }, {}, null]) {
+      const html = renderCommunityDetailHtml({ row: { ...row, design: design as DesignRow["design"] } });
+      expect(html).toContain('<meta name="robots" content="noindex,follow" />');
+      expect(html).not.toContain('type="application/ld+json"');
+      expect(html).toContain("Minimal (fork)");
+      expect(html).toContain('/builder?fork=minimal-fork');
+    }
+  });
+
+  test("does not advertise a row with blank required metadata as an indexable application", () => {
+    const html = renderCommunityDetailHtml({ row: { ...row, name: " \t" } });
+    expect(html).toContain('<meta name="robots" content="noindex,follow" />');
+    expect(html).not.toContain('"@type":"SoftwareApplication"');
   });
 });
 

@@ -28,7 +28,7 @@ import {
 } from "@statusline/shared/ansi";
 import { DEFAULT_MOCK_STDIN } from "@statusline/shared/mockStdin";
 import { renderToAnsi } from "@statusline/shared/compiler/interpret";
-import type { DesignRow } from "./designs";
+import { isCommunityIndexable, type DesignRow } from "./designs";
 import { communityCanonicalUrl, communityDescription, SITE_ORIGIN } from "./seo";
 
 const WORKER_ORIGIN = "https://statusline-community.zoniixyt.workers.dev";
@@ -79,7 +79,7 @@ function safeRenderAnsi(design: Design): string {
     return renderToAnsi(design, DEFAULT_MOCK_STDIN);
   } catch (err) {
     console.warn("ssr: renderToAnsi failed", err);
-    return design.name ?? "";
+    return design?.name ?? "";
   }
 }
 
@@ -201,6 +201,8 @@ function buildRelatedLinks(related: RelatedDesign[]): string {
 }
 
 export function renderCommunityDetailHtml({ row, related = [] }: SsrInput): string {
+  const elementCount = Array.isArray(row.design?.elements) ? row.design.elements.length : 0;
+  const indexable = isCommunityIndexable(row, elementCount);
   const canonical = communityCanonicalUrl(row.slug);
   const description = communityDescription({
     name: row.name,
@@ -213,12 +215,12 @@ export function renderCommunityDetailHtml({ row, related = [] }: SsrInput): stri
   // handler. The .svg route still exists for crawlers/hotlinks.
   const ogImage = `${WORKER_ORIGIN}/og/community/${encodeURIComponent(row.slug)}.png`;
   const ogImageAlt = `${row.name} — Claude Code statusline by ${row.author_name}`;
-  const ansi = safeRenderAnsi(row.design);
+  const ansi = elementCount ? safeRenderAnsi(row.design) : "";
   const previewHtml = ansi ? ansiToHtml(ansi) : escapeHtml(row.name);
   const plainPreview = stripAnsi(ansi);
   const installCmd = `curl -fsSL ${WORKER_ORIGIN}/i/${row.id}.sh | bash`;
   const installCmdPs = `irm ${WORKER_ORIGIN}/i/${row.id}.ps1 | iex`;
-  const jsonLd = buildJsonLd(row, ogImage);
+  const jsonLd = indexable ? buildJsonLd(row, ogImage) : "";
   const relatedLinks = buildRelatedLinks(related);
 
   return `<!doctype html>
@@ -228,7 +230,7 @@ export function renderCommunityDetailHtml({ row, related = [] }: SsrInput): stri
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>${escapeHtml(title)}</title>
     <meta name="description" content="${escapeAttr(description)}" />
-    <meta name="robots" content="index,follow" />
+    <meta name="robots" content="${indexable ? "index,follow" : "noindex,follow"}" />
     <meta name="theme-color" content="#0E0E10" />
     <link rel="canonical" href="${escapeAttr(canonical)}" />
     <link rel="manifest" href="${escapeAttr(`${SITE_ORIGIN}/site.webmanifest`)}" />

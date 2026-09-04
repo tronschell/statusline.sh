@@ -92,6 +92,19 @@ export function renderRobotsTxt(): string {
   return [
     "User-agent: *",
     "Allow: /",
+    "",
+    "User-agent: OAI-SearchBot",
+    "Allow: /",
+    "",
+    "User-agent: Claude-SearchBot",
+    "Allow: /",
+    "",
+    "User-agent: Claude-User",
+    "Allow: /",
+    "",
+    "User-agent: ClaudeBot",
+    "Allow: /",
+    "",
     `Sitemap: ${SITE_ORIGIN}/sitemap.xml`,
     "",
   ].join("\n");
@@ -101,7 +114,7 @@ export function renderRobotsTxt(): string {
 // list, guide, privacy, terms) meaningfully change. Keeping it deterministic
 // avoids ticking lastmod on every deploy, which search engines interpret as
 // noisy churn.
-export const STATIC_ROUTES_LASTMOD = "2026-05-27T00:00:00.000Z";
+export const STATIC_ROUTES_LASTMOD = "2026-09-03T00:00:00.000Z";
 
 type SitemapUrl = {
   loc: string;

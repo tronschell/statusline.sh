@@ -163,12 +163,31 @@ export default function InstallDrawer({
 
   const ext = os === "windows" ? "ps1" : "sh";
 
+  // A handoff measures user intent, not a completed terminal installation.
+  // Minting an id and fetching a script preview are preparation, not handoffs.
+  function trackInstallHandoff(
+    method: "command_copy" | "script_download" | "installer_request",
+    targetOs: InstallOs,
+  ) {
+    try {
+      const w = window as unknown as { gtag?: (...args: unknown[]) => void };
+      w.gtag?.("event", "install_handoff", {
+        method,
+        os: targetOs,
+        design_source: designId ? "published" : "builder",
+      });
+    } catch {
+      // Analytics must never block copying or downloading an installer.
+    }
+  }
+
   async function onCopy() {
     if (!oneLiner) return;
     try {
       await navigator.clipboard.writeText(oneLiner);
       setCopied(true);
       setTimeout(() => setCopied(false), 1500);
+      trackInstallHandoff("command_copy", os);
     } catch {
       // ignore
     }
@@ -196,6 +215,7 @@ export default function InstallDrawer({
     a.click();
     a.remove();
     setTimeout(() => URL.revokeObjectURL(url), 1000);
+    trackInstallHandoff("script_download", targetOs);
   }
 
   return (
@@ -393,6 +413,10 @@ export default function InstallDrawer({
                 href={directUrl}
                 target="_blank"
                 rel="noopener noreferrer"
+                onClick={() => trackInstallHandoff("installer_request", os)}
+                onAuxClick={(e) => {
+                  if (e.button === 1) trackInstallHandoff("installer_request", os);
+                }}
                 className="flex items-center gap-2 text-sm text-[#8FB8DA] hover:underline"
               >
                 <span className="font-mono">/i/{effectiveId}.{ext}</span>

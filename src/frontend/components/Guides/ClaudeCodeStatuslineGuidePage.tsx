@@ -34,6 +34,9 @@ model=$(echo "$input" | jq -r '.model.display_name')
 cwd=$(echo "$input" | jq -r '.workspace.current_dir')
 printf "\\033[1m%s\\033[0m  %s" "$model" "\${cwd##*/}"`;
 
+const manualCheck = `chmod +x ~/.claude/statusline.sh
+printf '%s' '{"model":{"display_name":"Example model"},"workspace":{"current_dir":"/tmp/my-project"}}' | ~/.claude/statusline.sh`;
+
 export function ClaudeCodeStatuslineGuidePage() {
   return (
     <div className="min-h-screen w-full bg-[#0E0E10] text-[#E8E8E6]">
@@ -50,10 +53,9 @@ export function ClaudeCodeStatuslineGuidePage() {
                 "var(--font-serif, 'Instrument Serif', Georgia, serif)",
             }}
           >
-            How to make a
+            How to make a{" "}
             <ClaudeCodeLogo
               size={44}
-              title="Claude Code"
               className="mx-2 inline-flex align-middle md:h-[58px] md:w-[58px]"
             />
             Claude Code status line.
@@ -118,10 +120,11 @@ export function ClaudeCodeStatuslineGuidePage() {
 
         <GuideSection title="What is a Claude Code statusline?">
           <p>
-            A Claude Code statusline is an executable command configured in your
-            Claude settings. Claude Code sends the command a JSON payload on
-            stdin. The command prints one line of text to stdout, and Claude Code
-            renders that text as the status area at the bottom of the terminal.
+            A Claude Code statusline is an executable command configured under{" "}
+            <code>statusLine</code> in <code>settings.json</code>. Claude Code
+            sends the command a JSON payload on stdin. The command prints styled
+            terminal text to stdout, and Claude Code renders that text as the
+            status area at the bottom of the terminal.
           </p>
           <p>
             That means a statusline can show useful session context like the
@@ -165,8 +168,31 @@ export function ClaudeCodeStatuslineGuidePage() {
             shell script, parsing JSON, printing ANSI escape codes, making the
             script executable, and then editing your Claude settings file.
           </p>
-          <CodeBlock label="settings.json" code={settingsJson} />
-          <CodeBlock label="statusline.sh" code={manualScript} />
+          <p>
+            This example needs Claude Code, Bash, and <code>jq</code> installed
+            on macOS or Linux. It uses the default <code>~/.claude</code>{" "}
+            directory; adjust both paths if you use a custom Claude config
+            directory. On Windows, use the builder's PowerShell installer.
+          </p>
+          <p>
+            Save this script as <code>~/.claude/statusline.sh</code>, creating
+            the directory if needed. Keep a copy of any existing script before
+            replacing it.
+          </p>
+          <CodeBlock label="~/.claude/statusline.sh" code={manualScript} />
+          <p>
+            Make it executable and test it with sample session JSON. This runs
+            without an active Claude Code session and should print the bold
+            model name <code>Example model</code>, followed by <code>my-project</code>.
+            Running the script without piped JSON waits for input.
+          </p>
+          <CodeBlock label="Test in a Bash terminal" code={manualCheck} />
+          <p>
+            Back up <code>~/.claude/settings.json</code>, then merge this{" "}
+            <code>statusLine</code> entry into it, preserving other settings.
+            Restart Claude Code to see the statusline with live session data.
+          </p>
+          <CodeBlock label="~/.claude/settings.json" code={settingsJson} />
           <p>
             This works, but it is easy to break quoting, ANSI colors, JSON field
             reads, or existing settings when editing by hand. The hardest part is
@@ -193,6 +219,13 @@ export function ClaudeCodeStatuslineGuidePage() {
             statusline.sh lets you build the same command visually. Drag elements
             into place, style them, preview the result, and install the generated
             script when it looks right.
+          </p>
+          <p>
+            Choose Bash for macOS or Linux, or PowerShell for Windows, then run
+            the generated install command in that shell. The Bash installer
+            needs <code>jq</code> or Python to merge your settings. The browser
+            preview uses mock data; restart Claude Code after installation to
+            see the statusline with your live session data.
           </p>
           <div className="mt-8 grid gap-3 sm:grid-cols-2">
             <ChecklistItem text="Build from scratch or start with a template." />
