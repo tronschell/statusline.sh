@@ -4,9 +4,7 @@
 // at build time with the value Vercel exposed during the build, or `undefined`
 // if not set.
 
-// @ts-expect-error process.env.X is replaced by the bundler with a string literal
 const ENV_WORKER_URL: string | undefined = process.env.NEXT_PUBLIC_WORKER_URL;
-// @ts-expect-error process.env.X is replaced by the bundler with a string literal
 const ENV_TURNSTILE_SITE_KEY: string | undefined = process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY;
 
 function inferWorkerUrl(): string {
@@ -26,3 +24,24 @@ function inferTurnstileSiteKey(): string {
 
 export const WORKER_URL = inferWorkerUrl();
 export const TURNSTILE_SITE_KEY = inferTurnstileSiteKey();
+
+// Accounts / Pro UI. Off in production builds until NEXT_PUBLIC_ACCOUNTS=1 is
+// set (so the live site is unchanged until the Worker has the accounts
+// migration + secrets); always on for local development.
+let ENV_ACCOUNTS: string | undefined;
+try {
+  ENV_ACCOUNTS = process.env.NEXT_PUBLIC_ACCOUNTS;
+} catch {
+  ENV_ACCOUNTS = undefined; // no build-time define and no `process` in the browser
+}
+
+function inferAccountsEnabled(): boolean {
+  if (ENV_ACCOUNTS === "1") return true;
+  if (typeof window !== "undefined") {
+    const h = window.location.hostname;
+    if (h === "localhost" || h === "127.0.0.1") return true;
+  }
+  return false;
+}
+
+export const ACCOUNTS_ENABLED = inferAccountsEnabled();

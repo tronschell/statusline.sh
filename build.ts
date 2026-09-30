@@ -1,7 +1,11 @@
 import tailwind from "bun-plugin-tailwind";
-import { copyFile, mkdir, readFile, rm, writeFile } from "node:fs/promises";
+import { copyFile, cp, mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { Resvg } from "@resvg/resvg-js";
+import {
+  COMMAND_GUIDE_PATH,
+  GUIDE_OG_IMAGE,
+} from "./src/frontend/components/Guides/guideContent";
 import {
   DEFAULT_OG_IMAGE,
   PROGRAMMATIC_ROUTE_META,
@@ -31,6 +35,7 @@ export const STATIC_SITEMAP_ROUTES: StaticSitemapRoute[] = [
   { path: "/builder", priority: "0.9", changefreq: "weekly" },
   { path: "/community", priority: "0.8", changefreq: "daily" },
   { path: STATUSLINE_GUIDE_PATH, priority: "0.7", changefreq: "monthly" },
+  { path: COMMAND_GUIDE_PATH, priority: "0.6", changefreq: "monthly" },
   ...PROGRAMMATIC_ROUTE_META.map(
     (item): StaticSitemapRoute => ({
       path: item.path,
@@ -51,6 +56,7 @@ const STATIC_HTML_ROUTES = [
   "/builder",
   "/community",
   STATUSLINE_GUIDE_PATH,
+  COMMAND_GUIDE_PATH,
   ...PROGRAMMATIC_ROUTE_META.map((item) => item.path),
   "/privacy",
   "/terms",
@@ -73,7 +79,7 @@ const WORKER_SITEMAP_URL = `${SITE_URL}/sitemap-community.xml`;
 // Deterministic lastmod for the static page routes — kept in lockstep with
 // `STATIC_ROUTES_LASTMOD` in `worker/src/seo.ts`. Bump manually when the
 // static pages meaningfully change so search engines don't see noisy churn.
-export const STATIC_ROUTES_LASTMOD = "2026-09-03T00:00:00.000Z";
+export const STATIC_ROUTES_LASTMOD = "2026-09-29T00:00:00.000Z";
 
 export function renderRobotsTxt(siteUrl = SITE_URL): string {
   const origin = siteUrl.replace(/\/+$/, "");
@@ -197,6 +203,10 @@ async function build(): Promise<void> {
     minify: true,
     target: "browser",
     sourcemap: "linked",
+    // Absolute asset URLs: deep links like /auth/callback or /u/:name would
+    // otherwise resolve ./chunk-*.js against their own directory, and Vercel's
+    // SPA rewrite deliberately skips paths containing a dot.
+    publicPath: "/",
     define,
   });
 
@@ -251,6 +261,11 @@ export function renderStaticRouteHtmlShell(
     html,
     /<meta\s+name="robots"\s+content="[\s\S]*?"\s*\/>/,
     `<meta name="robots" content="${robots}" />`,
+  );
+  // Optional: guide pages bake `article`; older test fixtures omit the tag.
+  html = html.replace(
+    /<meta\s+property="og:type"\s+content="[\s\S]*?"\s*\/>/,
+    `<meta property="og:type" content="${escapeHtml(meta.ogType ?? "website")}" />`,
   );
   html = replaceFirst(
     html,
@@ -367,6 +382,17 @@ async function writeStaticSeoAssets(): Promise<void> {
     copyFile(
       path.join(process.cwd(), "src", "logo.svg"),
       path.join(outdir, "logo.svg"),
+    ),
+    // Guide screenshots (`/guides/*.webp`) and the guide share card. Plain
+    // static files: they contain a dot, so Vercel's SPA rewrite skips them.
+    cp(
+      path.join(process.cwd(), "src", "static", "guides"),
+      path.join(outdir, "guides"),
+      { recursive: true },
+    ),
+    copyFile(
+      path.join(process.cwd(), "src", "static", GUIDE_OG_IMAGE.slice(1)),
+      path.join(outdir, GUIDE_OG_IMAGE.slice(1)),
     ),
   ]);
 }

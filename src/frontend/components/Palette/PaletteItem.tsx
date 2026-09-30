@@ -27,7 +27,7 @@ export function PaletteItem({ type, label, description, Icon }: PaletteItemProps
     useDesignStore.getState().addElement(type);
   }
 
-  // A stationary click (the PointerSensor has a 4px activation distance, so it
+  // A stationary click (the MouseSensor has a 4px activation distance, so it
   // never starts a drag) appends the element. `defaultPrevented` is set by the
   // drag pipeline on the trailing click after a real drag, so this guard stops
   // a drag-drop from also firing an append. Mirrors ElementChip's click guard.
@@ -56,21 +56,12 @@ export function PaletteItem({ type, label, description, Icon }: PaletteItemProps
       onClick={handleClick}
       onKeyDown={handleKeyDown}
       style={style}
-      className="group flex items-start gap-3 text-left px-3 py-2.5 rounded-[8px] border border-transparent hover:bg-[#1C1C1F] hover:border-white/[0.04] transition-colors duration-200 cursor-grab active:cursor-grabbing focus:outline-none focus-visible:border-[#8FB8DA]/40"
+      className="group -mx-2 flex items-center gap-2.5 rounded-[6px] px-2 py-1.5 text-left text-[13px] text-[#C9C9C5] transition-colors duration-150 cursor-grab hover:bg-white/[0.04] hover:text-[#F2F2F0] active:cursor-grabbing focus:outline-none focus-visible:ring-2 focus-visible:ring-white/40"
       aria-label={`Add ${label} element`}
-      title={`Add ${label} — click, or drag onto the canvas`}
+      title={`${description}. Click to add, or drag onto the canvas`}
     >
-      <span className="mt-0.5 text-[#E8E8E6] shrink-0">
-        <Icon size={16} weight="bold" />
-      </span>
-      <span className="flex flex-col min-w-0">
-        <span className="text-[13px] text-[#E8E8E6] leading-tight">
-          {label}
-        </span>
-        <span className="text-[11px] text-[#8A8A86] leading-snug mt-0.5 truncate">
-          {description}
-        </span>
-      </span>
+      <Icon size={14} weight="bold" className="shrink-0 text-[#6F6F6B] transition-colors group-hover:text-[#E8E8E6]" />
+      <span className="min-w-0 truncate">{label}</span>
     </button>
   );
 }

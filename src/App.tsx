@@ -1,4 +1,12 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import { ACCOUNTS_ENABLED } from "./frontend/lib/config";
+import { AuthCallbackPage, ResetPasswordPage, SignInPage } from "./frontend/components/Account/AuthPages";
+import { PricingPage } from "./frontend/components/Account/PricingPage";
+import { AccountPage } from "./frontend/components/Account/AccountPage";
+import { LibraryPage } from "./frontend/components/Account/LibraryPage";
+import { JoinTeamPage, TeamDetailPage, TeamsPage } from "./frontend/components/Account/TeamPages";
+import { ProfilePage } from "./frontend/components/Account/ProfilePage";
+import { useAuthStore } from "./frontend/store/authStore";
 import "./index.css";
 import { Analytics } from "@vercel/analytics/react";
 import { ElementPalette } from "./frontend/components/Palette/ElementPalette";
@@ -21,8 +29,12 @@ import InstallDrawer from "./frontend/components/Install/InstallDrawer";
 import PublishDialog from "./frontend/components/Community/PublishDialog";
 import { CommunityPage } from "./frontend/components/Community/CommunityPage";
 import { CommunityDetailPage } from "./frontend/components/Community/CommunityDetailPage";
-import { ClaudeCodeStatuslineGuidePage } from "./frontend/components/Guides/ClaudeCodeStatuslineGuidePage";
-import { ProgrammaticRoute } from "./frontend/components/Programmatic/ProgrammaticRoute";
+import {
+  ClaudeCodeStatuslineGuidePage,
+  ClaudeCodeStatuslineCommandPage,
+} from "./frontend/components/Guides/ClaudeCodeStatuslineGuidePage";
+import { COMMAND_GUIDE_PATH } from "./frontend/components/Guides/guideContent";
+import { ProgrammaticRoutes } from "./frontend/components/Programmatic/ProgrammaticPage";
 import { useShareState } from "./frontend/hooks/useShareState";
 import { useUndoRedo } from "./frontend/hooks/useUndoRedo";
 import { useDesignStore } from "./frontend/store/designStore";
@@ -34,6 +46,9 @@ import { Route, Router, useParams } from "./frontend/router";
 import { LandingPage } from "./frontend/components/Landing/LandingPage";
 
 export function App() {
+  useEffect(() => {
+    void useAuthStore.getState().init();
+  }, []);
   return (
     <Router>
       <Seo />
@@ -62,9 +77,26 @@ export function App() {
         <ClaudeCodeStatuslineGuidePage />
       </Route>
 
-      <Route path="/claude-code-statusline-:topic">
-        <ProgrammaticRoute />
+      <Route path={COMMAND_GUIDE_PATH}>
+        <ClaudeCodeStatuslineCommandPage />
       </Route>
+
+      <ProgrammaticRoutes />
+
+      {ACCOUNTS_ENABLED ? (
+        <>
+          <Route path="/signin"><SignInPage /></Route>
+          <Route path="/auth/callback"><AuthCallbackPage /></Route>
+          <Route path="/reset-password"><ResetPasswordPage /></Route>
+          <Route path="/pricing"><PricingPage /></Route>
+          <Route path="/account"><AccountPage /></Route>
+          <Route path="/library"><LibraryPage /></Route>
+          <Route path="/teams"><TeamsPage /></Route>
+          <Route path="/teams/:id"><TeamDetailPage /></Route>
+          <Route path="/join-team"><JoinTeamPage /></Route>
+          <Route path="/u/:username"><ProfilePage /></Route>
+        </>
+      ) : null}
 
       <Route path="/privacy">
         <PrivacyPage />
@@ -85,6 +117,29 @@ function CommunityDetailRoute() {
   return <CommunityDetailPage slug={slug} />;
 }
 
+/** Phone-only switch beside the Canvas heading that shows/hides the preview below it. */
+function PreviewToggle({ on, onToggle }: { on: boolean; onToggle: () => void }) {
+  return (
+    <button
+      type="button"
+      role="switch"
+      aria-checked={on}
+      onClick={onToggle}
+      className="flex shrink-0 items-center gap-2 text-[13px] text-[#C9C9C5] lg:hidden"
+    >
+      Preview
+      <span
+        aria-hidden
+        className={`relative h-[20px] w-[34px] rounded-full transition-colors duration-150 ${on ? "bg-[#8FB8DA]" : "bg-white/[0.14]"}`}
+      >
+        <span
+          className={`absolute left-[2px] top-[2px] h-4 w-4 rounded-full bg-white shadow transition-transform duration-150 ${on ? "translate-x-[14px]" : ""}`}
+        />
+      </span>
+    </button>
+  );
+}
+
 /**
  * Full builder experience: TopBar + AppShell (palette / canvas+preview /
  * inspector) plus the InstallDrawer and PublishDialog. Mounting these dialogs
@@ -100,6 +155,7 @@ function BuilderRoute() {
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [setupOpen, setSetupOpen] = useState(false);
   const [inspectorCollapsed, setInspectorCollapsed] = useState(true);
+  const [previewOpen, setPreviewOpen] = useState(false);
   const selectedId = useDesignStore((s) => s.selectedId);
 
   // Which template (if any) seeded this builder session — drives the setup
@@ -150,7 +206,7 @@ function BuilderRoute() {
 
   return (
     <BuilderPage>
-      <DndProvider>
+      <DndProvider onPaletteDragStart={() => setInspectorCollapsed(true)}>
         <AppShell
           topBar={
             <TopBar
@@ -163,8 +219,13 @@ function BuilderRoute() {
           palette={<ElementPalette />}
           canvas={
             <>
-              <StatuslineCanvas />
-              <LivePreview />
+              <StatuslineCanvas
+                headerAction={<PreviewToggle on={previewOpen} onToggle={() => setPreviewOpen((o) => !o)} />}
+              />
+              {/* Below the canvas; on phones only when toggled on. */}
+              <div className={`-mt-7 ${previewOpen ? "" : "max-lg:hidden"}`}>
+                <LivePreview />
+              </div>
             </>
           }
           inspector={

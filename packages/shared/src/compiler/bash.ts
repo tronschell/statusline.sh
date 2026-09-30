@@ -349,7 +349,16 @@ function emitOp(op: RenderOp, depth = 0): string {
       let body = prelude;
       body += `${pad}__sep='${delim}'\n`;
       body += `${pad}__join='${join}'\n`;
-      body += `${pad}IFS="$__sep" read -r -a __parts <<< "$__v"\n`;
+      // IFS splits on individual characters and discards empty whitespace
+      // segments. Match the literal delimiter, like JS split / PS regex Escape.
+      body += `${pad}__parts=()\n`;
+      body += `${pad}if [ -n "$__v" ]; then\n`;
+      body += `${pad}  while [ -n "$__sep" ] && [[ "$__v" == *"$__sep"* ]]; do\n`;
+      body += `${pad}    __parts+=("\${__v%%"$__sep"*}")\n`;
+      body += `${pad}    __v="\${__v#*"$__sep"}"\n`;
+      body += `${pad}  done\n`;
+      body += `${pad}  __parts+=("$__v")\n`;
+      body += `${pad}fi\n`;
       body += `${pad}__first=1\n`;
       body += `${pad}for __idx in "\${!__parts[@]}"; do\n`;
       body += `${pad}  if [ "$__first" -eq 0 ]; then printf '%s' "$__join"; fi\n`;

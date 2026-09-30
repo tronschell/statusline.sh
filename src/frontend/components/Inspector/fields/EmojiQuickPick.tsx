@@ -19,7 +19,7 @@ export interface EmojiQuickPickProps {
 export function EmojiQuickPick({ onPick, label = "Quick pick" }: EmojiQuickPickProps) {
   return (
     <div className="flex flex-col gap-1.5">
-      <span className="text-[11px] uppercase tracking-wider text-[#8A8A86]/80">
+      <span className="text-[11px] uppercase tracking-[0.12em] text-[#8A8A86]">
         {label}
       </span>
       <div className="grid grid-cols-8 gap-1">
@@ -28,7 +28,7 @@ export function EmojiQuickPick({ onPick, label = "Quick pick" }: EmojiQuickPickP
             key={c}
             type="button"
             onClick={() => onPick(c)}
-            className="flex items-center justify-center h-7 rounded-[4px] border border-white/[0.04] bg-[#1C1C1F] text-sm text-[#E8E8E6] transition-colors hover:border-white/[0.16] hover:bg-[#22222A]"
+            className="flex h-7 items-center justify-center rounded-[6px] text-sm text-[#E8E8E6] transition-colors hover:bg-white/[0.08] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#8FB8DA]/40"
             aria-label={`Insert ${c}`}
           >
             {c}

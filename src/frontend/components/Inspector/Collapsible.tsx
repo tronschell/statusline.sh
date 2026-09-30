@@ -55,7 +55,7 @@ export default function Collapsible({
   const panelId = useId();
   const triggerId = useId();
 
-  const pad = density === "compact" ? "px-2 py-1" : "px-3 py-1.5";
+  const pad = density === "compact" ? "px-0 py-1" : "px-0 py-1.5";
   const hasSummary = summary !== undefined;
 
   return (
@@ -67,14 +67,14 @@ export default function Collapsible({
           aria-expanded={open}
           aria-controls={panelId}
           onClick={() => setOpen(!open)}
-          className={`flex w-full items-center gap-2 rounded-[6px] ${pad} text-left transition-colors hover:bg-[var(--color-surface-2)]/40 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#8FB8DA]/40`}
+          className={`group flex w-full items-center gap-2 rounded-[6px] ${pad} text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-[#8FB8DA]/40`}
         >
           <CaretDown
             size={12}
             weight="bold"
             className={`shrink-0 text-[var(--color-text-muted)] transition-transform duration-150 ${open ? "rotate-0" : "-rotate-90"}`}
           />
-          <span className="text-xs uppercase tracking-wider text-[var(--color-text-muted)]">
+          <span className="text-[13px] text-[#E8E8E6] transition-colors group-hover:text-white">
             {title}
           </span>
           {hasSummary && (

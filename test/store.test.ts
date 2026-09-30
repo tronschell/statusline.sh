@@ -32,6 +32,7 @@ describe("designStore: addElement", () => {
     addElement("contextBar");
     addElement("cwd");
     addElement("cost");
+    addElement("rotator");
     addElement("segmentSplit");
     const els = useDesignStore.getState().design.elements;
     const bar = els[0] as Extract<Element, { type: "contextBar" }>;
@@ -42,7 +43,10 @@ describe("designStore: addElement", () => {
     expect(cwd.mode).toBe("basename");
     const cost = els[2] as Extract<Element, { type: "cost" }>;
     expect(cost.precision).toBe(2);
-    const seg = els[3] as Extract<Element, { type: "segmentSplit" }>;
+    const rotator = els[3] as Extract<Element, { type: "rotator" }>;
+    expect(rotator.items).toEqual(["Fable 5.1", "Opus 5"]);
+    expect(rotator.intervalSeconds).toBe(5);
+    const seg = els[4] as Extract<Element, { type: "segmentSplit" }>;
     expect(seg.delimiter).toBe("/");
     expect(seg.segments.length).toBe(2);
     expect(seg.source).toEqual({

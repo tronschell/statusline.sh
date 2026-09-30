@@ -349,7 +349,7 @@ function emitOp(op: RenderOp, depth = 0): string {
       body += `${pad}$__delim = ${psLit(op.delimiter)}\n`;
       body += `${pad}$__join = ${psLit(op.joinWith ?? op.delimiter)}\n`;
       body += `${pad}$__parts = [string]$__v -split [regex]::Escape($__delim)\n`;
-      body += `${pad}for ($__i = 0; $__i -lt $__parts.Length; $__i++) {\n`;
+      body += `${pad}for ($__i = 0; $__v -ne '' -and $__i -lt $__parts.Length; $__i++) {\n`;
       body += `${pad}  if ($__i -gt 0) { __write $__join }\n`;
       const lastIdx = op.segments.length - 1;
       body += `${pad}  switch ($__i) {\n`;

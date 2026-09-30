@@ -15,7 +15,9 @@ describe("cors()", () => {
     expect(headers.get("access-control-allow-methods")).toContain("GET");
     expect(headers.get("access-control-allow-methods")).toContain("POST");
     expect(headers.get("access-control-allow-methods")).toContain("OPTIONS");
-    expect(headers.get("access-control-allow-headers")).toBe("content-type");
+    expect(headers.get("access-control-allow-methods")).toContain("PUT");
+    expect(headers.get("access-control-allow-methods")).toContain("DELETE");
+    expect(headers.get("access-control-allow-headers")).toBe("content-type, authorization");
     expect(headers.get("access-control-max-age")).toBe("86400");
     expect(preflightResponse).toBeNull();
   });

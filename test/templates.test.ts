@@ -3,7 +3,7 @@ import { TEMPLATES, getTemplate } from "@statusline/shared/templates";
 import { validateDesign } from "@statusline/shared/schema";
 import { renderToAnsi } from "@statusline/shared/compiler/interpret";
 import { DEFAULT_MOCK_STDIN } from "@statusline/shared/mockStdin";
-import { tweenMock } from "../src/shared/animatedMocks";
+import { galleryMock, tweenMock } from "../src/shared/animatedMocks";
 import { stripAnsi } from "@statusline/shared/ansi";
 
 describe("templates: catalogue", () => {
@@ -115,5 +115,19 @@ describe("animatedMocks: tweenMock", () => {
     const a = tweenMock(DEFAULT_MOCK_STDIN, 1500, 6000);
     const b = tweenMock(DEFAULT_MOCK_STDIN, 1500, 6000);
     expect(a).toEqual(b);
+  });
+});
+
+describe("animatedMocks: gallery model cycle", () => {
+  test("alternates only between Fable 5.1 and Opus 5", () => {
+    const first = galleryMock(DEFAULT_MOCK_STDIN, 0);
+    const second = galleryMock(DEFAULT_MOCK_STDIN, 5400);
+    const loop = galleryMock(DEFAULT_MOCK_STDIN, 10800);
+    expect(first.model?.display_name).toBe("Fable 5.1");
+    expect(second.model?.display_name).toBe("Opus 5");
+    expect(loop.model?.display_name).toBe("Fable 5.1");
+    for (const sample of [first, second, loop]) {
+      expect(["Fable 5.1", "Opus 5"]).toContain(sample.model?.display_name ?? "");
+    }
   });
 });

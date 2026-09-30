@@ -1,11 +1,12 @@
 import { useMemo } from "react";
 import { CaretRight } from "@phosphor-icons/react";
-import { Link } from "../../router";
+import { Link, Route } from "../../router";
 import { renderToAnsi } from "@statusline/shared/compiler/interpret";
 import { DEFAULT_MOCK_STDIN } from "@statusline/shared/mockStdin";
 import { TerminalFrame } from "../Layout/TerminalFrame";
 import { AnsiToHtml } from "../Preview/AnsiToHtml";
-import type { ProgrammaticPageConfig } from "./programmatic";
+import { Inline } from "../Guides/guideUi";
+import { PROGRAMMATIC_PAGES, type ProgrammaticPageConfig } from "./programmatic";
 
 export interface ProgrammaticPageProps {
   config: ProgrammaticPageConfig;
@@ -80,7 +81,9 @@ export function ProgrammaticPage({ config }: ProgrammaticPageProps) {
         {config.sections.map((section) => (
           <Section key={section.heading} title={section.heading}>
             {section.paragraphs.map((paragraph, i) => (
-              <p key={i}>{paragraph}</p>
+              <p key={i}>
+                <Inline text={paragraph} />
+              </p>
             ))}
           </Section>
         ))}
@@ -173,6 +176,23 @@ function Section({
         {children}
       </div>
     </section>
+  );
+}
+
+/**
+ * One literal <Route> per element page. The router only treats a segment as a
+ * param when it STARTS with ":", so a `/claude-code-statusline-:topic` pattern
+ * never matched and these pages rendered blank after the bundle mounted.
+ */
+export function ProgrammaticRoutes() {
+  return (
+    <>
+      {PROGRAMMATIC_PAGES.map((page) => (
+        <Route key={page.path} path={page.path}>
+          <ProgrammaticPage config={page} />
+        </Route>
+      ))}
+    </>
   );
 }
 

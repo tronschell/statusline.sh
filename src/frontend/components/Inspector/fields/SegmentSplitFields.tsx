@@ -12,6 +12,8 @@ import {
   captionClass,
   inputClass,
   labelClass,
+  tabListClass,
+  tabClass,
 } from "./common";
 
 type SegmentSplitElement = Extract<Element, { type: "segmentSplit" }>;
@@ -105,7 +107,7 @@ export default function SegmentSplitFields({
 
       <div className="flex flex-col gap-2">
         <label className={labelClass}>Source</label>
-        <div className="flex gap-1 rounded-[4px] bg-[#1C1C1F] border border-white/[0.06] p-1">
+        <div className={tabListClass}>
           {SOURCE_KINDS.map((k) => {
             const active = element.source.kind === k.value;
             return (
@@ -113,11 +115,7 @@ export default function SegmentSplitFields({
                 key={k.value}
                 type="button"
                 onClick={() => setSource(defaultSource(k.value))}
-                className={`flex-1 rounded-[3px] px-2 py-1 text-xs uppercase tracking-wider transition-colors ${
-                  active
-                    ? "bg-[#2A2A2D] text-[#E8E8E6]"
-                    : "text-[#8A8A86] hover:text-[#E8E8E6]"
-                }`}
+                className={tabClass(active)}
               >
                 {k.label}
               </button>
@@ -171,7 +169,7 @@ export default function SegmentSplitFields({
           <button
             type="button"
             onClick={addSegment}
-            className="flex items-center gap-1 rounded-[4px] bg-[#1C1C1F] border border-white/[0.06] px-2 py-1 text-xs uppercase tracking-wider text-[#E8E8E6] transition-transform hover:scale-[0.98]"
+            className="flex items-center gap-1.5 rounded-[6px] px-2 py-1 text-[13px] text-[#E8E8E6] transition-colors hover:bg-white/[0.06]"
           >
             <Plus size={12} weight="bold" />
             Add segment
@@ -194,12 +192,12 @@ export default function SegmentSplitFields({
 
         <p className={captionClass}>
           The last segment styles all overflow indexes — e.g., split
-          {" "}<code className="rounded bg-[#1C1C1F] px-1">a/b/c/d</code> on
-          {" "}<code className="rounded bg-[#1C1C1F] px-1">/</code> with 3
-          segments will use segment 0 for <code className="rounded bg-[#1C1C1F] px-1">a</code>,
-          segment 1 for <code className="rounded bg-[#1C1C1F] px-1">b</code>,
-          and segment 2 for both <code className="rounded bg-[#1C1C1F] px-1">c</code> and
-          {" "}<code className="rounded bg-[#1C1C1F] px-1">d</code>.
+          {" "}<code className="rounded bg-white/[0.06] px-1">a/b/c/d</code> on
+          {" "}<code className="rounded bg-white/[0.06] px-1">/</code> with 3
+          segments will use segment 0 for <code className="rounded bg-white/[0.06] px-1">a</code>,
+          segment 1 for <code className="rounded bg-white/[0.06] px-1">b</code>,
+          and segment 2 for both <code className="rounded bg-white/[0.06] px-1">c</code> and
+          {" "}<code className="rounded bg-white/[0.06] px-1">d</code>.
         </p>
       </div>
     </div>
@@ -227,7 +225,7 @@ function SegmentRow({
 }) {
   const setStyle = (s: AnsiStyle) => onUpdate({ style: s });
   return (
-    <div className="flex flex-col gap-3 rounded-[10px] border border-white/[0.06] bg-[#1C1C1F] p-3">
+    <div className="flex flex-col gap-3 border-t border-white/[0.06] pt-3">
       <div className="flex items-center gap-2">
         <span className="text-xs uppercase tracking-wider text-[#8A8A86]">
           Segment {index}

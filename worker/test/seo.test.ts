@@ -168,8 +168,17 @@ describe("SEO render helpers", () => {
     expect(xml).not.toContain(
       "<loc>https://statusline.sh/how-to-make-a-claude-code-statusline</loc>",
     );
+    expect(xml).not.toContain(
+      "<loc>https://statusline.sh/claude-code-statusline-command</loc>",
+    );
     expect(xml).not.toContain("<loc>https://statusline.sh/privacy</loc>");
     expect(xml).not.toContain("<loc>https://statusline.sh/terms</loc>");
+  });
+
+  test("the /statusline command guide is in the static sitemap list", () => {
+    expect(STATIC_SITEMAP_ROUTES.map((r) => r.path)).toContain(
+      "/claude-code-statusline-command",
+    );
   });
 
   test("every <url> in the sitemap is a community design with a <lastmod>", () => {

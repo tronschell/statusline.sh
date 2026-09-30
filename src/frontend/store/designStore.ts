@@ -101,8 +101,8 @@ function defaultsFor(type: ElementType, id: string): Element {
       return {
         ...base,
         type,
-        items: ["✨", "🌙", "⚡", "🔥", "🌈"],
-        intervalSeconds: 3,
+        items: ["Fable 5.1", "Opus 5"],
+        intervalSeconds: 5,
         pickMode: "cycle",
       };
     case "segmentSplit":

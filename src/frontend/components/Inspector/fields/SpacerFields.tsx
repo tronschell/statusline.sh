@@ -4,16 +4,11 @@ import {
   captionClass,
   inputClass,
   labelClass,
+  tabClass,
+  tabListClass,
 } from "./common";
 
 type SpacerElement = Extract<Element, { type: "spacer" }>;
-
-const modeBtn =
-  "flex-1 px-3 py-2 text-xs uppercase tracking-wider transition-colors";
-const modeBtnActive =
-  "bg-[#1C1C1F] text-[#E8E8E6] border border-[#8FB8DA]";
-const modeBtnIdle =
-  "bg-transparent text-[#8A8A86] border border-white/[0.06] hover:text-[#E8E8E6]";
 
 export default function SpacerFields({
   element,
@@ -46,15 +41,11 @@ export default function SpacerFields({
     <div className="flex flex-col gap-4">
       <div className="flex flex-col gap-2">
         <label className={labelClass}>Mode</label>
-        <div className="flex gap-0 rounded-[6px] overflow-hidden">
+        <div className={tabListClass}>
           <button
             type="button"
             onClick={() => setMode("fixed")}
-            className={[
-              modeBtn,
-              "rounded-l-[6px]",
-              element.mode === "fixed" ? modeBtnActive : modeBtnIdle,
-            ].join(" ")}
+            className={tabClass(element.mode === "fixed")}
             aria-pressed={element.mode === "fixed"}
           >
             Fixed
@@ -62,11 +53,7 @@ export default function SpacerFields({
           <button
             type="button"
             onClick={() => setMode("flex")}
-            className={[
-              modeBtn,
-              "rounded-r-[6px]",
-              element.mode === "flex" ? modeBtnActive : modeBtnIdle,
-            ].join(" ")}
+            className={tabClass(element.mode === "flex")}
             aria-pressed={element.mode === "flex"}
           >
             Flex

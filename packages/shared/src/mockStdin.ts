@@ -8,7 +8,7 @@ const RESET_5H = __NOW + 3700;        // ~1h 1m
 const RESET_7D = __NOW + 100000;      // ~27h 46m
 
 export const DEFAULT_MOCK_STDIN: ClaudeStdin = {
-  model: { id: "claude-opus-4-7", display_name: "Opus 4.7" },
+  model: { id: "claude-fable-5-1", display_name: "Fable 5.1" },
   cwd: "/Users/dev/projects/statusline-maker",
   workspace: {
     current_dir: "/Users/dev/projects/statusline-maker",

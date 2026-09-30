@@ -73,20 +73,20 @@ function SwatchChip({ channel, label, color, active, onClick }: SwatchChipProps)
       onClick={onClick}
       aria-expanded={active}
       aria-controls={`style-editor-picker-${channel}`}
-      className={`flex flex-1 items-center gap-2.5 rounded-[8px] border bg-[var(--color-surface-2)] px-2 py-1.5 text-left transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-[#8FB8DA]/40 ${
+      className={`flex flex-1 items-center gap-2.5 border-b pb-2 pt-1 text-left transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-[#8FB8DA]/40 ${
         active
-          ? "border-[#8FB8DA]/40"
-          : "border-white/[0.06] hover:border-white/[0.14]"
+          ? "border-[#8FB8DA]"
+          : "border-white/[0.12] hover:border-white/[0.24]"
       }`}
     >
       <span
         aria-hidden="true"
-        className="inline-block h-[22px] w-[22px] shrink-0 rounded-[4px] border border-white/[0.12]"
+        className="inline-block h-[22px] w-[22px] shrink-0 rounded-full border border-white/[0.14]"
         style={{ background: css ?? CHECKER_BG }}
       />
       <span className="flex min-w-0 flex-col leading-tight">
-        <span className="text-xs text-[var(--color-text-muted)]">{label}</span>
-        <span className="truncate font-mono text-[10px] uppercase tracking-wider text-[var(--color-text)]">
+        <span className="text-[11px] uppercase tracking-[0.12em] text-[#8A8A86]">{label}</span>
+        <span className="truncate font-mono text-[12px] uppercase text-[#E8E8E6]">
           {summary}
         </span>
       </span>
@@ -127,7 +127,7 @@ export default function StyleEditor({
         </h3>
       )}
 
-      <div className="flex items-stretch gap-2">
+      <div className="flex items-stretch gap-5">
         <SwatchChip
           channel="fg"
           label="Foreground"
@@ -147,16 +147,16 @@ export default function StyleEditor({
       {active !== null && (
         <div
           id={`style-editor-picker-${active}`}
-          className="flex flex-col gap-2 rounded-[10px] border border-[var(--color-border)] bg-[var(--color-surface)] p-3"
+          className="flex flex-col gap-3 border-l border-white/[0.1] pl-4"
         >
           <div className="flex items-center justify-between">
-            <span className="text-[10px] uppercase tracking-wider text-[var(--color-text-muted)]">
+            <span className="text-[11px] uppercase tracking-[0.12em] text-[#8A8A86]">
               Editing: {activeLabel}
             </span>
             <button
               type="button"
               onClick={() => setActive(null)}
-              className="text-[11px] uppercase tracking-wider text-[var(--color-text-muted)] transition-colors hover:text-[var(--color-text)] focus:outline-none focus-visible:text-[var(--color-text)]"
+              className="text-[13px] text-[#E8E8E6] underline decoration-white/20 underline-offset-[4px] transition-colors hover:decoration-white/50 focus:outline-none focus-visible:text-white"
             >
               Done
             </button>
@@ -170,10 +170,10 @@ export default function StyleEditor({
       )}
 
       <div className="flex flex-col gap-2">
-        <span className="text-xs uppercase tracking-wider text-[var(--color-text-muted)]">
+        <span className="text-[11px] uppercase tracking-[0.12em] text-[#8A8A86]">
           Decorations
         </span>
-        <div className="flex flex-wrap gap-1.5">
+        <div className="flex flex-wrap gap-x-5 gap-y-1">
           {TOGGLES.map(({ key, label }) => {
             const isActive = Boolean(style[key]);
             return (
@@ -183,10 +183,10 @@ export default function StyleEditor({
                 role="switch"
                 aria-checked={isActive}
                 onClick={() => patch({ [key]: !isActive })}
-                className={`rounded-full px-2.5 py-1 text-[11px] uppercase tracking-wider transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-[#8FB8DA]/40 ${
+                className={`border-b py-1 text-[13px] transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-[#8FB8DA]/40 ${
                   isActive
-                    ? "bg-[var(--color-text)] text-[var(--color-canvas)]"
-                    : "border border-white/[0.06] bg-[var(--color-surface-2)] text-[var(--color-text-muted)] hover:text-[var(--color-text)]"
+                    ? "border-[#E8E8E6] text-[#E8E8E6]"
+                    : "border-transparent text-[#8A8A86] hover:text-[#E8E8E6]"
                 }`}
                 style={
                   key === "bold"

@@ -2,10 +2,14 @@ import { useEffect, useRef, type ReactNode } from "react";
 import { useDesignStore } from "../../store/designStore";
 import { TEMPLATES } from "@statusline/shared/templates";
 import { api } from "../../lib/api";
+import { accountApi } from "../../lib/accountApi";
+import { useCloudStore } from "../../store/cloudStore";
 
 export interface BuilderQuery {
   templateId?: string;
   forkId?: string;
+  /** Library / team design id to open for editing (signed-in users). */
+  libraryId?: string;
   isNew?: boolean;
 }
 
@@ -21,6 +25,8 @@ export function parseBuilderQuery(search: string): BuilderQuery {
   if (t) out.templateId = t;
   const f = sp.get("fork");
   if (f) out.forkId = f;
+  const lib = sp.get("library");
+  if (lib) out.libraryId = lib;
   if (sp.has("new")) out.isNew = true;
   return out;
 }
@@ -106,6 +112,27 @@ export function BuilderPage({ children }: BuilderPageProps) {
     const search = typeof window !== "undefined" ? window.location.search : "";
     const q = parseBuilderQuery(search);
 
+    // Opening a library design always loads the saved copy (no session dedupe:
+    // the user may have edited it in another tab). Binding the cloud store makes
+    // "Save" write a new version of this design instead of creating a copy.
+    if (q.libraryId) {
+      const id = q.libraryId;
+      let cancelled = false;
+      void accountApi
+        .libraryGet(id)
+        .then((cd) => {
+          if (cancelled) return;
+          useDesignStore.getState().importDesign({ ...cd.design, name: cd.name });
+          useCloudStore.getState().bind(cd);
+        })
+        .catch((err) => {
+          if (!cancelled) console.warn(`Could not open library design "${id}"`, err);
+        });
+      return () => {
+        cancelled = true;
+      };
+    }
+
     // Fork wins over new + template. Async: fetch then import. The `cancelled`
     // flag prevents an import landing after unmount. We deliberately do NOT use
     // an in-memory "ran once" ref here — under StrictMode the setup→cleanup→
@@ -124,6 +151,7 @@ export function BuilderPage({ children }: BuilderPageProps) {
             ...d.design,
             name: `${d.name} (fork)`,
           });
+          useCloudStore.getState().bind(null);
           markSeededThisSession(q);
         } catch (err) {
           if (!cancelled) {
@@ -145,7 +173,10 @@ export function BuilderPage({ children }: BuilderPageProps) {
         !hasElements ||
         (typeof window !== "undefined" &&
           window.confirm("Discard your current design and start from scratch?"));
-      if (confirmed) state.reset();
+      if (confirmed) {
+        state.reset();
+        useCloudStore.getState().bind(null);
+      }
       return;
     }
 
@@ -154,6 +185,7 @@ export function BuilderPage({ children }: BuilderPageProps) {
       const tpl = TEMPLATES.find((t) => t.id === q.templateId);
       if (tpl) {
         useDesignStore.getState().importDesign(structuredClone(tpl.design));
+        useCloudStore.getState().bind(null);
         markSeededThisSession(q);
       }
       return;

@@ -1,4 +1,4 @@
-import { Fragment, useCallback, useRef, useState } from "react";
+import { Fragment, useCallback, useRef, useState, type ReactNode } from "react";
 import { useDroppable } from "@dnd-kit/core";
 import { SortableContext, type SortingStrategy } from "@dnd-kit/sortable";
 import { ArrowLeft, ArrowRight, Copy, Trash } from "@phosphor-icons/react";
@@ -247,7 +247,7 @@ function resolveInsertion(
   return { index: insertAt, rowIndex: chosen.logicalRow };
 }
 
-export function StatuslineCanvas() {
+export function StatuslineCanvas({ headerAction }: { headerAction?: ReactNode } = {}) {
   const elements = useDesignStore((s) => s.design.elements);
   const duplicateElement = useDesignStore((s) => s.duplicateElement);
   const removeElement = useDesignStore((s) => s.removeElement);
@@ -325,30 +325,41 @@ export function StatuslineCanvas() {
   }
 
   return (
-    <section className="flex flex-col gap-3" aria-label="Statusline canvas">
-      <div className="flex items-baseline justify-between px-1">
-        <h2 className="text-xs uppercase tracking-wider text-[#8A8A86]">
-          Canvas
-        </h2>
-        <span className="text-[11px] text-[#8A8A86]">
-          {elements.length} {elements.length === 1 ? "element" : "elements"}
+    <section className="flex flex-col" aria-label="Statusline canvas">
+      <div className="mb-4 flex items-baseline justify-between gap-4">
+        <div className="flex items-baseline gap-4">
+          <h2 className="font-serif text-[26px] leading-none tracking-tight text-[#F2F2F0]">
+            Canvas
+          </h2>
+          <span className="whitespace-nowrap text-[13px] tabular-nums text-[#6F6F6B]">
+            {elements.length} {elements.length === 1 ? "element" : "elements"}
+          </span>
+        </div>
+        <span className="hidden text-[12px] text-[#6F6F6B] xl:inline">
+          Drag to reorder · Alt + arrows to nudge · Right-click for more
         </span>
+        {headerAction}
       </div>
 
       <SortableContext items={sortableIds} strategy={FROZEN_SORTING_STRATEGY}>
         <div
           ref={setRootRef}
           className={[
-            "min-h-[88px] rounded-[10px] p-4 transition-colors duration-200",
+            "min-h-[88px] rounded-[10px] border p-4 transition-colors duration-200",
             empty
-              ? "border border-dashed border-white/[0.1] bg-transparent"
-              : "border border-white/[0.06] bg-[#161618]",
-            isOver ? "border-[#8FB8DA]/50 bg-[#1C1C1F]" : "",
+              ? "border-dashed border-white/[0.14]"
+              : "border-white/[0.06]",
+            isOver ? "!border-[#8FB8DA]/60 bg-[#8FB8DA]/[0.04]" : "",
           ].join(" ")}
         >
           {empty && !pending ? (
-            <div className="h-full min-h-[56px] flex items-center justify-center text-[13px] text-[#8A8A86]">
-              Drag elements here
+            <div className="flex min-h-[72px] flex-col items-center justify-center gap-1.5 text-center">
+              <p className="font-serif text-[22px] leading-none tracking-tight text-[#C9C9C5]">
+                Nothing here yet.
+              </p>
+              <p className="text-[13px] text-[#6F6F6B]">
+                Drag elements here, or click one in the list to add it.
+              </p>
             </div>
           ) : empty && pending ? (
             <div className="flex flex-col gap-2">

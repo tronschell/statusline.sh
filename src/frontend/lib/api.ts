@@ -1,5 +1,6 @@
 import type { Design } from "@statusline/shared/types";
 import { WORKER_URL } from "./config";
+import { getToken } from "./session";
 
 async function jsonRequest<T>(path: string, init?: RequestInit): Promise<T> {
   const url = path.startsWith("http") ? path : `${WORKER_URL}${path}`;
@@ -35,7 +36,8 @@ export interface PublishBody {
   name: string;
   author_name: string;
   description: string;
-  turnstile_token: string;
+  /** Omit when publishing signed in: the bearer session replaces the challenge. */
+  turnstile_token?: string;
 }
 
 export const api = {
@@ -52,10 +54,19 @@ export const api = {
     return jsonRequest(`/community/${encodeURIComponent(slug)}`);
   },
 
-  async publish(body: PublishBody): Promise<{ id: string; slug: string }> {
+  async publish(
+    body: PublishBody,
+    opts: { signedIn?: boolean } = {},
+  ): Promise<{ id: string; slug: string }> {
+    // Only attach the session when the caller knows it is valid: the Worker
+    // rejects a stale bearer with 401 rather than treating it as anonymous.
+    const token = opts.signedIn ? getToken() : null;
     return jsonRequest(`/designs`, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: {
+        "Content-Type": "application/json",
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      },
       body: JSON.stringify(body),
     });
   },

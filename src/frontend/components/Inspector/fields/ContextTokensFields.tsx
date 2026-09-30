@@ -5,7 +5,7 @@ import type {
   TokenDisplayVariant,
 } from "@statusline/shared/types";
 import { DEFAULT_CONTEXT_THRESHOLDS } from "@statusline/shared/types";
-import { type FieldsProps, captionClass, inputClass, labelClass } from "./common";
+import { type FieldsProps, captionClass, inputClass, labelClass, optionRowClass, tabListClass, tabClass, nestedClass } from "./common";
 
 type TokensElement = Extract<Element, { type: "contextTokens" }>;
 
@@ -79,11 +79,7 @@ export default function ContextTokensFields({
                 key={v.value}
                 type="button"
                 onClick={() => setVariant(v.value)}
-                className={`flex items-start gap-3 rounded-[4px] border px-3 py-2 text-left transition-colors ${
-                  active
-                    ? "border-[#8FB8DA] bg-[#1E2A36]"
-                    : "border-white/[0.06] bg-[#1C1C1F] hover:border-white/[0.12]"
-                }`}
+                className={optionRowClass(active, "start")}
               >
                 <span
                   className={`mt-1 inline-block h-3 w-3 rounded-full border ${
@@ -125,7 +121,7 @@ export default function ContextTokensFields({
 
       <div className="flex flex-col gap-2">
         <label className={labelClass}>Color mode</label>
-        <div className="grid grid-cols-3 gap-1 rounded-[4px] border border-white/[0.06] bg-[#1C1C1F] p-1">
+        <div className={tabListClass}>
           {COLOR_MODES.map((m) => {
             const active = colorMode === m.value;
             return (
@@ -133,11 +129,7 @@ export default function ContextTokensFields({
                 key={m.value}
                 type="button"
                 onClick={() => setColorMode(m.value)}
-                className={`rounded-[4px] px-2 py-1 text-xs transition-colors ${
-                  active
-                    ? "bg-[#1E2A36] text-[#E8E8E6]"
-                    : "text-[#8A8A86] hover:text-[#E8E8E6]"
-                }`}
+                className={tabClass(active)}
               >
                 {m.label}
               </button>
@@ -145,7 +137,7 @@ export default function ContextTokensFields({
           })}
         </div>
         {colorMode === "absolute" && (
-          <div className="flex flex-col gap-2 rounded-[4px] border border-white/[0.06] p-3">
+          <div className={nestedClass}>
             <span className="text-xs text-[#8A8A86]">
               Token thresholds. Color picks the highest band ≤ tokens.
             </span>

@@ -23,6 +23,8 @@ TURNSTILE_SITE_KEY = "0x4AAAAAADVg_EZkr8VbHhOf"
 # from the local Worker at :8787. The production deploy's ALLOWED_ORIGINS should
 # be overridden in the Cloudflare dashboard to drop the localhost entries.
 ALLOWED_ORIGINS = "https://statusline.sh,https://www.statusline.sh,https://statusline-maker.vercel.app,http://localhost:3001,http://127.0.0.1:3001"
+# Public SPA origin: post-checkout / password-reset links point here.
+SITE_URL = "https://statusline.sh"
 # Cloudflare account that hosts the statusline_views Analytics Engine dataset.
 # Not sensitive — it's visible in every Cloudflare dashboard URL — so it lives
 # here instead of as a Worker secret. The companion CF_ANALYTICS_TOKEN IS
@@ -68,6 +70,21 @@ name = "RATE_LIMITER_INSTALLER"
 type = "ratelimit"
 namespace_id = "1006"
 simple = { limit = 60, period = 60 }
+
+# Accounts (sign-in, password reset, library, billing). Auth is keyed by IP and
+# by the identifier being attempted, so a slow credential-stuffing run against
+# one account is throttled even when it rotates IPs.
+[[unsafe.bindings]]
+name = "RATE_LIMITER_AUTH"
+type = "ratelimit"
+namespace_id = "1007"
+simple = { limit = 20, period = 60 }
+
+[[unsafe.bindings]]
+name = "RATE_LIMITER_ACCOUNT"
+type = "ratelimit"
+namespace_id = "1008"
+simple = { limit = 120, period = 60 }
 
 # Workers Analytics Engine binding — community-detail view tracking. Writes
 # are best-effort and never block the response. The handler in src/index.ts

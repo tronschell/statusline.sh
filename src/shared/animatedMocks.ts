@@ -76,9 +76,8 @@ const GALLERY_BRANCHES = [
 ];
 
 const GALLERY_MODELS: Array<{ id: string; display_name: string }> = [
-  { id: "claude-opus-4-7", display_name: "Opus 4.7" },
-  { id: "claude-sonnet-4-6", display_name: "Sonnet 4.6" },
-  { id: "claude-haiku-4-5", display_name: "Haiku 4.5" },
+  { id: "claude-fable-5-1", display_name: "Fable 5.1" },
+  { id: "claude-opus-5", display_name: "Opus 5" },
 ];
 
 const GALLERY_OUTPUT_STYLES = ["default", "explanatory", "concise", "learning"];

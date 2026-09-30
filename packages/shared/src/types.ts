@@ -213,4 +213,17 @@ export interface CommunityCardSummary {
   published_at: number;
   forked_from: string | null;
   design: Design;
+  /** Present only when the design was published from an account. */
+  owner?: CommunityOwner;
+  /** Present only while the owner's Pro plan is active and they featured it. */
+  featured?: boolean;
+}
+
+export interface CommunityOwner {
+  username: string;
+  display_name: string;
+  avatar_url: string;
+  /** True while the owner has an active Pro subscription. */
+  verified: boolean;
+  donation_url: string | null;
 }

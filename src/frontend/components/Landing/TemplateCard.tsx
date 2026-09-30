@@ -13,14 +13,6 @@ export interface TemplateCardProps {
   index?: number;
 }
 
-/**
- * One template card in the landing gallery.
- *
- * Lays out as a flex column with `h-full` so cards in the same bento row
- * stretch to equal height. Top: scaled-down static preview. Middle: name +
- * description. Footer (`mt-auto`): "Use template" CTA with an arrow that
- * slides on hover.
- */
 export function TemplateCard({ template, className, index = 0 }: TemplateCardProps) {
   const href = `/builder?template=${encodeURIComponent(template.id)}`;
   // 437ms is coprime with each rotation period in galleryMock so adjacent
@@ -29,53 +21,38 @@ export function TemplateCard({ template, className, index = 0 }: TemplateCardPro
   return (
     <Link
       href={href}
+      aria-label={`Use ${template.name} template`}
       className={
-        "group relative flex h-full flex-col rounded-[10px] border border-white/[0.06] bg-[#161618] p-5 " +
-        "transition-[transform,border-color,background-color,box-shadow] duration-300 ease-out " +
-        "hover:-translate-y-[2px] hover:border-white/[0.14] hover:bg-[#1A1A1C] " +
-        "hover:shadow-[0_8px_28px_-12px_rgba(0,0,0,0.6)] " +
-        "no-underline text-inherit will-change-transform " +
+        "group flex h-full flex-col overflow-hidden rounded-[10px] border border-border bg-surface " +
+        "text-text no-underline transition-colors duration-200 hover:border-white/20 hover:bg-surface-2 " +
+        "focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-blue-fg " +
         (className ?? "")
       }
     >
-      {/* subtle top inner highlight that brightens on hover */}
-      <span
-        aria-hidden
-        className="pointer-events-none absolute inset-x-5 top-0 h-px bg-gradient-to-r from-transparent via-white/[0.08] to-transparent opacity-0 transition-opacity duration-300 group-hover:opacity-100"
-      />
-
-      <div className="overflow-hidden">
+      <div aria-hidden="true">
         <AnimatedPreview
           design={template.design}
-          className="text-[12px]"
+          className="rounded-none! border-0! border-b! border-border!"
+          bodyClassName="flex h-[112px] items-center text-[12px] leading-relaxed"
           startOffsetMs={startOffsetMs}
         />
       </div>
 
-      <div className="mt-5">
-        <h3
-          className="font-serif text-2xl text-[#E8E8E6] leading-tight tracking-tight"
-          style={{ fontFamily: "var(--font-serif, 'Instrument Serif', Georgia, serif)" }}
-        >
-          {template.name}
-        </h3>
-        <p className="mt-2 text-[14px] text-[#8A8A86] leading-relaxed">
+      <div className="flex flex-1 flex-col p-5">
+        <h3 className="text-[17px] font-medium leading-snug tracking-tight">{template.name}</h3>
+        <p className="mt-2 text-[14px] leading-relaxed text-text-muted">
           {template.description}
         </p>
         {template.authorCredit ? (
-          <p className="mt-2 text-[11px] uppercase tracking-wider text-[#8A8A86]/70">
+          <p className="mt-2 text-[12px] text-text-muted">
             {template.authorCredit}
           </p>
         ) : null}
-      </div>
 
-      <div className="mt-5 inline-flex items-center gap-1 text-[13px] text-[#E8E8E6]/80 transition-colors duration-200 group-hover:text-[#E8E8E6] md:mt-auto md:pt-5">
-        <span>Use template</span>
-        <CaretRight
-          size={12}
-          weight="bold"
-          className="transition-transform duration-200 ease-out group-hover:translate-x-1"
-        />
+        <div className="mt-auto flex items-center justify-between gap-3 pt-5 text-[13px] text-text-muted transition-colors group-hover:text-text group-focus-visible:text-text">
+          <span>Use template</span>
+          <CaretRight size={14} weight="bold" aria-hidden="true" />
+        </div>
       </div>
     </Link>
   );

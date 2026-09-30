@@ -11,6 +11,7 @@ import { useOsDetect, type DetectedOs } from "../../hooks/useOsDetect";
 import { useUiStore } from "../../store/uiStore";
 import Modal from "../Modal/Modal";
 import { BrandArt } from "../Brand/BrandArt";
+import { PermanentLink, usePermanentLinkId } from "../Account/PermanentLink";
 import { ClaudeCodeLogo } from "../ClaudeCodeLogo";
 import macosIcon from "./icons/macos.webp";
 import linuxIcon from "./icons/linux.webp";
@@ -69,7 +70,9 @@ export default function InstallDrawer({
 
   // The effective id used for URL generation. Either the passed-in published
   // id or the anonymous id we minted in this session.
-  const effectiveId = designId ?? mintedId;
+  // A live permanent link (Pro) wins over a one-off anonymous mint: no challenge needed.
+  const permanentId = usePermanentLinkId();
+  const effectiveId = designId ?? permanentId ?? mintedId;
 
   // Auto-update OS from detection until the user explicitly picks one.
   useEffect(() => {
@@ -86,6 +89,7 @@ export default function InstallDrawer({
   useEffect(() => {
     if (!isOpen) return;
     if (designId) return; // published id provided — no mint needed
+    if (permanentId) return; // permanent link in use — no mint needed
     if (mintedId) return; // already minted this session
     if (!token) return; // waiting for turnstile
     if (minting) return; // already in flight
@@ -107,7 +111,7 @@ export default function InstallDrawer({
       .finally(() => {
         setMinting(false);
       });
-  }, [isOpen, designId, mintedId, token, minting, design]);
+  }, [isOpen, designId, permanentId, mintedId, token, minting, design]);
 
   // Invalidate the minted install id once the live design diverges from the
   // snapshot it was minted from. Without this, editing the design after the
@@ -230,6 +234,8 @@ export default function InstallDrawer({
         <div>
           <p className="text-sm text-[#8A8A86]">Run this in your terminal.</p>
         </div>
+
+        {designId ? null : <PermanentLink />}
 
         {!effectiveId ? (
           <div className="flex flex-col gap-3">

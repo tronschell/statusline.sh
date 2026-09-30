@@ -9,6 +9,7 @@ import type {
 import { useDesignStore } from "../../store/designStore";
 import StyleEditor from "./StyleEditor";
 import Collapsible from "./Collapsible";
+import { inputClass, labelClass } from "./fields/common";
 
 import StaticTextFields from "./fields/StaticTextFields";
 import ModelFields from "./fields/ModelFields";
@@ -84,11 +85,8 @@ const TYPE_DESCRIPTION: Record<ElementType, string> = {
   spacer: "Fixed-width gap or flex spacer that pushes following elements right.",
 };
 
-const inputClass =
-  "w-full bg-[var(--color-surface-2)] border border-white/[0.06] rounded-[4px] px-3 py-2 text-sm text-[var(--color-text)] focus:outline-none focus:border-[#8FB8DA]";
-const labelClass = "text-xs uppercase tracking-wider text-[var(--color-text-muted)]";
 const sectionHeading =
-  "px-3 text-[10px] uppercase tracking-[0.14em] text-[var(--color-text-muted)]";
+  "text-[11px] uppercase tracking-[0.14em] text-[#6F6F6B]";
 
 /**
  * Returns a stable patch function that batches calls into one
@@ -148,7 +146,7 @@ export default function InspectorPanel() {
   return (
     <aside
       aria-label="Element inspector"
-      className="flex h-full flex-col"
+      className="flex h-full flex-col px-4 pb-10 pt-1 sm:px-6 lg:pt-5"
     >
       {!element ? (
         <EmptyState />
@@ -165,13 +163,25 @@ export default function InspectorPanel() {
 
 function EmptyState() {
   return (
-    <div className="flex flex-1 flex-col items-center justify-center gap-3 px-6 py-24 text-center">
-      <h2 className="editorial m-0 text-2xl leading-tight text-[var(--color-text)]">
+    <div className="flex flex-col gap-3 pt-2 lg:pt-4">
+      <h2 className="m-0 font-serif text-[26px] leading-none tracking-tight text-[#F2F2F0]">
         Nothing selected.
       </h2>
-      <p className="m-0 max-w-[18rem] text-sm text-[var(--color-text-muted)]">
-        Pick an element on the canvas to edit it.
+      <p className="m-0 max-w-[26ch] text-[13px] leading-relaxed text-[#8A8A86]">
+        Pick an element in the preview or on the canvas to edit it.
       </p>
+      <dl className="m-0 mt-5 flex flex-col divide-y divide-white/[0.06] border-y border-white/[0.06] text-[12px] text-[#6F6F6B]">
+        {[
+          ["Move", "Alt + arrows"],
+          ["Remove", "Delete"],
+          ["Undo", "Cmd/Ctrl + Z"],
+        ].map(([k, v]) => (
+          <div key={k} className="flex items-baseline justify-between gap-4 py-2">
+            <dt>{k}</dt>
+            <dd className="m-0 font-mono text-[11px] text-[#8A8A86]">{v}</dd>
+          </div>
+        ))}
+      </dl>
     </div>
   );
 }
@@ -188,36 +198,30 @@ function ElementEditor({
   const setStyle = (s: AnsiStyle) => onPatch({ style: s } as Partial<Element>);
 
   return (
-    <div className="flex flex-col gap-8 pb-6">
+    <div className="flex flex-col gap-8">
       <IdentitySection
         label={TYPE_LABEL[element.type]}
         description={TYPE_DESCRIPTION[element.type]}
         onDelete={onDelete}
       />
 
-      <section className="flex flex-col gap-3">
+      <section className="flex flex-col gap-4 border-t border-white/[0.06] pt-6">
         <h3 className={`m-0 ${sectionHeading}`}>Content</h3>
         <TypeFields element={element} onPatch={onPatch} />
-        <div className="px-3">
-          <LayoutFields element={element} onPatch={onPatch} />
-        </div>
+        <LayoutFields element={element} onPatch={onPatch} />
       </section>
 
-      <section className="flex flex-col gap-3">
+      <section className="flex flex-col gap-4 border-t border-white/[0.06] pt-6">
         <h3 className={`m-0 ${sectionHeading}`}>Appearance</h3>
-        <div className="px-3">
-          <StyleEditor
-            style={element.style}
-            onChange={setStyle}
-          />
-        </div>
+        <StyleEditor
+          style={element.style}
+          onChange={setStyle}
+        />
       </section>
 
-      <section className="flex flex-col gap-3">
+      <section className="flex flex-col gap-4 border-t border-white/[0.06] pt-6">
         <h3 className={`m-0 ${sectionHeading}`}>Visibility</h3>
-        <div className="px-3">
-          <VisibilitySection element={element} onPatch={onPatch} />
-        </div>
+        <VisibilitySection element={element} onPatch={onPatch} />
       </section>
     </div>
   );
@@ -233,12 +237,12 @@ function IdentitySection({
   onDelete: () => void;
 }) {
   return (
-    <header className="flex items-start justify-between gap-3 px-3">
+    <header className="flex items-start justify-between gap-3 pt-2 lg:pt-0">
       <div className="flex min-w-0 flex-col gap-2">
-        <h2 className="editorial m-0 text-xl leading-tight text-[var(--color-text)]">
+        <h2 className="m-0 font-serif text-[26px] leading-none tracking-tight text-[#F2F2F0]">
           {label}
         </h2>
-        <span className="text-[12px] leading-snug text-[var(--color-text-muted)]">
+        <span className="text-[13px] leading-snug text-[#8A8A86]">
           {description}
         </span>
       </div>
@@ -246,9 +250,9 @@ function IdentitySection({
         type="button"
         onClick={onDelete}
         aria-label={`Delete ${label}`}
-        className="flex shrink-0 items-center gap-1.5 rounded-[4px] border border-[var(--color-border)] bg-transparent px-2.5 py-1.5 text-xs uppercase tracking-wider text-[var(--color-text-muted)] transition-colors hover:border-[#3A1F21] hover:bg-[#1A1112] hover:text-[#E89B9E] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#E89B9E]/40"
+        className="-mr-2 flex shrink-0 items-center gap-1.5 rounded-[6px] px-2 py-1.5 text-[13px] text-[#8A8A86] transition-colors hover:bg-[#E89B9E]/10 hover:text-[#E89B9E] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#E89B9E]/40"
       >
-        <Trash size={12} weight="bold" />
+        <Trash size={13} weight="bold" />
         Delete
       </button>
     </header>
@@ -264,7 +268,7 @@ function TypeFields({
 }) {
   const body = renderTypeBody(element, onPatch);
   if (!body) return null;
-  return <div className="px-3">{body}</div>;
+  return <div>{body}</div>;
 }
 
 function renderTypeBody(
@@ -344,7 +348,7 @@ function LayoutFields({
 
   return (
     <div className="flex flex-col gap-3">
-      <div className="grid grid-cols-2 gap-2">
+      <div className="grid grid-cols-2 gap-4">
         <div className="flex flex-col gap-1.5">
           <label className={labelClass} htmlFor="layout-prefix">Prefix</label>
           <input
@@ -381,7 +385,7 @@ function LayoutFields({
           className={inputClass}
           placeholder="No limit"
         />
-        <p className="m-0 text-[11px] text-[var(--color-text-muted)]">
+        <p className="m-0 text-[12px] text-[#6F6F6B]">
           Truncates the rendered value to this many characters.
         </p>
       </div>
@@ -442,7 +446,7 @@ function VisibilitySection({
       variant="flush"
       summary={
         enabled ? (
-          <span className="rounded-full bg-[#1E2A36] px-2 py-0.5 text-[10px] uppercase tracking-wider text-[#8FB8DA]">
+          <span className="text-[11px] uppercase tracking-[0.12em] text-[#8FB8DA]">
             Active
           </span>
         ) : undefined
@@ -450,13 +454,13 @@ function VisibilitySection({
       defaultOpen={enabled}
     >
       <div className="flex items-center justify-between gap-2">
-        <span className="text-xs text-[var(--color-text-muted)]">
+        <span className="text-[12px] text-[#6F6F6B]">
           Render this element only when a condition is met.
         </span>
         <button
           type="button"
           onClick={enabled ? disable : enable}
-          className="rounded-[4px] border border-[var(--color-border)] bg-[var(--color-surface-2)] px-2 py-1 text-xs uppercase tracking-wider text-[var(--color-text)] transition-transform hover:scale-[0.98] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#8FB8DA]/40"
+          className="shrink-0 text-[13px] text-[#E8E8E6] underline decoration-white/20 underline-offset-[4px] transition-colors hover:decoration-white/50 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#8FB8DA]/40"
         >
           {enabled ? "Clear" : "Enable"}
         </button>
@@ -476,7 +480,7 @@ function VisibilitySection({
             />
           </div>
 
-          <div className="flex gap-2">
+          <div className="flex gap-4">
             <div className="flex flex-1 flex-col gap-1.5">
               <label className={labelClass} htmlFor="vis-op">Op</label>
               <select

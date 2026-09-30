@@ -9,6 +9,8 @@ import { AnsiToHtml } from "./AnsiToHtml";
 export interface AnimatedPreviewProps {
   design: Design;
   className?: string;
+  /** Forward terminal body layout and type overrides to the shared frame. */
+  bodyClassName?: string;
   /**
    * Per-card offset so adjacent template cards don't tick on the exact same
    * frame. Pass a stable value (e.g. the card index times 137ms).
@@ -31,6 +33,7 @@ export interface AnimatedPreviewProps {
 export function AnimatedPreview({
   design,
   className,
+  bodyClassName,
   startOffsetMs = 0,
   frameIntervalMs = 80,
 }: AnimatedPreviewProps) {
@@ -147,7 +150,7 @@ export function AnimatedPreview({
 
   return (
     <div ref={hostRef}>
-      <TerminalFrame className={className}>
+      <TerminalFrame className={className} bodyClassName={bodyClassName}>
         <div className="whitespace-pre">
           <AnsiToHtml ansi={ansi} />
         </div>

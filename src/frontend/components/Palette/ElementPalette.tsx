@@ -17,7 +17,6 @@ import {
   TextColumns,
   Shuffle,
   CaretDown,
-  CaretRight,
   Gauge,
   Hourglass,
   CalendarBlank,
@@ -228,53 +227,57 @@ export function ElementPalette() {
   };
 
   return (
-    <div className="flex flex-col gap-3" aria-label="Element palette">
-      <div className="px-1">
-        <h2 className="text-xs uppercase tracking-wider text-[#8A8A86]">
-          Elements
-        </h2>
-      </div>
-      {PALETTE_GROUPS.map((group) => {
-        const open = openIds.has(group.id);
-        return (
-          <section key={group.id} className="flex flex-col">
-            <button
-              type="button"
-              onClick={() => toggle(group.id)}
-              aria-expanded={open}
-              aria-controls={`palette-group-${group.id}`}
-              className="flex items-center gap-2 px-2 py-1.5 rounded-[6px] text-left text-[11px] uppercase tracking-wider text-[#8A8A86] hover:text-[#E8E8E6] hover:bg-white/[0.02] transition-colors"
-            >
-              {open ? (
-                <CaretDown size={10} weight="bold" />
-              ) : (
-                <CaretRight size={10} weight="bold" />
-              )}
-              <group.Icon size={12} weight="bold" />
-              <span>{group.label}</span>
-              <span className="ml-auto text-[10px] text-[#8A8A86]/60">
-                {group.entries.length}
-              </span>
-            </button>
-            {open && (
-              <div
-                id={`palette-group-${group.id}`}
-                className="flex flex-col gap-1 mt-1 ml-2 pl-2 border-l border-white/[0.04]"
+    <div className="flex flex-col" aria-label="Element palette">
+      <h2 className="font-serif text-[24px] leading-none tracking-tight text-[#F2F2F0] hidden">
+        Elements
+      </h2>
+      <p className="mt-2.5 text-[12px] leading-relaxed text-[#6F6F6B] hidden">
+        Click to add, or drag onto the canvas.
+      </p>
+      <div className="mt-0 flex flex-col divide-y divide-white/[0.06] border-y border-white/[0.06]">
+        {PALETTE_GROUPS.map((group) => {
+          const open = openIds.has(group.id);
+          return (
+            <section key={group.id} className="py-1">
+              <button
+                type="button"
+                onClick={() => toggle(group.id)}
+                aria-expanded={open}
+                aria-controls={`palette-group-${group.id}`}
+                className="group flex w-full items-center justify-between py-2 text-left text-[11px] uppercase tracking-[0.14em] text-[#8A8A86] transition-colors hover:text-[#E8E8E6] focus:outline-none focus-visible:text-[#E8E8E6]"
               >
-                {group.entries.map((entry) => (
-                  <PaletteItem
-                    key={entry.type}
-                    type={entry.type}
-                    label={entry.label}
-                    description={entry.description}
-                    Icon={entry.Icon}
+                <span>{group.label}</span>
+                <span className="flex items-center gap-2">
+                  <span className="text-[11px] tabular-nums tracking-normal text-[#5A5A57]">
+                    {group.entries.length}
+                  </span>
+                  <CaretDown
+                    size={10}
+                    weight="bold"
+                    className={`transition-transform duration-150 ${open ? "" : "-rotate-90"}`}
                   />
-                ))}
-              </div>
-            )}
-          </section>
-        );
-      })}
+                </span>
+              </button>
+              {open && (
+                <div
+                  id={`palette-group-${group.id}`}
+                  className="mb-1.5 grid grid-cols-2 gap-x-2 sm:grid-cols-3 lg:grid-cols-4"
+                >
+                  {group.entries.map((entry) => (
+                    <PaletteItem
+                      key={entry.type}
+                      type={entry.type}
+                      label={entry.label}
+                      description={entry.description}
+                      Icon={entry.Icon}
+                    />
+                  ))}
+                </div>
+              )}
+            </section>
+          );
+        })}
+      </div>
     </div>
   );
 }

@@ -19,11 +19,23 @@
  * weight. All interpolated copy is escaped via `escapeHtml`.
  */
 import {
+  COMMAND_GUIDE_PATH,
+  calloutLead,
+  GUIDE_PAGES,
+  STATUSLINE_GUIDE_PATH,
+  figuresOf,
+  formatGuideDate,
+  guideByPath,
+  parseInline,
+  type GuideBlock,
+  type GuideFigure,
+  type GuidePageData,
+} from "../components/Guides/guideContent";
+import {
   PROGRAMMATIC_PAGES,
   type ProgrammaticPageConfig,
 } from "../components/Programmatic/programmatic";
 import {
-  STATUSLINE_GUIDE_PATH,
   buildSoftwareApplicationJsonLd,
   type JsonLdObject,
 } from "../seo";
@@ -84,6 +96,7 @@ const FOOTER_LINKS: Array<{ href: string; label: string }> = [
   { href: "/builder", label: "Builder" },
   { href: "/community", label: "Community designs" },
   { href: STATUSLINE_GUIDE_PATH, label: "How to make a statusline" },
+  { href: COMMAND_GUIDE_PATH, label: "The /statusline command" },
   ...PROGRAMMATIC_PAGES.map((page) => ({
     href: page.path,
     label: page.h1.replace(/^Claude Code statusline /, "Statusline "),
@@ -109,56 +122,6 @@ function programmaticContent(
     cta: { href: config.ctaHref, label: config.ctaLabel },
   };
 }
-
-const GUIDE_CONTENT: StaticPageContent = {
-  eyebrow: "Claude Code guide",
-  h1: "How to make a Claude Code status line.",
-  lede: "Claude Code calls the bottom bar a statusline. Many people search for it as a status line or status bar. statusline.sh helps you build, customize, preview, and install one visually — no shell scripting required.",
-  sections: [
-    {
-      heading: "What is a Claude Code statusline?",
-      paragraphs: [
-        "A Claude Code statusline is an executable command configured under the statusLine key in settings.json. On every render Claude Code pipes the current session as JSON on stdin, and your command prints styled terminal text to stdout. That output becomes the bar at the bottom of the Claude Code terminal.",
-        "Because it is just a command, a statusline can show anything derivable from the session: the active model, working directory, git branch, context-window usage, running cost, session duration, and Claude Code's rate-limit budgets.",
-      ],
-    },
-    {
-      heading: "Before you start",
-      paragraphs: [
-        "Install Claude Code and use a local terminal. On macOS or Linux, the generated Bash installer needs jq or Python to merge your settings; on Windows, choose the PowerShell installer. The manual Bash example requires jq.",
-        "The manual setup uses ~/.claude/statusline.sh and ~/.claude/settings.json. Adjust both paths if you use a custom Claude config directory. Keep a copy of an existing script and back up settings.json before editing them by hand; merge the statusLine entry while preserving other settings.",
-      ],
-    },
-    {
-      heading: "Build it visually.",
-      paragraphs: [
-        "Use the builder to add model, directory, git branch, context, cost, duration, separators, glyphs, and ANSI styling. A live preview renders the exact bytes your terminal will show, using the same interpreter that powers the installed script.",
-        "When the design looks right, install it with a generated bash or PowerShell command. The installer structurally merges the statusLine setting into settings.json and writes a timestamped backup first, so every other key — model, permissions, MCP servers — survives untouched.",
-        "Run the generated command in the matching shell, then restart Claude Code. The browser preview uses mock session data; the installed statusline reads your current session. For a manual script, make it executable with chmod +x ~/.claude/statusline.sh and pipe sample session JSON into it before changing settings. Running the script without JSON input waits for stdin.",
-      ],
-    },
-    {
-      heading: "Frequently asked",
-      paragraphs: [
-        "Is it called a statusline or a status bar? Claude Code documentation uses statusline; people often describe the same area as a status line or status bar. Does it work on Windows? Yes — the builder generates a PowerShell installer for Windows and a bash installer for macOS or Linux. Can you share a design? Yes — publish it to the community gallery and others can preview or fork it.",
-      ],
-    },
-  ],
-  cta: { href: "/builder", label: "Open the Claude Code statusline builder" },
-  related: [
-    { href: "/builder", label: "Open the builder" },
-    { href: "/community", label: "Browse community designs" },
-    {
-      href: "/claude-code-statusline-git-branch",
-      label: "Add a git branch element",
-    },
-    {
-      href: "/claude-code-statusline-token-usage",
-      label: "Add token-usage tracking",
-    },
-    { href: "/claude-code-statusline-cost", label: "Add a cost display" },
-  ],
-};
 
 const HOME_CONTENT: StaticPageContent = {
   eyebrow: "Claude Code statusline builder",
@@ -311,7 +274,6 @@ const TERMS_CONTENT: StaticPageContent = {
 /** Resolve the crawlable content for a given canonical route path. */
 function contentForPath(path: string): StaticPageContent | undefined {
   if (path === "/") return HOME_CONTENT;
-  if (path === STATUSLINE_GUIDE_PATH) return GUIDE_CONTENT;
   if (path === "/builder") return BUILDER_CONTENT;
   if (path === "/community") return COMMUNITY_CONTENT;
   if (path === "/privacy") return PRIVACY_CONTENT;
@@ -327,6 +289,8 @@ function contentForPath(path: string): StaticPageContent | undefined {
  * `index.html` directly). The string is injected inside `<div id="root">`.
  */
 export function renderStaticRouteBody(canonicalPath: string): string {
+  const guide = guideByPath(canonicalPath);
+  if (guide) return renderGuideBody(guide);
   const content = contentForPath(canonicalPath);
   if (!content) return "";
 
@@ -345,7 +309,7 @@ export function renderStaticRouteBody(canonicalPath: string): string {
     parts.push(`<section style="${STYLE.section}">`);
     parts.push(`<h2 style="${STYLE.h2}">${escapeHtml(section.heading)}</h2>`);
     for (const paragraph of section.paragraphs) {
-      parts.push(`<p style="${STYLE.para}">${escapeHtml(paragraph)}</p>`);
+      parts.push(`<p style="${STYLE.para}">${renderInlineHtml(paragraph)}</p>`);
     }
     parts.push("</section>");
   }
@@ -374,3 +338,210 @@ export function staticHeadJsonLd(canonicalPath: string): JsonLdObject[] {
   const content = contentForPath(canonicalPath);
   return content?.extraJsonLd ?? [];
 }
+
+
+// -----------------------------------------------------------------------------
+// Guide pages
+// -----------------------------------------------------------------------------
+
+const GUIDE_STYLE = {
+  toc: "border:1px solid rgba(255,255,255,.08);border-radius:10px;background:#161618;padding:18px 22px;margin:36px 0 0;",
+  tocTitle:
+    "color:#8A8A86;font-size:11px;letter-spacing:.14em;text-transform:uppercase;margin:0 0 10px;",
+  tocList: "margin:0;padding-left:20px;color:#A8A8A4;font-size:14px;line-height:2;",
+  tldr: "border:1px solid rgba(255,255,255,.1);border-radius:10px;background:#161618;padding:24px 26px;margin:36px 0 0;",
+  h3: "font-size:17px;font-weight:500;margin:26px 0 0;color:#E8E8E6;",
+  code: "font-family:Geist Mono,ui-monospace,monospace;font-size:.92em;background:rgba(255,255,255,.06);border-radius:4px;padding:1px 5px;color:#E8E8E6;",
+  pre: "margin:0;padding:16px;overflow-x:auto;font-family:Geist Mono,ui-monospace,monospace;font-size:12.5px;line-height:1.65;color:#E8E8E6;background:rgba(0,0,0,.3);",
+  codeWrap:
+    "border:1px solid rgba(255,255,255,.08);border-radius:10px;overflow:hidden;margin:20px 0 0;",
+  codeLabel:
+    "padding:8px 16px;border-bottom:1px solid rgba(255,255,255,.06);font-family:Geist Mono,ui-monospace,monospace;font-size:12px;color:#8A8A86;",
+  table:
+    "width:100%;border-collapse:collapse;font-size:14px;line-height:1.6;color:#A8A8A4;",
+  th: "text-align:left;padding:10px 12px;border-bottom:1px solid rgba(255,255,255,.12);color:#E8E8E6;font-weight:500;",
+  td: "padding:10px 12px;border-bottom:1px solid rgba(255,255,255,.06);vertical-align:top;",
+  callout:
+    "border:1px solid rgba(255,255,255,.1);border-radius:10px;background:#161618;padding:16px 20px;margin:22px 0 0;color:#A8A8A4;font-size:14px;line-height:1.7;",
+  figure: "margin:24px 0 0;",
+  img: "display:block;max-width:100%;height:auto;border:1px solid rgba(255,255,255,.08);border-radius:10px;",
+  figcaption: "color:#8A8A86;font-size:13px;line-height:1.6;margin-top:10px;",
+  details: "border-bottom:1px solid rgba(255,255,255,.08);padding:14px 0;",
+  summary: "cursor:pointer;font-size:16px;font-weight:500;color:#E8E8E6;",
+  meta: "color:#8A8A86;font-size:13px;margin:22px 0 0;",
+} as const;
+
+function isExternal(href: string): boolean {
+  return /^https?:\/\//.test(href);
+}
+
+/** Inline mini-markup to escaped HTML (mirrors the React `Inline` renderer). */
+function renderInlineHtml(text: string): string {
+  return parseInline(text)
+    .map((tok) => {
+      switch (tok.t) {
+        case "code":
+          return `<code style="${GUIDE_STYLE.code}">${escapeHtml(tok.v)}</code>`;
+        case "strong":
+          return `<strong style="color:#E8E8E6;font-weight:600;">${escapeHtml(tok.v)}</strong>`;
+        case "link":
+          return isExternal(tok.href)
+            ? `<a href="${escapeHtml(tok.href)}" rel="noopener noreferrer" style="${STYLE.link}">${escapeHtml(tok.v)}</a>`
+            : anchor(tok.href, tok.v);
+        default:
+          return escapeHtml(tok.v);
+      }
+    })
+    .join("");
+}
+
+function renderCodeBlockHtml(label: string, code: string): string {
+  return (
+    `<figure style="${GUIDE_STYLE.codeWrap}">` +
+    `<figcaption style="${GUIDE_STYLE.codeLabel}">${escapeHtml(label)}</figcaption>` +
+    `<pre style="${GUIDE_STYLE.pre}"><code>${escapeHtml(code)}</code></pre>` +
+    `</figure>`
+  );
+}
+
+function renderFigureHtml(figure: GuideFigure): string {
+  const legend = figure.marks?.length
+    ? `<ol style="${GUIDE_STYLE.tocList}">${figure.marks
+        .map((m) => `<li>${escapeHtml(m.label)}</li>`)
+        .join("")}</ol>`
+    : "";
+  const maxWidth = figure.maxWidth ? `max-width:${figure.maxWidth}px;` : "";
+  return (
+    `<figure style="${GUIDE_STYLE.figure}${maxWidth}">` +
+    `<img src="${escapeHtml(figure.src)}" alt="${escapeHtml(figure.alt)}" width="${figure.width}" height="${figure.height}" loading="lazy" decoding="async" style="${GUIDE_STYLE.img}" />` +
+    `<figcaption style="${GUIDE_STYLE.figcaption}">${renderInlineHtml(figure.caption)}${legend}</figcaption>` +
+    `</figure>`
+  );
+}
+
+function renderBlockHtml(block: GuideBlock): string {
+  switch (block.kind) {
+    case "p":
+      return `<p style="${STYLE.para}">${renderInlineHtml(block.text)}</p>`;
+    case "code":
+      return renderCodeBlockHtml(block.label, block.code);
+    case "list": {
+      const tag = block.ordered ? "ol" : "ul";
+      return `<${tag} style="${STYLE.list}">${block.items
+        .map((item) => `<li>${renderInlineHtml(item)}</li>`)
+        .join("")}</${tag}>`;
+    }
+    case "steps":
+      return `<ol style="margin:0;padding:0;list-style:none;">${block.items
+        .map(
+          (step) =>
+            `<li><h3 style="${GUIDE_STYLE.h3}">${escapeHtml(step.title)}</h3>` +
+            `<p style="${STYLE.para}">${renderInlineHtml(step.text)}</p>` +
+            (step.code ? renderCodeBlockHtml(step.code.label, step.code.code) : "") +
+            (step.figure ? renderFigureHtml(step.figure) : "") +
+            `</li>`,
+        )
+        .join("")}</ol>`;
+    case "table": {
+      const table =
+        `<div style="overflow-x:auto;margin:20px 0 0;"><table style="${GUIDE_STYLE.table}">` +
+        (block.caption
+          ? `<caption style="text-align:left;color:#8A8A86;font-size:13px;padding-bottom:8px;">${escapeHtml(block.caption)}</caption>`
+          : "") +
+        `<thead><tr>${block.head
+          .map((h) => `<th scope="col" style="${GUIDE_STYLE.th}">${escapeHtml(h)}</th>`)
+          .join("")}</tr></thead><tbody>${block.rows
+          .map(
+            (row) =>
+              `<tr>${row
+                .map((cell) => `<td style="${GUIDE_STYLE.td}">${renderInlineHtml(cell)}</td>`)
+                .join("")}</tr>`,
+          )
+          .join("")}</tbody></table></div>`;
+      return block.collapsible
+        ? `<details style="${GUIDE_STYLE.details}"><summary style="${GUIDE_STYLE.summary}">${escapeHtml(block.collapsible)}</summary>${table}</details>`
+        : table;
+    }
+    case "callout":
+      return `<aside style="${GUIDE_STYLE.callout}"><strong style="color:#E8E8E6;">${escapeHtml(calloutLead(block.title))}</strong> ${renderInlineHtml(block.text)}</aside>`;
+    case "figure":
+      return renderFigureHtml(block.figure);
+    case "links":
+      return `<ul style="${STYLE.list}">${block.items
+        .map(
+          (item) =>
+            `<li>${anchor(item.href, item.title)}: ${escapeHtml(item.text)}</li>`,
+        )
+        .join("")}</ul>`;
+    case "widget":
+      return block.caption
+        ? `<p style="${STYLE.para}">${renderInlineHtml(block.caption)}</p>`
+        : "";
+  }
+}
+
+/**
+ * Crawlable body for a guide page. Same copy and structure as the React
+ * `GuidePage` (both walk `guideContent.ts`): one H1, H2 per section, H3 per
+ * step, `<details>` FAQ. Interactive widgets are omitted (their captions and
+ * the tables that accompany them stay).
+ */
+export function renderGuideBody(page: GuidePageData): string {
+  const parts: string[] = [];
+  parts.push(`<main style="${STYLE.main}"><article style="${STYLE.article}">`);
+  parts.push(
+    `<p style="${STYLE.eyebrow}">${escapeHtml(page.eyebrow)}</p>`,
+    `<h1 style="${STYLE.h1}">${escapeHtml(page.h1)}</h1>`,
+    `<p style="${STYLE.lede}">${renderInlineHtml(page.lede)}</p>`,
+    `<p style="${GUIDE_STYLE.meta}">Updated ${escapeHtml(formatGuideDate(page.modified))} &middot; ${page.readingMinutes} min read</p>`,
+    `<p><a href="/builder" style="${STYLE.cta}">Open the Claude Code statusline builder</a></p>`,
+  );
+
+  parts.push(
+    `<aside style="${GUIDE_STYLE.tldr}"><p style="${GUIDE_STYLE.tocTitle}">${escapeHtml(page.tldr.title)}</p><ul style="${STYLE.list}">${page.tldr.items
+      .map((item) => `<li>${renderInlineHtml(item)}</li>`)
+      .join("")}</ul></aside>`,
+  );
+
+  const tocItems = [
+    ...page.sections.map((s) => ({ id: s.id, title: s.title })),
+    { id: "faq", title: "Frequently asked questions" },
+  ];
+  parts.push(
+    `<nav aria-label="On this page" style="${GUIDE_STYLE.toc}"><p style="${GUIDE_STYLE.tocTitle}">On this page</p><ol style="${GUIDE_STYLE.tocList}">${tocItems
+      .map((t) => `<li><a href="#${escapeHtml(t.id)}" style="${STYLE.link}">${escapeHtml(t.title)}</a></li>`)
+      .join("")}</ol></nav>`,
+  );
+
+  for (const section of page.sections) {
+    parts.push(
+      `<section id="${escapeHtml(section.id)}" style="${STYLE.section}"><h2 style="${STYLE.h2}">${escapeHtml(section.title)}</h2>`,
+      ...section.blocks.map(renderBlockHtml),
+      `</section>`,
+    );
+  }
+
+  parts.push(
+    `<section id="faq" style="${STYLE.section}"><h2 style="${STYLE.h2}">Frequently asked questions</h2>`,
+    ...page.faqs.map(
+      (faq) =>
+        `<details style="${GUIDE_STYLE.details}"><summary style="${GUIDE_STYLE.summary}">${escapeHtml(faq.q)}</summary><p style="${STYLE.para}">${renderInlineHtml(faq.a)}</p></details>`,
+    ),
+    `</section>`,
+  );
+
+  parts.push(
+    `<section style="${STYLE.section}"><h2 style="${STYLE.h2}">Keep reading</h2><ul style="${STYLE.list}">${page.related
+      .map((r) => `<li>${anchor(r.href, r.title)}: ${escapeHtml(r.text)}</li>`)
+      .join("")}</ul></section>`,
+    `<section style="${STYLE.section}"><h2 style="${STYLE.h2}">${escapeHtml(page.cta.title)}</h2><p style="${STYLE.para}">${escapeHtml(page.cta.text)}</p><p><a href="/builder" style="${STYLE.cta}">${escapeHtml(page.cta.label)}</a></p></section>`,
+  );
+
+  parts.push(renderFooterNav(page.path));
+  parts.push("</article></main>");
+  return parts.join("");
+}
+
+/** Exposed for tests: every guide path the static renderer handles. */
+export const GUIDE_STATIC_PATHS: string[] = GUIDE_PAGES.map((p) => p.path);
+export { figuresOf };

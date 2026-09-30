@@ -5,6 +5,7 @@ import { TurnstileWidget } from "../../lib/turnstile";
 import { useDesignStore } from "../../store/designStore";
 import { exportDesignAsJson } from "../../lib/exportDesign";
 import Modal from "../Modal/Modal";
+import { useAuthStore } from "../../store/authStore";
 
 export interface PublishDialogProps {
   designName: string;
@@ -28,6 +29,7 @@ export default function PublishDialog({
   onPublished,
 }: PublishDialogProps) {
   const design = useDesignStore((s) => s.design);
+  const me = useAuthStore((s) => s.me);
   const [name, setName] = useState(designName);
   const [author, setAuthor] = useState("");
   const [description, setDescription] = useState("");
@@ -51,17 +53,21 @@ export default function PublishDialog({
 
   async function onPublish() {
     if (busy) return;
-    if (!token) return;
+    if (!me && !token) return;
     setBusy(true);
     setError(null);
     try {
-      const res = await api.publish({
-        design,
-        name: name.trim() || designName,
-        author_name: author.trim(),
-        description: description.trim(),
-        turnstile_token: token,
-      });
+      const res = await api.publish(
+        {
+          design,
+          name: name.trim() || designName,
+          // Signed in: the Worker fills this from the account's display name.
+          author_name: me ? me.user.display_name.slice(0, AUTHOR_MAX) : author.trim(),
+          description: description.trim(),
+          ...(me ? {} : { turnstile_token: token! }),
+        },
+        { signedIn: Boolean(me) },
+      );
       setPublishedSlug(res.slug);
       if (
         typeof res.id === "string" && res.id &&
@@ -174,6 +180,13 @@ export default function PublishDialog({
             />
           </div>
 
+          {me ? (
+            <p className="text-xs text-[#8A8A86]">
+              Publishing as <span className="text-[#E8E8E6]">@{me.user.username}</span>. It will appear on your profile.
+            </p>
+          ) : null}
+
+          {!me ? (
           <div className="flex flex-col gap-2">
             <label className={labelClass} htmlFor="publish-author">
               Author name
@@ -189,6 +202,7 @@ export default function PublishDialog({
               required
             />
           </div>
+          ) : null}
 
           <div className="flex flex-col gap-2">
             <div className="flex items-center justify-between">
@@ -218,18 +232,20 @@ export default function PublishDialog({
             Make sure you're happy with this design before publishing.
           </div>
 
-          <TurnstileWidget
-            onToken={(t) => {
-              setError(null);
-              setToken(t);
-            }}
-            onError={(code) => {
-              setToken(null);
-              setError(
-                `Cloudflare challenge failed (code ${code}). Disable script blockers or reload, then try again.`,
-              );
-            }}
-          />
+          {!me ? (
+            <TurnstileWidget
+              onToken={(t) => {
+                setError(null);
+                setToken(t);
+              }}
+              onError={(code) => {
+                setToken(null);
+                setError(
+                  `Cloudflare challenge failed (code ${code}). Disable script blockers or reload, then try again.`,
+                );
+              }}
+            />
+          ) : null}
 
           {error && (
             <p className="text-xs text-[#E8A08A]" role="alert">
@@ -258,7 +274,7 @@ export default function PublishDialog({
               </button>
               <button
                 type="submit"
-                disabled={busy || !author.trim() || !name.trim() || !token}
+                disabled={busy || !name.trim() || (!me && (!author.trim() || !token))}
                 className="rounded-[4px] border border-white/[0.06] bg-[#E8E8E6] px-4 py-2 text-xs uppercase tracking-wider text-[#0E0E10] transition-transform hover:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50"
               >
                 {busy ? "Publishing..." : "Publish"}

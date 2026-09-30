@@ -1,13 +1,19 @@
-import { GitForkIcon, EyeIcon, ArrowRightIcon, DownloadSimpleIcon } from "@phosphor-icons/react";
-import type { CommunityCardSummary } from "@statusline/shared/types";
+import { useMemo, type ReactNode } from "react";
+import { ArrowRightIcon, DownloadSimpleIcon, EyeIcon, GitForkIcon } from "@phosphor-icons/react";
+import { renderToAnsi } from "@statusline/shared/compiler/interpret";
+import { DEFAULT_MOCK_STDIN } from "@statusline/shared/mockStdin";
+import type { CommunityCardSummary, Design } from "@statusline/shared/types";
 import { Link } from "../../router";
-import { StaticPreview } from "../Preview/StaticPreview";
+import { VerifiedBadge } from "../Account/ui";
+import { AnsiToHtml } from "../Preview/AnsiToHtml";
 
 export interface CommunityDesignCardProps {
   summary: CommunityCardSummary;
+  /** Hide the creator line (e.g. on that creator's own profile). */
+  hideCreator?: boolean;
 }
 
-function relativeTime(ts: number): string {
+export function relativeTime(ts: number): string {
   const diff = Date.now() - ts;
   if (diff < 0) return "just now";
   const sec = Math.floor(diff / 1000);
@@ -25,98 +31,142 @@ function relativeTime(ts: number): string {
 }
 
 /**
- * Uniform community card. Every card has the same height regardless of
- * description length (description is line-clamped, footer is pinned with
- * mt-auto). Tightly aligned 4-row layout: preview / title / description /
- * footer (metadata + actions).
- *
- * The Fork link routes to the detail page rather than forking inline so we
- * can gate the bump-counter call with Turnstile in one place. Rendering a
- * Turnstile widget per card would look awful and inflate iframe count.
+ * The rendered statusline on a terminal-coloured panel. Fixed height so every
+ * card in a grid lines up; multi-line designs show in full, and long lines fade
+ * out on the right edge instead of being cut mid-glyph.
  */
-export function CommunityDesignCard({ summary }: CommunityDesignCardProps) {
-  const detailHref = `/community/${summary.slug}`;
-
+function PreviewStrip({ design }: { design: Design }) {
+  const ansi = useMemo(() => {
+    try {
+      return renderToAnsi(design, DEFAULT_MOCK_STDIN);
+    } catch {
+      return "[render error]";
+    }
+  }, [design]);
   return (
-    <article
-      className="group flex h-full flex-col overflow-hidden rounded-[10px] border border-white/[0.06] bg-[#161618] transition-all hover:border-white/[0.14] hover:bg-[#19191B]"
-    >
-      {/* Preview frame — fixed aspect, centered, separated by a thin divider */}
-      <div className="flex h-[120px] items-center justify-center overflow-hidden border-b border-white/[0.06] bg-[#0E0E10] px-5">
-        <div className="w-full overflow-hidden">
-          <StaticPreview design={summary.design} />
-        </div>
+    <div className="flex h-[132px] items-center overflow-hidden border-b border-white/[0.06] bg-[#0A0A0B] px-5 font-mono text-[13px] leading-[1.5] whitespace-nowrap text-[#E8E8E6] [mask-image:linear-gradient(to_right,#000_calc(100%-44px),transparent)]">
+      <div>
+        <AnsiToHtml ansi={ansi} />
       </div>
+    </div>
+  );
+}
 
-      {/* Body */}
-      <div className="flex flex-1 flex-col gap-3 p-5">
-        <div className="flex items-start justify-between gap-3">
-          <h3 className="truncate text-[15px] font-medium tracking-tight text-[#E8E8E6]">
+export function Creator({ summary }: { summary: CommunityCardSummary }) {
+  if (!summary.owner) {
+    return <span>{summary.author_name?.trim() ? summary.author_name : "anonymous"}</span>;
+  }
+  return (
+    <span className="inline-flex items-center gap-1">
+      <Link
+        href={`/u/${summary.owner.username}`}
+        className="text-[#C9C9C5] no-underline hover:text-white hover:underline"
+      >
+        @{summary.owner.username}
+      </Link>
+      {summary.owner.verified ? <VerifiedBadge size={15} /> : null}
+    </span>
+  );
+}
+
+function Stat({ icon, value, label }: { icon: ReactNode; value: number; label: string }) {
+  return (
+    <span className="inline-flex items-center gap-1.5" title={label}>
+      {icon}
+      <span className="sr-only">{label}: </span>
+      {value.toLocaleString()}
+    </span>
+  );
+}
+
+const linkFocus =
+  "outline-none focus-visible:after:ring-2 focus-visible:after:ring-white/40 focus-visible:after:rounded-[10px]";
+
+/**
+ * Community card. The whole card is one link to the detail page (stretched
+ * from the title); the creator link sits above it. There is deliberately no
+ * separate Fork button: Fork lives on the detail page, where the bump-counter
+ * call is Turnstile-gated in one place, so a card button only duplicated "Open".
+ */
+export function CommunityDesignCard({ summary, hideCreator = false }: CommunityDesignCardProps) {
+  const detailHref = `/community/${summary.slug}`;
+  return (
+    <article className="group relative flex h-full flex-col overflow-hidden rounded-[10px] border border-white/[0.07] bg-[#131315] transition-colors hover:border-white/[0.2] hover:bg-[#161618]">
+      <PreviewStrip design={summary.design} />
+      <div className="flex flex-1 flex-col gap-2 p-5">
+        <div className="flex items-baseline justify-between gap-4">
+          <h3 className="min-w-0 truncate text-[16px] font-medium leading-snug text-[#F2F2F0]">
             <Link
               href={detailHref}
-              className="text-[#E8E8E6] no-underline outline-none transition-colors hover:text-white focus-visible:rounded-[4px] focus-visible:ring-2 focus-visible:ring-white/40"
+              className={`text-[#F2F2F0] no-underline after:absolute after:inset-0 after:content-[''] ${linkFocus}`}
             >
               {summary.name}
             </Link>
           </h3>
-          <span className="shrink-0 text-[11px] text-[#6F6F6B]">
-            {relativeTime(summary.published_at)}
-          </span>
+          <span className="shrink-0 text-[12px] text-[#6F6F6B]">{relativeTime(summary.published_at)}</span>
         </div>
-
-        <div className="text-[12px] text-[#8A8A86]">
-          by {summary.author_name ?? "anonymous"}
-        </div>
-
-        <p
-          className="text-[13px] leading-relaxed text-[#8A8A86]"
-          style={{
-            display: "-webkit-box",
-            WebkitLineClamp: 2,
-            WebkitBoxOrient: "vertical",
-            overflow: "hidden",
-            minHeight: "2.6em",
-          }}
-        >
-          {summary.description || " "}
+        <p className="flex flex-wrap items-center gap-x-2 text-[13px] text-[#8A8A86]">
+          {hideCreator ? null : (
+            <span className="relative z-10">
+              by <Creator summary={summary} />
+            </span>
+          )}
+          {summary.featured ? (
+            <span className="text-[#8FB8DA]">{hideCreator ? "" : "· "}Featured</span>
+          ) : null}
         </p>
-
-        {/* Footer pinned with mt-auto so cards line up vertically */}
-        <div className="mt-auto flex items-center justify-between gap-3 border-t border-white/[0.04] pt-3">
-          <div className="flex items-center gap-3 text-[11px] text-[#6F6F6B]">
-            <span className="inline-flex items-center gap-1" title="Installs">
-              <DownloadSimpleIcon size={11} weight="bold" />
-              {summary.installs}
-            </span>
-            <span className="inline-flex items-center gap-1" title="Forks">
-              <GitForkIcon size={11} weight="bold" />
-              {summary.forks}
-            </span>
-            <span className="inline-flex items-center gap-1" title="Views">
-              <EyeIcon size={11} weight="bold" />
-              {summary.views}
-            </span>
+        {summary.description ? (
+          <p className="line-clamp-2 text-[14px] leading-relaxed text-[#8A8A86]">{summary.description}</p>
+        ) : null}
+        <div className="mt-auto flex items-center justify-between pt-4 font-mono text-[12px] tabular-nums text-[#6F6F6B]">
+          <div className="flex items-center gap-4">
+            <Stat icon={<DownloadSimpleIcon size={13} weight="bold" />} value={summary.installs} label="Installs" />
+            <Stat icon={<GitForkIcon size={13} weight="bold" />} value={summary.forks} label="Forks" />
+            <Stat icon={<EyeIcon size={13} weight="bold" />} value={summary.views} label="Views" />
           </div>
-
-          <div className="flex items-center gap-2">
-            <Link
-              href={detailHref}
-              className="inline-flex items-center gap-1.5 rounded-[6px] border border-white/[0.06] bg-[#1C1C1F] px-2.5 py-1 text-[11px] text-[#E8E8E6] no-underline transition-colors hover:border-white/[0.14] hover:bg-[#222226] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/40"
-            >
-              <GitForkIcon size={12} weight="bold" />
-              Fork
-            </Link>
-            <Link
-              href={detailHref}
-              className="inline-flex items-center gap-1 text-[11px] text-[#8A8A86] no-underline transition-colors hover:text-[#E8E8E6] group-hover:text-[#E8E8E6]"
-            >
-              Open
-              <ArrowRightIcon size={11} weight="bold" />
-            </Link>
-          </div>
+          <ArrowRightIcon
+            size={14}
+            weight="bold"
+            aria-hidden="true"
+            className="text-[#6F6F6B] transition-transform group-hover:translate-x-0.5 group-hover:text-[#E8E8E6]"
+          />
         </div>
       </div>
     </article>
+  );
+}
+
+/** Responsive card grid shared by the gallery, featured strip, related and profile pages. */
+export function CardGrid({ children }: { children: ReactNode }) {
+  return <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">{children}</div>;
+}
+
+/** Skeleton cards shown while the first page loads; mirrors the card layout. */
+export function CardSkeletonRows({ count = 6 }: { count?: number }) {
+  return (
+    <div aria-hidden="true" className="animate-pulse">
+      <CardGrid>
+        {Array.from({ length: count }, (_, i) => (
+          <div key={i} className="overflow-hidden rounded-[10px] border border-white/[0.07] bg-[#131315]">
+            <div className="h-[132px] border-b border-white/[0.06] bg-white/[0.03]" />
+            <div className="flex flex-col gap-3 p-5">
+              <div className="h-4 w-2/3 rounded bg-white/[0.06]" />
+              <div className="h-3 w-1/3 rounded bg-white/[0.04]" />
+              <div className="h-3 w-5/6 rounded bg-white/[0.04]" />
+            </div>
+          </div>
+        ))}
+      </CardGrid>
+    </div>
+  );
+}
+
+export function EmptyState({ title, children }: { title: string; children?: ReactNode }) {
+  return (
+    <div className="border-t border-white/[0.07] py-20 md:py-28">
+      <p className="font-serif text-[28px] leading-tight tracking-tight text-[#E8E8E6]">{title}</p>
+      {children ? <p className="mt-3 text-[14px] text-[#8A8A86]">{children}</p> : null}
+    </div>
   );
 }
 

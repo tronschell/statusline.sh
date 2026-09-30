@@ -61,10 +61,8 @@ export default function BarCharFields({
                     emptyChar: p.empty,
                   } as Partial<Element>)
                 }
-                className={`flex items-center justify-between gap-2 rounded-[4px] border px-2 py-1.5 text-left transition-colors ${
-                  active
-                    ? "border-[#8FB8DA] bg-[#1E2A36]"
-                    : "border-white/[0.06] bg-[#1C1C1F] hover:border-white/[0.12]"
+                className={`flex items-center justify-between gap-2 rounded-[6px] px-2 py-1.5 text-left transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-[#8FB8DA]/40 ${
+                  active ? "bg-white/[0.07]" : "hover:bg-white/[0.03]"
                 }`}
                 title={`${p.filled} / ${p.empty}`}
                 aria-pressed={active}

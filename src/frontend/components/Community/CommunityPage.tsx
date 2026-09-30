@@ -1,9 +1,12 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { MagnifyingGlass } from "@phosphor-icons/react";
-import type { CommunityCardSummary } from "@statusline/shared/types";
+import { CaretDown, MagnifyingGlass, X } from "@phosphor-icons/react";
+import type { CommunityCardSummary, Design } from "@statusline/shared/types";
 import { Link } from "../../router";
 import { api } from "../../lib/api";
-import { CommunityDesignCard } from "./CommunityDesignCard";
+import { CardGrid, CardSkeletonRows, CommunityDesignCard, EmptyState } from "./CommunityDesignCard";
+import { accountApi } from "../../lib/accountApi";
+import { ACCOUNTS_ENABLED } from "../../lib/config";
+import { VerifiedBadge } from "../Account/ui";
 
 type Sort = "recent" | "popular";
 
@@ -25,19 +28,36 @@ const pageCache = new Map<Sort, CacheEntry>();
 const PAGE_SIZE = 24;
 
 /**
- * Category facets shown as indexable labels under the heading. They frame the
- * gallery as "examples, templates & themes" for search and give readers a
- * vocabulary for the kinds of designs published here. Wiring these to actual
- * filtering needs a per-design `category`/`tags` field on the D1 schema plus
- * store/router state — tracked as follow-up. For now they are static labels.
+ * Filters derived from what a design actually contains, so they work on the
+ * existing schema with no category field. Like search, they only narrow the
+ * pages already loaded.
  */
-const CATEGORY_FACETS = [
-  "Minimal",
-  "Powerline",
-  "Cost tracker",
-  "Context / token",
-  "Themes",
+const FACETS = [
+  { id: "minimal", label: "Minimal" },
+  { id: "powerline", label: "Powerline" },
+  { id: "context", label: "Context" },
+  { id: "limits", label: "Rate limits" },
+  { id: "cost", label: "Cost" },
+  { id: "multiline", label: "Multi-line" },
 ] as const;
+type Facet = (typeof FACETS)[number]["id"];
+
+// Powerline private-use arrows plus the plain-Unicode wedges people use without a patched font.
+const POWERLINE_GLYPH = /[\uE0B0-\uE0BF\u25B6\u25C0\u25E2-\u25E5]/;
+const CHROME = new Set(["lineBreak", "spacer", "separator", "static", "glyph"]);
+
+function facetsOf(design: Design): Set<Facet> {
+  const out = new Set<Facet>();
+  const els = design.elements;
+  const has = (...t: string[]) => els.some((e) => t.includes(e.type));
+  if (els.filter((e) => !CHROME.has(e.type)).length <= 3 && !has("lineBreak")) out.add("minimal");
+  if (els.some((e) => (e.type === "separator" || e.type === "static") && POWERLINE_GLYPH.test(e.text))) out.add("powerline");
+  if (has("contextPct", "contextBar", "contextTokens")) out.add("context");
+  if (has("rateLimit5h", "rateLimit7d")) out.add("limits");
+  if (has("cost", "sessionDuration")) out.add("cost");
+  if (has("lineBreak")) out.add("multiline");
+  return out;
+}
 
 export function CommunityPage() {
   const [sort, setSort] = useState<Sort>("recent");
@@ -51,6 +71,14 @@ export function CommunityPage() {
   const [loadingMore, setLoadingMore] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [query, setQuery] = useState("");
+  const [facet, setFacet] = useState<Facet | null>(null);
+  const [featured, setFeatured] = useState<CommunityCardSummary[]>([]);
+
+  // Featured slots are a Pro perk; the endpoint degrades to an empty list.
+  useEffect(() => {
+    if (!ACCOUNTS_ENABLED) return;
+    accountApi.featured().then((r) => setFeatured(r.items)).catch(() => setFeatured([]));
+  }, []);
 
   // Coalesce concurrent loadMore calls. Without this, a fast scroll can fire
   // the observer multiple times before the in-flight request settles.
@@ -126,6 +154,37 @@ export function CommunityPage() {
   }, [items, trimmedQuery]);
 
   const searching = trimmedQuery.length > 0;
+  const filtering = searching || facet !== null;
+  const totalLabel = `${items.length}${nextCursor ? "+" : ""}`;
+  const clearFilters = () => {
+    setQuery("");
+    setFacet(null);
+  };
+
+  const facetMap = useMemo(() => new Map(filteredItems.map((i) => [i.id, facetsOf(i.design)])), [filteredItems]);
+  const facetCounts = useMemo(() => {
+    const c = new Map<Facet, number>();
+    for (const f of facetMap.values()) for (const id of f) c.set(id, (c.get(id) ?? 0) + 1);
+    return c;
+  }, [facetMap]);
+  const shownItems = useMemo(
+    () => (facet ? filteredItems.filter((i) => facetMap.get(i.id)?.has(facet)) : filteredItems),
+    [filteredItems, facet, facetMap],
+  );
+
+  // Verified (Pro) creators lead the list. Stable partition of the loaded
+  // pages: order within each group is whatever the API returned. Designs
+  // already shown in the Featured strip are dropped from the list so the same
+  // entry never appears twice.
+  const showFeatured = featured.length > 0 && !searching && !facet;
+  const listItems = useMemo(() => {
+    const featuredIds = showFeatured ? new Set(featured.map((f) => f.id)) : null;
+    const rest = featuredIds ? shownItems.filter((i) => !featuredIds.has(i.id)) : shownItems;
+    return [
+      ...rest.filter((i) => i.owner?.verified),
+      ...rest.filter((i) => !i.owner?.verified),
+    ];
+  }, [shownItems, featured, showFeatured]);
 
   // IntersectionObserver auto-load. A sentinel `<div>` sits below the grid;
   // when it scrolls into view we fire `loadMore`. The button below remains for
@@ -155,155 +214,229 @@ export function CommunityPage() {
 
   return (
     <div className="min-h-screen w-full bg-[#0E0E10] text-[#E8E8E6]">
-      <div className="mx-auto max-w-[1400px] px-8 pt-16 pb-24 md:pt-24">
-        <header className="mb-12 flex flex-col gap-6 md:mb-16 md:flex-row md:items-end md:justify-between">
-          <div>
-            <div className="text-[12px] uppercase tracking-[0.16em] text-[#8A8A86]">
-              Community
-            </div>
-            <h1
-              className="mt-3 font-serif text-5xl md:text-6xl leading-[1.05] tracking-tight"
-              style={{
-                fontFamily:
-                  "var(--font-serif, 'Instrument Serif', Georgia, serif)",
-              }}
+      <div className="mx-auto max-w-[1180px] px-6 pt-16 pb-28 md:px-8 md:pt-24">
+        <header className="mb-14 md:mb-20">
+          <div className="text-[12px] uppercase tracking-[0.16em] text-[#8A8A86]">
+            Community
+          </div>
+          <h1
+            className="mt-4 max-w-[16ch] font-serif text-[44px] leading-[1.02] tracking-tight md:text-[76px]"
+            style={{
+              fontFamily:
+                "var(--font-serif, 'Instrument Serif', Georgia, serif)",
+            }}
+          >
+            Claude Code statusline examples
+          </h1>
+          <p className="mt-6 max-w-[54ch] text-[16px] leading-relaxed text-[#A8A8A4]">
+            Browse real Claude Code statusline examples, templates, and themes
+            published by the community — copy-paste to install, or fork any
+            design into the builder.
+          </p>
+          <p className="mt-4 max-w-[60ch] text-[14px] leading-relaxed text-[#8A8A86]">
+            <Link
+              href="/builder"
+              title="Claude Code Statusline Builder"
+              className="text-[#E8E8E6] underline decoration-white/20 underline-offset-[4px] hover:decoration-white/50"
             >
-              Claude Code statusline examples
-            </h1>
-            <p className="mt-4 max-w-[56ch] text-[15px] leading-relaxed text-[#8A8A86]">
-              Browse real Claude Code statusline examples, templates, and themes
-              published by the community — copy-paste to install, or fork any
-              design into the builder.
-            </p>
-            <p className="mt-3 max-w-[60ch] text-[14px] leading-relaxed text-[#8A8A86]">
-              <Link
-                href="/builder"
-                title="Claude Code Statusline Builder"
-                className="text-[#E8E8E6] underline decoration-white/20 underline-offset-[4px] hover:decoration-white/50"
-              >
-                Start building your own Claude Code statusline
-              </Link>
-              , or read{" "}
-              <Link
-                href="/how-to-make-a-claude-code-statusline"
-                title="How to make a Claude Code statusline"
-                className="text-[#E8E8E6] underline decoration-white/20 underline-offset-[4px] hover:decoration-white/50"
-              >
-                How to make a Claude Code statusline
-              </Link>{" "}
-              first.
-            </p>
-          </div>
-
-          <div className="flex flex-col gap-4 md:items-end">
-            <div className="flex items-center justify-between gap-6">
-              <div className="text-[13px] text-[#8A8A86]">
-                {loading
-                  ? "Loading…"
-                  : `${filteredItems.length} design${filteredItems.length === 1 ? "" : "s"}`}
-              </div>
-              <SortToggle value={sort} onChange={setSort} />
-            </div>
-            <div className="flex flex-col gap-1.5 md:items-end">
-              <div className="relative">
-                <MagnifyingGlass
-                  size={14}
-                  weight="bold"
-                  className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[#8A8A86]"
-                />
-                <input
-                  type="text"
-                  value={query}
-                  onChange={(e) => setQuery(e.target.value)}
-                  placeholder="Search loaded designs…"
-                  aria-label="Search loaded designs"
-                  className="w-full rounded-[8px] border border-white/[0.06] bg-[#161618] py-2 pl-9 pr-3 text-[13px] text-[#E8E8E6] placeholder:text-[#5A5A57] transition-colors hover:border-white/[0.18] focus:border-white/[0.18] focus:outline-none md:w-64"
-                />
-              </div>
-              <span className="text-[11px] text-[#8A8A86]">
-                Searches loaded designs
-              </span>
-            </div>
-          </div>
+              Start building your own Claude Code statusline
+            </Link>
+            , or read{" "}
+            <Link
+              href="/how-to-make-a-claude-code-statusline"
+              title="How to make a Claude Code statusline"
+              className="text-[#E8E8E6] underline decoration-white/20 underline-offset-[4px] hover:decoration-white/50"
+            >
+              How to make a Claude Code statusline
+            </Link>{" "}
+            first.
+          </p>
         </header>
 
-        {/* Indexable category facets. Static labels for now — see
-            CATEGORY_FACETS note above for the filtering follow-up. */}
-        <div className="mb-10 flex flex-wrap items-center gap-2 md:mb-12">
-          <span className="mr-1 text-[11px] uppercase tracking-[0.14em] text-[#6F6F6B]">
-            Browse by
-          </span>
-          {CATEGORY_FACETS.map((label) => (
-            <span
-              key={label}
-              className="inline-flex items-center rounded-[999px] border border-white/[0.08] bg-[#161618] px-3 py-1 text-[12px] text-[#A8A8A4]"
-            >
-              {label}
-            </span>
-          ))}
-        </div>
-
-        {error ? (
-          <div className="mb-8 rounded-[10px] border border-[#E89B9E]/30 bg-[#3A1F21]/30 px-4 py-3 text-[13px] text-[#E89B9E]">
-            {error}
-          </div>
+        {showFeatured ? (
+          <section aria-labelledby="featured-heading" className="mb-16 md:mb-24">
+            <div className="mb-8 flex items-baseline gap-3">
+              <h2
+                id="featured-heading"
+                className="font-serif text-[28px] leading-none tracking-tight"
+              >
+                Featured
+              </h2>
+              <VerifiedBadge size={15} />
+            </div>
+            <CardGrid>
+              {featured.map((item) => (
+                <CommunityDesignCard key={item.id} summary={item} />
+              ))}
+            </CardGrid>
+          </section>
         ) : null}
 
-        {!loading && items.length === 0 ? (
-          <div className="rounded-[10px] border border-white/[0.06] py-24 text-center text-[#8A8A86]">
-            No designs yet. Be the first to publish.
-          </div>
-        ) : searching && filteredItems.length === 0 ? (
-          <div className="rounded-[10px] border border-white/[0.06] py-24 text-center text-[#8A8A86]">
-            No loaded designs match “{trimmedQuery}”.
-          </div>
-        ) : (
-          <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
-            {filteredItems.map((item) => (
-              <CommunityDesignCard key={item.id} summary={item} />
-            ))}
-          </div>
-        )}
-
-        {nextCursor && !searching ? (
-          <>
-            <div ref={sentinelRef} aria-hidden="true" className="h-px w-full" />
-            <div className="mt-12 flex justify-center">
+        <section aria-labelledby="all-heading">
+          <div className="mb-6 flex flex-wrap items-baseline gap-x-5 gap-y-1">
+            <h2 id="all-heading" className="font-serif text-[28px] leading-none tracking-tight">
+              All designs
+            </h2>
+            <span className="text-[13px] tabular-nums text-[#6F6F6B]" aria-live="polite">
+              {loading
+                ? "Loading…"
+                : filtering
+                  ? `${shownItems.length} of ${totalLabel} loaded`
+                  : `${totalLabel} design${items.length === 1 && !nextCursor ? "" : "s"}`}
+            </span>
+            {filtering ? (
               <button
                 type="button"
-                onClick={() => void loadMore()}
-                disabled={loadingMore}
-                className="rounded-[6px] border border-white/[0.08] px-4 py-2 text-[13px] text-[#E8E8E6] transition-colors hover:border-white/[0.18] hover:bg-white/[0.02] disabled:cursor-not-allowed disabled:opacity-50"
+                onClick={clearFilters}
+                className="text-[13px] text-[#E8E8E6] underline decoration-white/20 underline-offset-[4px] hover:decoration-white/50"
               >
-                {loadingMore ? "Loading…" : "Load more"}
+                Clear filters
+              </button>
+            ) : null}
+          </div>
+
+          {/* One toolbar: what to show (filter tabs, single-select) on the left,
+              how to find and order it (search, sort) on the right. Sticky on
+              wider screens so it stays reachable while scrolling a long grid. */}
+          <div className="z-30 -mx-6 mb-8 border-b border-white/[0.07] bg-[#0E0E10]/90 px-6 backdrop-blur-md sm:sticky sm:top-[60px] md:-mx-8 md:px-8">
+            <div className="flex flex-wrap items-center justify-between gap-x-6 gap-y-2">
+              <div
+                role="group"
+                aria-label="Filter designs"
+                className="-mx-6 flex min-w-0 max-w-[100vw] items-center gap-6 overflow-x-auto px-6 sm:mx-0 sm:px-0 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+              >
+                <FacetTab active={facet === null} onClick={() => setFacet(null)}>
+                  All
+                </FacetTab>
+                {FACETS.filter((f) => facetCounts.has(f.id) || facet === f.id).map((f) => (
+                  <FacetTab key={f.id} active={facet === f.id} onClick={() => setFacet(f.id)}>
+                    {f.label}
+                    <span className="ml-1.5 text-[11px] tabular-nums text-[#5A5A57]">{facetCounts.get(f.id) ?? 0}</span>
+                  </FacetTab>
+                ))}
+              </div>
+
+              <div className="flex w-full items-center gap-3 py-2.5 sm:w-auto">
+                <div className="relative min-w-0 flex-1 sm:w-52 sm:flex-none">
+                  <MagnifyingGlass
+                    size={14}
+                    weight="bold"
+                    className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-[#6F6F6B]"
+                  />
+                  <input
+                    type="search"
+                    value={query}
+                    onChange={(e) => setQuery(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Escape") setQuery("");
+                    }}
+                    placeholder="Search name, creator…"
+                    aria-label="Search designs by name, creator or description"
+                    className="h-8 w-full rounded-[6px] bg-white/[0.05] pl-8 pr-7 text-[13px] text-[#E8E8E6] placeholder:text-[#6F6F6B] transition-colors [appearance:none] hover:bg-white/[0.07] focus:bg-white/[0.08] focus:outline-none focus-visible:ring-2 focus-visible:ring-white/30 [&::-webkit-search-cancel-button]:hidden"
+                  />
+                  {query ? (
+                    <button
+                      type="button"
+                      onClick={() => setQuery("")}
+                      aria-label="Clear search"
+                      className="absolute right-1.5 top-1/2 flex h-5 w-5 -translate-y-1/2 items-center justify-center rounded text-[#8A8A86] hover:text-[#E8E8E6]"
+                    >
+                      <X size={12} weight="bold" />
+                    </button>
+                  ) : null}
+                </div>
+                <label className="relative flex shrink-0 items-center text-[13px] text-[#6F6F6B]">
+                  <span className="mr-2">Sort</span>
+                  <select
+                    value={sort}
+                    onChange={(e) => setSort(e.target.value as Sort)}
+                    className="h-8 cursor-pointer appearance-none rounded-[6px] bg-white/[0.05] pl-3 pr-7 text-[13px] text-[#E8E8E6] transition-colors hover:bg-white/[0.07] focus:outline-none focus-visible:ring-2 focus-visible:ring-white/30"
+                  >
+                    <option value="recent">Recent</option>
+                    <option value="popular">Popular</option>
+                  </select>
+                  <CaretDown
+                    size={11}
+                    weight="bold"
+                    aria-hidden="true"
+                    className="pointer-events-none absolute right-2.5 text-[#8A8A86]"
+                  />
+                </label>
+              </div>
+            </div>
+          </div>
+
+          {error ? (
+            <div
+              role="alert"
+              className="mb-6 flex flex-wrap items-center gap-x-4 gap-y-1 border-l-2 border-[#E89B9E]/60 py-1 pl-4 text-[13px] text-[#E89B9E]"
+            >
+              <span>{error}</span>
+              <button
+                type="button"
+                onClick={() => (items.length === 0 ? void load(sort) : void loadMore())}
+                className="text-[#E8E8E6] underline decoration-white/20 underline-offset-[4px] hover:decoration-white/50"
+              >
+                Try again
               </button>
             </div>
-          </>
-        ) : null}
+          ) : null}
+
+          {loading && items.length === 0 ? (
+            <CardSkeletonRows />
+          ) : !loading && items.length === 0 ? (
+            error ? null : (
+              <EmptyState title="No designs yet.">
+                Be the first to publish one from the{" "}
+                <Link
+                  href="/builder"
+                  className="text-[#E8E8E6] underline decoration-white/20 underline-offset-[4px] hover:decoration-white/50"
+                >
+                  builder
+                </Link>
+                .
+              </EmptyState>
+            )
+          ) : (searching || facet) && shownItems.length === 0 ? (
+            <EmptyState title="No loaded designs match.">
+              <button
+                type="button"
+                onClick={clearFilters}
+                className="text-[#E8E8E6] underline decoration-white/20 underline-offset-[4px] hover:decoration-white/50"
+              >
+                Clear filters
+              </button>
+            </EmptyState>
+          ) : (
+            <CardGrid>
+              {listItems.map((item) => (
+                <CommunityDesignCard key={item.id} summary={item} />
+              ))}
+            </CardGrid>
+          )}
+
+          {nextCursor && !searching ? (
+            <>
+              <div ref={sentinelRef} aria-hidden="true" className="h-px w-full" />
+              <div className="mt-10 flex justify-center">
+                <button
+                  type="button"
+                  onClick={() => void loadMore()}
+                  disabled={loadingMore}
+                  className="text-[13px] text-[#A8A8A4] underline decoration-white/20 underline-offset-[5px] transition-colors hover:text-[#E8E8E6] hover:decoration-white/50 disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  {loadingMore ? "Loading…" : "Load more"}
+                </button>
+              </div>
+            </>
+          ) : null}
+        </section>
       </div>
     </div>
   );
 }
 
-interface SortToggleProps {
-  value: Sort;
-  onChange: (v: Sort) => void;
-}
-
-function SortToggle({ value, onChange }: SortToggleProps) {
-  return (
-    <div className="inline-flex items-center rounded-[8px] border border-white/[0.06] bg-[#161618] p-1">
-      <SortButton active={value === "recent"} onClick={() => onChange("recent")}>
-        Recent
-      </SortButton>
-      <SortButton active={value === "popular"} onClick={() => onChange("popular")}>
-        Popular
-      </SortButton>
-    </div>
-  );
-}
-
-function SortButton({
+function FacetTab({
   active,
   onClick,
   children,
@@ -316,11 +449,12 @@ function SortButton({
     <button
       type="button"
       onClick={onClick}
+      aria-pressed={active}
       className={
-        "rounded-[6px] px-3 py-1.5 text-[12px] uppercase tracking-[0.1em] transition-colors " +
+        "-mb-px shrink-0 whitespace-nowrap border-b-2 py-3 text-[13px] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/40 " +
         (active
-          ? "bg-[#1C1C1F] text-[#E8E8E6]"
-          : "text-[#8A8A86] hover:text-[#E8E8E6]")
+          ? "border-[#E8E8E6] text-[#E8E8E6]"
+          : "border-transparent text-[#8A8A86] hover:text-[#E8E8E6]")
       }
     >
       {children}

@@ -16,6 +16,10 @@ import {
   reapInstallRecords,
   decodeCursor,
 } from "./designs";
+import { registerAccountRoutes } from "./accountRoutes";
+import { bearerToken, getSessionUser, reapAuth } from "./auth";
+import type { AccountEnv } from "./env";
+import { attachOwners } from "./owners";
 import { handleInstaller } from "./handlers/installer";
 import { renderCommunityOgSvg } from "./og";
 import { renderOgPng } from "./og-png";
@@ -43,7 +47,7 @@ export interface AnalyticsEngineDataset {
 // `validateDesign`; this is the cheap rejection at the HTTP boundary.
 const MAX_BODY_BYTES = 65536;
 
-export interface Env {
+export interface Env extends AccountEnv {
   DB: D1Database;
   TURNSTILE_SITE_KEY: string;
   TURNSTILE_SECRET_KEY: string;
@@ -69,57 +73,63 @@ const HOURLY_ROLLUP_CRON = "0 * * * *";
 // Note: the router escapes regex metacharacters in the literal pattern before
 // substituting `:param`, so a plain `.sh` / `.ps1` in the pattern is matched
 // literally — no need to write `\\.`.
-route("GET", "/community", (req, env, ctx, params) =>
-  handleListCommunity(req, env as Env, ctx, params),
-);
-route("GET", "/robots.txt", () => handleRobotsTxt());
-route("GET", "/sitemap.xml", (req, env, ctx) =>
-  handleSitemapXml(req, env as Env, ctx),
-);
-route("GET", "/og/community/:slug.svg", (req, env, ctx, params) =>
-  handleCommunityOgSvg(req, env as Env, ctx, params),
-);
-// Keep the .svg route above intact for backwards compat (Google still indexes
-// it fine, and any hotlinks shouldn't 404). The .png variant is what social
-// link previewers — Twitter/X, Slack, Discord, iMessage, LinkedIn, Facebook
-// — actually consume, since they refuse to render SVG `og:image` URLs.
-route("GET", "/og/community/:slug.png", (req, env, ctx, params) =>
-  handleCommunityOgPng(req, env as Env, ctx, params),
-);
-route("GET", "/community/:slug", (req, env, _ctx, params) =>
-  handleGetCommunityBySlug(req, env as Env, params),
-);
-// SSR for the community LIST (Vercel rewrites `/community` → `/ssr/community`).
-// Registered before `/ssr/community/:slug`; the two patterns are anchored and
-// disjoint (`/ssr/community` matches only the exact path), so order is not
-// load-bearing — kept adjacent for readability.
-route("GET", "/ssr/community", (req, env, ctx, params) =>
-  handleSsrCommunityList(req, env as Env, ctx, params),
-);
-route("GET", "/ssr/community/:slug", (req, env, ctx, params) =>
-  handleSsrCommunityBySlug(req, env as Env, ctx, params),
-);
-route("POST", "/community/:slug/fork", (req, env, _ctx, params) =>
-  handleForkBump(req, env as Env, params),
-);
-route("POST", "/designs", (req, env, _ctx, params) =>
-  handlePublish(req, env as Env, params),
-);
-route("POST", "/install", (req, env, _ctx, params) =>
-  handleInstallAnonymous(req, env as Env, params),
-);
-route("GET", "/i/:id.sh", async (req, env, ctx, params) => {
-  const ip = getClientIp(req) ?? "anon";
-  const rl = await checkRateLimit(env as Env, "installer", ip);
-  if (rl) return rl;
-  return handleInstaller(req, env as Env, ctx, { id: params.id!, ext: "sh" });
-});
-route("GET", "/i/:id.ps1", async (req, env, ctx, params) => {
-  const ip = getClientIp(req) ?? "anon";
-  const rl = await checkRateLimit(env as Env, "installer", ip);
-  if (rl) return rl;
-  return handleInstaller(req, env as Env, ctx, { id: params.id!, ext: "ps1" });
-});
+/** Registers every route. Exported so tests can rebuild the table after router tests clear it. */
+export function registerRoutes(): void {
+  // Account routes first so `/community/featured` precedes `/community/:slug`.
+  registerAccountRoutes();
+  route("GET", "/community", (req, env, ctx, params) =>
+    handleListCommunity(req, env as Env, ctx, params),
+  );
+  route("GET", "/robots.txt", () => handleRobotsTxt());
+  route("GET", "/sitemap.xml", (req, env, ctx) =>
+    handleSitemapXml(req, env as Env, ctx),
+  );
+  route("GET", "/og/community/:slug.svg", (req, env, ctx, params) =>
+    handleCommunityOgSvg(req, env as Env, ctx, params),
+  );
+  // Keep the .svg route above intact for backwards compat (Google still indexes
+  // it fine, and any hotlinks shouldn't 404). The .png variant is what social
+  // link previewers — Twitter/X, Slack, Discord, iMessage, LinkedIn, Facebook
+  // — actually consume, since they refuse to render SVG `og:image` URLs.
+  route("GET", "/og/community/:slug.png", (req, env, ctx, params) =>
+    handleCommunityOgPng(req, env as Env, ctx, params),
+  );
+  route("GET", "/community/:slug", (req, env, _ctx, params) =>
+    handleGetCommunityBySlug(req, env as Env, params),
+  );
+  // SSR for the community LIST (Vercel rewrites `/community` → `/ssr/community`).
+  // Registered before `/ssr/community/:slug`; the two patterns are anchored and
+  // disjoint (`/ssr/community` matches only the exact path), so order is not
+  // load-bearing — kept adjacent for readability.
+  route("GET", "/ssr/community", (req, env, ctx, params) =>
+    handleSsrCommunityList(req, env as Env, ctx, params),
+  );
+  route("GET", "/ssr/community/:slug", (req, env, ctx, params) =>
+    handleSsrCommunityBySlug(req, env as Env, ctx, params),
+  );
+  route("POST", "/community/:slug/fork", (req, env, _ctx, params) =>
+    handleForkBump(req, env as Env, params),
+  );
+  route("POST", "/designs", (req, env, _ctx, params) =>
+    handlePublish(req, env as Env, params),
+  );
+  route("POST", "/install", (req, env, _ctx, params) =>
+    handleInstallAnonymous(req, env as Env, params),
+  );
+  route("GET", "/i/:id.sh", async (req, env, ctx, params) => {
+    const ip = getClientIp(req) ?? "anon";
+    const rl = await checkRateLimit(env as Env, "installer", ip);
+    if (rl) return rl;
+    return handleInstaller(req, env as Env, ctx, { id: params.id!, ext: "sh" });
+  });
+  route("GET", "/i/:id.ps1", async (req, env, ctx, params) => {
+    const ip = getClientIp(req) ?? "anon";
+    const rl = await checkRateLimit(env as Env, "installer", ip);
+    if (rl) return rl;
+    return handleInstaller(req, env as Env, ctx, { id: params.id!, ext: "ps1" });
+  });
+}
+registerRoutes();
 
 export default {
   async fetch(
@@ -190,6 +200,12 @@ export default {
     }
     const { deleted } = await reapInstallRecords(env);
     console.log(`reaper: deleted ${deleted} install_records`);
+    try {
+      await reapAuth(env);
+    } catch (e) {
+      // Accounts migration not applied yet — nothing to reap.
+      console.warn("auth reaper skipped", e);
+    }
   },
 };
 
@@ -249,7 +265,10 @@ async function handleListCommunity(
   const rl = await checkRateLimit(env, "list", ip);
   if (rl) return rl;
 
-  const result = await listCommunity(env, { sort, limit, cursor });
+  const listed = await listCommunity(env, { sort, limit, cursor });
+  // Additive: items owned by an account gain `owner`/`featured`; anonymous
+  // items are returned exactly as before.
+  const result = { ...listed, items: await attachOwners(env, listed.items) };
   const response = jsonResponse(result, 200, {
     "cache-control": `public, s-maxage=${LIST_CACHE_TTL_SECONDS}`,
     "x-cache": "MISS",
@@ -466,7 +485,8 @@ async function handleGetCommunityBySlug(
     }
   }
 
-  return jsonResponse(row);
+  const [enriched] = await attachOwners(env, [row]);
+  return jsonResponse(enriched ?? row);
 }
 
 // Edge-cache TTL for the SSR detail HTML. Designs are immutable once
@@ -673,16 +693,26 @@ async function handlePublish(
   const rl = await checkRateLimit(env, "publish", ip);
   if (rl) return rl;
 
+  // A signed-in publisher is accountable already, so they skip Turnstile and
+  // the design is linked to their account. A bearer token that doesn't resolve
+  // is rejected rather than silently publishing anonymously.
+  const owner = bearerToken(req) ? await getSessionUser(env, req) : null;
+  if (bearerToken(req) && !owner) return jsonResponse({ error: "unauthorized" }, 401);
+
   const body = await readJson(req);
-  if (!body || typeof body.turnstile_token !== "string") {
-    return jsonResponse({ error: "missing turnstile_token" }, 400);
+  if (!owner) {
+    if (!body || typeof body.turnstile_token !== "string") {
+      return jsonResponse({ error: "missing turnstile_token" }, 400);
+    }
+    const turnstileOk = await verifyTurnstile(
+      body.turnstile_token,
+      env.TURNSTILE_SECRET_KEY,
+      ip,
+    );
+    if (!turnstileOk) return jsonResponse({ error: "turnstile failed" }, 401);
+  } else if (!body) {
+    return jsonResponse({ error: "invalid body" }, 400);
   }
-  const turnstileOk = await verifyTurnstile(
-    body.turnstile_token,
-    env.TURNSTILE_SECRET_KEY,
-    ip,
-  );
-  if (!turnstileOk) return jsonResponse({ error: "turnstile failed" }, 401);
 
   // Validate design shape. `validateDesign` throws ValidationError on bad
   // input — wrap it into a 422 response.
@@ -708,7 +738,7 @@ async function handlePublish(
   if (!nameRes.ok)
     return jsonResponse({ error: `name: ${nameRes.reason}` }, 422);
 
-  const authorRes = sanitizePublishField(body.author_name ?? "", {
+  const authorRes = sanitizePublishField(body.author_name || (owner?.display_name ?? "").slice(0, LIMITS.author), {
     maxLength: LIMITS.author,
     multiline: false,
     allowEmpty: false,
@@ -730,6 +760,7 @@ async function handlePublish(
       name: nameRes.value,
       author_name: authorRes.value,
       description: descRes.value,
+      ...(owner ? { owner_id: owner.id } : {}),
     });
     return jsonResponse({ id, slug }, 200);
   } catch (e) {

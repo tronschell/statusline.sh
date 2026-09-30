@@ -54,6 +54,12 @@ export function Footer() {
             >
               Claude Code Statusline Guide
             </FooterLink>
+            <FooterLink
+              href="/claude-code-statusline-command"
+              title="What the Claude Code /statusline command does"
+            >
+              The /statusline Command
+            </FooterLink>
             <FooterLink href="/" title="Claude Code statusline templates">
               Statusline Templates
             </FooterLink>

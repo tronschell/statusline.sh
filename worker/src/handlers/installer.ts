@@ -3,6 +3,7 @@ import { compileToBash } from "@statusline/shared/compiler/bash";
 import { compileToPS } from "@statusline/shared/compiler/powershell";
 import { bashInstallerTemplate } from "../install/bashTemplate";
 import { psInstallerTemplate } from "../install/psTemplate";
+import { withAutoUpdate } from "../install/autoUpdate";
 import { getInstallTarget, incrementInstalls, type DbEnv } from "../designs";
 
 export type InstallerEnv = DbEnv;
@@ -61,30 +62,69 @@ export function renderInstaller(
   _req: Request,
   design: Design,
   ext: string,
+  opts?: { updateUrl?: string },
 ): Response | null {
+  // Only permanent (cloud) links pass `updateUrl`; every legacy link takes the
+  // untouched branch and gets the exact same bytes as before.
+  const cloud = opts?.updateUrl;
+  const cacheControl = cloud ? "no-store" : "public, max-age=3600";
   if (ext === "ps1") {
-    const compiled = compileToPS(design);
+    const compiled = cloud ? withAutoUpdate(compileToPS(design), "ps1", cloud) : compileToPS(design);
     const body = psInstallerTemplate(compiled);
     return new Response(body, {
       status: 200,
       headers: {
         "content-type": "text/plain; charset=utf-8",
-        "cache-control": "public, max-age=3600",
+        "cache-control": cacheControl,
       },
     });
   }
   if (ext === "sh") {
-    const compiled = compileToBash(design);
+    const compiled = cloud ? withAutoUpdate(compileToBash(design), "sh", cloud) : compileToBash(design);
     const body = bashInstallerTemplate(compiled);
     return new Response(body, {
       status: 200,
       headers: {
         "content-type": "text/x-shellscript; charset=utf-8",
-        "cache-control": "public, max-age=3600",
+        "cache-control": cacheControl,
       },
     });
   }
   return null;
+}
+
+/** The URL a permanent install polls for new versions of the same design. */
+function updateUrlFor(req: Request, id: string, ext: string): string {
+  return `${new URL(req.url).origin}/u/${encodeURIComponent(id)}.${ext}`;
+}
+
+/**
+ * `GET /u/:id.{sh,ps1}` — the bare, current script for a permanent link. This
+ * is what installed scripts poll; it carries the same updater prelude so the
+ * replacement keeps updating itself. Never edge-cached: an edit must reach
+ * installs at their next check.
+ */
+export async function handleCloudScript(
+  req: Request,
+  env: InstallerEnv,
+  params: { id: string; ext: string },
+): Promise<Response> {
+  const target = params.id.length === 12 ? await getInstallTarget(env, params.id) : null;
+  if (!target || target.source !== "cloud") {
+    return new Response("not found", { status: 404, headers: { "content-type": "text/plain; charset=utf-8" } });
+  }
+  const url = updateUrlFor(req, params.id, params.ext);
+  let body: string;
+  if (params.ext === "sh") body = withAutoUpdate(compileToBash(target.design), "sh", url);
+  else if (params.ext === "ps1") body = withAutoUpdate(compileToPS(target.design), "ps1", url);
+  else return new Response("unknown extension", { status: 404 });
+  return new Response(body, {
+    status: 200,
+    headers: {
+      "content-type": params.ext === "sh" ? "text/x-shellscript; charset=utf-8" : "text/plain; charset=utf-8",
+      "cache-control": "no-store",
+    },
+  });
 }
 
 export async function handleInstaller(
@@ -135,7 +175,13 @@ export async function handleInstaller(
       headers: { "content-type": "text/plain; charset=utf-8" },
     });
   }
-  const res = renderInstaller(req, target.design, params.ext);
+  const isCloud = target.source === "cloud";
+  const res = renderInstaller(
+    req,
+    target.design,
+    params.ext,
+    isCloud ? { updateUrl: updateUrlFor(req, params.id, params.ext) } : undefined,
+  );
   if (!res) {
     return new Response("unknown installer extension", {
       status: 404,
@@ -156,7 +202,8 @@ export async function handleInstaller(
   const clientHeaders = new Headers(res.headers);
   clientHeaders.set("x-cache", "MISS");
 
-  if (edgeCache) {
+  // Permanent links are mutable, so they are never edge-cached.
+  if (edgeCache && !isCloud) {
     const cacheHeaders = new Headers(res.headers);
     cacheHeaders.set(INSTALL_SOURCE_HEADER, target.source);
     const toCache = new Response(body, {

@@ -43,6 +43,9 @@ function previewFor(el: Element): string | null {
   return null;
 }
 
+const chipFocus =
+  "focus:outline-none focus-visible:ring-2 focus-visible:ring-white/40";
+
 function truncate(s: string, max = 14): string {
   if (s.length <= max) return s;
   return s.slice(0, max - 1) + "…";
@@ -83,6 +86,7 @@ export function ElementChip({ element, onContextMenu }: ElementChipProps) {
   const preview = previewFor(element);
   const Icon = ELEMENT_ICONS[element.type];
   const isLineBreak = element.type === "lineBreak";
+  const isSeparator = element.type === "separator";
   const isFlexSpacer = element.type === "spacer" && element.mode === "flex";
   const isFixedSpacer = element.type === "spacer" && element.mode === "fixed";
 
@@ -124,12 +128,13 @@ export function ElementChip({ element, onContextMenu }: ElementChipProps) {
         data-element-type={element.type}
         aria-label="Flex spacer — pushes following elements toward the right edge"
         className={[
-          "group relative flex-1 min-w-[60px] flex items-center gap-2 px-2 py-1 rounded-[8px]",
-          "bg-white/[0.02] text-[#8A8A86] text-[11px] cursor-grab active:cursor-grabbing",
+          "group relative flex-1 min-w-[60px] flex items-center gap-2 px-2 py-1 rounded-[6px]",
+          "text-[#8A8A86] text-[11px] cursor-grab active:cursor-grabbing",
           "transition-colors duration-200",
+          chipFocus,
           isSelected
-            ? "border border-[#8FB8DA]"
-            : "border border-dashed border-white/[0.08] hover:border-white/[0.16]",
+            ? "border border-[#8FB8DA] bg-[#8FB8DA]/[0.06]"
+            : "border border-dashed border-white/[0.12] hover:border-white/[0.24]",
           animClass,
         ].join(" ")}
       >
@@ -152,7 +157,7 @@ export function ElementChip({ element, onContextMenu }: ElementChipProps) {
           type="button"
           onClick={handleRemove}
           onPointerDown={(e) => e.stopPropagation()}
-          className="ml-1 text-[#8A8A86] hover:text-[#E89B9E] opacity-0 group-hover:opacity-100 focus:opacity-100 transition-opacity duration-150"
+          className="ml-1 text-[#8A8A86] hover:text-[#E89B9E] opacity-0 group-hover:opacity-100 focus:opacity-100 [@media(hover:none)]:opacity-100 transition-opacity duration-150"
           aria-label="Remove flex spacer"
         >
           <Trash size={12} weight="bold" />
@@ -185,12 +190,13 @@ export function ElementChip({ element, onContextMenu }: ElementChipProps) {
         aria-label={`Fixed spacer — ${w} char${w === 1 ? "" : "s"}`}
         title={`Fixed spacer · ${w}× ${ch === " " ? "space" : JSON.stringify(ch)}`}
         className={[
-          "group relative inline-flex items-center gap-1.5 px-2 py-1.5 rounded-[8px]",
-          "bg-[#1C1C1F] text-[#8A8A86] text-[11px] cursor-grab active:cursor-grabbing",
+          "group relative inline-flex items-center gap-1.5 px-2 py-1.5 rounded-[6px]",
+          "text-[#8A8A86] text-[11px] cursor-grab active:cursor-grabbing",
           "transition-colors duration-200",
+          chipFocus,
           isSelected
-            ? "border border-[#8FB8DA]"
-            : "border border-white/[0.06] hover:border-white/[0.12]",
+            ? "border border-[#8FB8DA] bg-[#8FB8DA]/[0.06]"
+            : "border border-white/[0.08] hover:border-white/[0.2]",
           animClass,
         ].join(" ")}
       >
@@ -202,7 +208,7 @@ export function ElementChip({ element, onContextMenu }: ElementChipProps) {
           type="button"
           onClick={handleRemove}
           onPointerDown={(e) => e.stopPropagation()}
-          className="ml-1 text-[#8A8A86] hover:text-[#E89B9E] opacity-0 group-hover:opacity-100 focus:opacity-100 transition-opacity duration-150"
+          className="ml-1 text-[#8A8A86] hover:text-[#E89B9E] opacity-0 group-hover:opacity-100 focus:opacity-100 [@media(hover:none)]:opacity-100 transition-opacity duration-150"
           aria-label="Remove fixed spacer"
         >
           <Trash size={12} weight="bold" />
@@ -226,12 +232,13 @@ export function ElementChip({ element, onContextMenu }: ElementChipProps) {
         data-element-type={element.type}
         aria-label="Line break — new deck"
         className={[
-          "group relative w-full flex items-center gap-2 px-2 py-1 rounded-[8px]",
-          "bg-white/[0.02] text-[#8A8A86] text-[11px] cursor-grab active:cursor-grabbing",
+          "group relative w-full flex items-center gap-2 px-2 py-1 rounded-[6px]",
+          "text-[#8A8A86] text-[11px] cursor-grab active:cursor-grabbing",
           "transition-colors duration-200",
+          chipFocus,
           isSelected
-            ? "border border-[#8FB8DA]"
-            : "border border-dashed border-white/[0.08] hover:border-white/[0.16]",
+            ? "border border-[#8FB8DA] bg-[#8FB8DA]/[0.06]"
+            : "border border-dashed border-white/[0.12] hover:border-white/[0.24]",
           animClass,
         ].join(" ")}
       >
@@ -249,7 +256,7 @@ export function ElementChip({ element, onContextMenu }: ElementChipProps) {
           type="button"
           onClick={handleRemove}
           onPointerDown={(e) => e.stopPropagation()}
-          className="ml-1 text-[#8A8A86] hover:text-[#E89B9E] opacity-0 group-hover:opacity-100 focus:opacity-100 transition-opacity duration-150"
+          className="ml-1 text-[#8A8A86] hover:text-[#E89B9E] opacity-0 group-hover:opacity-100 focus:opacity-100 [@media(hover:none)]:opacity-100 transition-opacity duration-150"
           aria-label="Remove line break"
         >
           <Trash size={12} weight="bold" />
@@ -271,24 +278,23 @@ export function ElementChip({ element, onContextMenu }: ElementChipProps) {
       data-element-id={element.id}
       data-element-type={element.type}
       className={[
-        "group relative inline-flex items-center gap-2 pl-2.5 pr-2 py-1.5 rounded-[8px]",
-        "bg-[#1C1C1F] text-[#E8E8E6] text-[12px] cursor-grab active:cursor-grabbing",
+        "group relative inline-flex items-center gap-2 pl-2.5 pr-2 py-1.5 rounded-[6px]",
+        "text-[13px] cursor-grab active:cursor-grabbing",
+        isSeparator ? "text-[#8A8A86]" : "text-[#E8E8E6]",
         "transition-colors duration-200",
+        chipFocus,
         isSelected
-          ? "border border-[#8FB8DA]"
-          : "border border-white/[0.06] hover:border-white/[0.12]",
+          ? "border border-[#8FB8DA] bg-[#8FB8DA]/[0.06]"
+          : "border border-white/[0.08] hover:border-white/[0.2] hover:bg-white/[0.03]",
         animClass,
       ].join(" ")}
     >
       <span
-        className="inline-block w-2.5 h-2.5 rounded-sm border border-white/[0.08] shrink-0"
+        className="inline-block h-2 w-2 shrink-0 rounded-full border border-white/[0.14]"
         style={{ background: swatchCss ?? "transparent" }}
         aria-hidden="true"
       />
-      <span className="text-[#E8E8E6] shrink-0" aria-hidden="true">
-        <Icon size={13} weight="bold" />
-      </span>
-      <span className="font-medium">{TYPE_LABEL[element.type]}</span>
+      <span>{TYPE_LABEL[element.type]}</span>
       {preview !== null && (
         <span className="font-mono text-[11px] text-[#8A8A86] max-w-[100px] truncate">
           {truncate(preview)}
@@ -298,10 +304,10 @@ export function ElementChip({ element, onContextMenu }: ElementChipProps) {
         type="button"
         onClick={handleRemove}
         onPointerDown={(e) => e.stopPropagation()}
-        className="ml-1 text-[#8A8A86] hover:text-[#E89B9E] opacity-0 group-hover:opacity-100 focus:opacity-100 transition-opacity duration-150"
+        className="ml-1 text-[#8A8A86] hover:text-[#E89B9E] opacity-0 group-hover:opacity-100 focus:opacity-100 [@media(hover:none)]:opacity-100 transition-opacity duration-150"
         aria-label={`Remove ${TYPE_LABEL[element.type]} element`}
       >
-        <Trash size={14} weight="bold" />
+        <Trash size={13} weight="bold" />
       </button>
     </div>
   );

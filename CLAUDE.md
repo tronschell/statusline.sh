@@ -74,6 +74,17 @@ Frontend uses a **hand-rolled router** (`src/frontend/router.tsx`, no react-rout
 
 The Worker is the only backend; the SPA reaches it cross-origin via `NEXT_PUBLIC_WORKER_URL` (CORS allowlist in `worker/src/cors.ts` + Turnstile-protected publish/fork/install endpoints). Per-endpoint rate limits live on `[[unsafe.bindings]]` ratelimit namespaces in `wrangler.toml`.
 
+### Accounts, Pro and cloud links (optional, additive)
+
+Gated in the SPA by `ACCOUNTS_ENABLED` (`src/frontend/lib/config.ts`, `NEXT_PUBLIC_ACCOUNTS=1`; always on for localhost). Anonymous build/install/publish/fork and legacy `/i/:id` installers must stay byte-identical — new response fields are optional, migration `0004_accounts.sql` is additive.
+
+- **Sessions:** cross-origin ⇒ bearer token in localStorage (`statusline-session-v1`, `src/frontend/lib/session.ts`), not cookies. OAuth returns the token in the URL fragment to `/auth/callback`. Providers: GitHub, Google, email+password (PBKDF2). Reset/forgot flows are emailed via Resend.
+- **Pro is only ever granted by the signed Lemon Squeezy webhook** (`worker/src/billing.ts`); `users.pro_until` is the single source of truth. "Verified" and "featured" are computed from it at read time (`owners.ts`) so they vanish on lapse. Lapse freezes links but blocks edits (402 `pro_required`); installed scripts keep working.
+- **Permanent links:** library/team designs get a nanoid id served at `/i/:id.{sh,ps1}`; the installed script embeds an updater (`worker/src/install/autoUpdate.ts`, at most every 6h, opt-out `STATUSLINE_NO_UPDATE=1`) that pulls `/u/:id.{sh,ps1}`. Saves use `expected_version` optimistic concurrency (409 `version_conflict`).
+- **Plan caps** live in one place: `PLAN` in `worker/src/env.ts`.
+- **Frontend state:** `authStore` (me/ready) and `cloudStore` (sessionStorage-persisted binding of the builder to a library/team design + snapshot for dirty detection). Unbind (`bind(null)`) whenever the builder loads a different seed or the user signs out, or a later Save would overwrite the wrong design.
+- **Build:** `build.ts` uses `publicPath: "/"` so deep links (`/auth/callback`, `/u/:name`, `/teams/:id`) load their bundle — Vercel's SPA rewrite skips paths containing a dot.
+
 ### Design system
 
 Dark-mode minimalist, derived from the `minimalist-ui` skill. No emojis in UI chrome (the user's *output* statusline may contain emojis via the `glyph` or `rotator` element types). No gradients except a single fixed radial ambient on the landing hero at <0.05 opacity. Phosphor Bold icons only. 1px borders, `rounded-[10px]` cards. Tokens live in `src/index.css` (`--color-canvas: #0E0E10`, Geist / Geist Mono / Instrument Serif font stack).

@@ -296,7 +296,7 @@ function renderOp(op: RenderOp, input: ClaudeStdin): string {
       return wrapWithStyle(op.text, op.style);
     case "rotator": {
       if (op.items.length === 0) return "";
-      const interval = Math.max(1, op.intervalSeconds);
+      const interval = Math.max(1, Math.floor(op.intervalSeconds));
       let idx: number;
       if (op.pickMode === "random") {
         idx = Math.floor(Math.random() * op.items.length);

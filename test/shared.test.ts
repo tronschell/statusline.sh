@@ -329,7 +329,7 @@ describe("colorToCss", () => {
 
 describe("getField", () => {
   test("traverses nested paths", () => {
-    expect(getField(DEFAULT_MOCK_STDIN, "model.display_name")).toBe("Opus 4.7");
+    expect(getField(DEFAULT_MOCK_STDIN, "model.display_name")).toBe("Fable 5.1");
     expect(getField(DEFAULT_MOCK_STDIN, "workspace.git_worktree")).toBe("feature/auth-refactor");
   });
   test("returns undefined for missing", () => {

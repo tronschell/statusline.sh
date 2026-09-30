@@ -1,15 +1,11 @@
 import { Plus, Trash } from "@phosphor-icons/react";
 import type { Element } from "@statusline/shared/types";
-import {
-  type FieldsProps,
-  captionClass,
-  inputClass,
-  labelClass,
-} from "./common";
+import { type FieldsProps, captionClass, inputClass, labelClass, tabListClass, tabClass } from "./common";
 
 type RotatorElement = Extract<Element, { type: "rotator" }>;
 
 const EMOJI_PRESETS: ReadonlyArray<{ label: string; items: string[] }> = [
+  { label: "Models", items: ["Fable 5.1", "Opus 5"] },
   { label: "Sparkle", items: ["✨", "🌙", "⚡", "🔥", "🌈"] },
   { label: "Spinner", items: ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"] },
   { label: "Moon", items: ["🌑", "🌒", "🌓", "🌔", "🌕", "🌖", "🌗", "🌘"] },
@@ -60,26 +56,18 @@ export default function RotatorFields({
 
       <div className="flex flex-col gap-2">
         <label className={labelClass}>Mode</label>
-        <div className="flex gap-2">
+        <div className={tabListClass}>
           <button
             type="button"
             onClick={() => setMode("cycle")}
-            className={`flex-1 rounded-[4px] border px-3 py-2 text-xs uppercase tracking-wider transition-colors ${
-              element.pickMode === "cycle"
-                ? "border-[#8FB8DA] bg-[#1E2A36] text-[#E8E8E6]"
-                : "border-white/[0.06] bg-[#1C1C1F] text-[#8A8A86] hover:text-[#E8E8E6]"
-            }`}
+            className={tabClass(element.pickMode === "cycle")}
           >
             Cycle
           </button>
           <button
             type="button"
             onClick={() => setMode("random")}
-            className={`flex-1 rounded-[4px] border px-3 py-2 text-xs uppercase tracking-wider transition-colors ${
-              element.pickMode === "random"
-                ? "border-[#8FB8DA] bg-[#1E2A36] text-[#E8E8E6]"
-                : "border-white/[0.06] bg-[#1C1C1F] text-[#8A8A86] hover:text-[#E8E8E6]"
-            }`}
+            className={tabClass(element.pickMode === "random")}
           >
             Random
           </button>
@@ -120,7 +108,7 @@ export default function RotatorFields({
                 onClick={() => removeItem(i)}
                 disabled={element.items.length <= 1}
                 aria-label={`Remove item ${i + 1}`}
-                className="flex items-center justify-center w-8 h-8 shrink-0 rounded-[4px] border border-white/[0.06] bg-[#1C1C1F] text-[#8A8A86] transition-colors hover:text-[#E89B9E] hover:border-[#3A1F21] disabled:opacity-30 disabled:cursor-not-allowed"
+                className="flex h-8 w-8 shrink-0 items-center justify-center rounded-[6px] text-[#8A8A86] transition-colors hover:bg-[#E89B9E]/10 hover:text-[#E89B9E] disabled:cursor-not-allowed disabled:opacity-30"
               >
                 <Trash size={13} weight="bold" />
               </button>
@@ -130,7 +118,7 @@ export default function RotatorFields({
         <button
           type="button"
           onClick={addItem}
-          className="flex items-center justify-center gap-1.5 rounded-[4px] border border-dashed border-white/[0.08] bg-transparent px-3 py-1.5 text-xs uppercase tracking-wider text-[#8A8A86] transition-colors hover:text-[#E8E8E6] hover:border-white/[0.16]"
+          className="flex items-center gap-1.5 self-start py-1 text-[13px] text-[#8A8A86] transition-colors hover:text-[#E8E8E6]"
         >
           <Plus size={12} weight="bold" />
           Add item
@@ -145,7 +133,7 @@ export default function RotatorFields({
               key={p.label}
               type="button"
               onClick={() => applyPreset(p.items)}
-              className="rounded-[4px] border border-white/[0.06] bg-[#1C1C1F] px-2.5 py-1.5 text-xs text-[#E8E8E6] transition-colors hover:border-white/[0.16]"
+              className="rounded-[6px] px-2 py-1 text-xs text-[#E8E8E6] transition-colors hover:bg-white/[0.06]"
               title={p.items.join(" ")}
             >
               <span className="text-[#8A8A86] mr-1.5">{p.label}</span>

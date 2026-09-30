@@ -1,6 +1,6 @@
 import type { Element, RateLimitVariant } from "@statusline/shared/types";
 import BarCharFields from "./BarCharFields";
-import { type FieldsProps, captionClass, inputClass, labelClass } from "./common";
+import { type FieldsProps, captionClass, inputClass, labelClass, optionRowClass } from "./common";
 
 type RateLimitElement = Extract<
   Element,
@@ -54,11 +54,7 @@ export default function RateLimitFields({
                 key={v.value}
                 type="button"
                 onClick={() => setVariant(v.value)}
-                className={`flex items-start gap-3 rounded-[4px] border px-3 py-2 text-left transition-colors ${
-                  active
-                    ? "border-[#8FB8DA] bg-[#1E2A36]"
-                    : "border-white/[0.06] bg-[#1C1C1F] hover:border-white/[0.12]"
-                }`}
+                className={optionRowClass(active, "start")}
               >
                 <span
                   className={`mt-1 inline-block h-3 w-3 rounded-full border ${

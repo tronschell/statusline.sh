@@ -19,10 +19,10 @@ export default function OutputStyleFields({
         <code className="font-mono text-[11px]">"default"</code>.
       </p>
 
-      <div className="flex items-center justify-between gap-2 rounded-[4px] border border-white/[0.06] bg-[#1C1C1F] px-3 py-2">
+      <div className="flex items-center justify-between gap-4 border-t border-white/[0.06] pt-3">
         <div className="flex flex-col">
           <span className={labelClass}>Always show</span>
-          <span className="text-xs text-[#8A8A86]">
+          <span className="text-[12px] text-[#6F6F6B]">
             Render the chip even when the active style is{" "}
             <code className="font-mono text-[11px]">"default"</code>.
           </span>
@@ -35,7 +35,7 @@ export default function OutputStyleFields({
           className={`relative inline-flex h-5 w-9 shrink-0 items-center rounded-full border transition-colors ${
             alwaysShow
               ? "border-[#8FB8DA] bg-[#1E2A36]"
-              : "border-white/[0.06] bg-[#1C1C1F]"
+              : "border-white/[0.14] bg-transparent"
           }`}
         >
           <span

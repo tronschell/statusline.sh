@@ -1,5 +1,5 @@
 import type { Element } from "@statusline/shared/types";
-import { type FieldsProps, labelClass } from "./common";
+import { type FieldsProps, labelClass, optionRowClass } from "./common";
 
 type CwdElement = Extract<Element, { type: "cwd" }>;
 
@@ -31,11 +31,7 @@ export default function CwdFields({
               onClick={() =>
                 onPatch({ mode: m.value } as Partial<Element>)
               }
-              className={`flex items-center gap-3 rounded-[4px] border px-3 py-2 text-left transition-colors ${
-                active
-                  ? "border-[#8FB8DA] bg-[#1E2A36]"
-                  : "border-white/[0.06] bg-[#1C1C1F] hover:border-white/[0.12]"
-              }`}
+              className={optionRowClass(active, "center")}
             >
               <span
                 className={`inline-block h-3 w-3 rounded-full border ${

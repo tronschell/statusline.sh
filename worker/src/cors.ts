@@ -37,22 +37,31 @@ export interface CorsResult {
   preflightResponse: Response | null;
 }
 
+export function isAllowedOrigin(
+  origin: string | null,
+  env: { ALLOWED_ORIGINS?: string },
+): boolean {
+  if (origin === null) return false;
+  return (
+    parseAllowedOrigins(env.ALLOWED_ORIGINS).has(origin) ||
+    ALLOWED_PATTERNS.some((re) => re.test(origin))
+  );
+}
+
 export function cors(
   req: Request,
   env: { ALLOWED_ORIGINS?: string },
 ): CorsResult {
   const origin = req.headers.get("origin");
-  const envAllowlist = parseAllowedOrigins(env.ALLOWED_ORIGINS);
-  const allowed =
-    origin !== null &&
-    (envAllowlist.has(origin) ||
-      ALLOWED_PATTERNS.some((re) => re.test(origin)));
+  const allowed = isAllowedOrigin(origin, env);
   const h = new Headers();
   if (allowed && origin) {
     h.set("access-control-allow-origin", origin);
     h.set("vary", "origin");
-    h.set("access-control-allow-methods", "GET, POST, OPTIONS");
-    h.set("access-control-allow-headers", "content-type");
+    // Account endpoints use PUT/PATCH/DELETE and a bearer token. Purely
+    // additive: existing anonymous callers only ever send GET/POST + JSON.
+    h.set("access-control-allow-methods", "GET, POST, PUT, PATCH, DELETE, OPTIONS");
+    h.set("access-control-allow-headers", "content-type, authorization");
     h.set("access-control-max-age", "86400");
   }
   if (req.method === "OPTIONS") {

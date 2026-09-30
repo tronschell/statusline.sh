@@ -1,6 +1,6 @@
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useDroppable } from "@dnd-kit/core";
-import { ArrowLeft, ArrowRight, Copy, Moon, Sun, Trash } from "@phosphor-icons/react";
+import { ArrowLeft, ArrowRight, Copy, Trash } from "@phosphor-icons/react";
 import { useDesignStore } from "../../store/designStore";
 import { useUiStore } from "../../store/uiStore";
 import { renderToAnsi } from "@statusline/shared/compiler/interpret";
@@ -220,9 +220,6 @@ export function LivePreview() {
   const reorder = useDesignStore((s) => s.reorder);
   const mockStdinJson = useUiStore((s) => s.mockStdinJson);
 
-  // Terminal background preview only — does not affect the exported statusline
-  // or its element colours. Local state; not persisted.
-  const [previewTheme, setPreviewTheme] = useState<"dark" | "light">("dark");
   const { pending } = useInsertionPreview();
   const { setNodeRef: setDroppableRootRef } = useDroppable({
     id: PREVIEW_ROOT_DROPPABLE,
@@ -334,43 +331,8 @@ export function LivePreview() {
   }
 
   return (
-    <div>
-      <div className="mb-2 flex items-center justify-end">
-        <div
-          role="group"
-          aria-label="Terminal background preview"
-          title="Preview the terminal background only — this does not change your statusline or its colours"
-          className="inline-flex items-center rounded-[8px] border border-white/[0.08] p-0.5"
-        >
-          <button
-            type="button"
-            onClick={() => setPreviewTheme("dark")}
-            aria-pressed={previewTheme === "dark"}
-            aria-label="Dark terminal background"
-            className={`flex items-center justify-center rounded-[6px] px-2 py-1 transition-colors ${
-              previewTheme === "dark"
-                ? "bg-[#1C1C1F] text-[#E8E8E6]"
-                : "text-[#8A8A86] hover:text-[#E8E8E6]"
-            }`}
-          >
-            <Moon size={13} weight="bold" />
-          </button>
-          <button
-            type="button"
-            onClick={() => setPreviewTheme("light")}
-            aria-pressed={previewTheme === "light"}
-            aria-label="Light terminal background"
-            className={`flex items-center justify-center rounded-[6px] px-2 py-1 transition-colors ${
-              previewTheme === "light"
-                ? "bg-[#1C1C1F] text-[#E8E8E6]"
-                : "text-[#8A8A86] hover:text-[#E8E8E6]"
-            }`}
-          >
-            <Sun size={13} weight="bold" />
-          </button>
-        </div>
-      </div>
-      <TerminalFrame theme={previewTheme}>
+    <section aria-label="Live preview">
+      <TerminalFrame theme="dark" bodyClassName="min-h-[3.5rem] text-[15px] md:px-7 md:py-6">
         <div ref={setRootRef} className="block min-h-[1.5em]">
           {empty ? (
             <span className="text-[#8A8A86] italic">
@@ -418,6 +380,6 @@ export function LivePreview() {
           items={menuItemsFor(menu.elementId)}
         />
       ) : null}
-    </div>
+    </section>
   );
 }

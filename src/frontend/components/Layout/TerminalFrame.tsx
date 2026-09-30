@@ -11,6 +11,8 @@ export interface TerminalFrameProps {
    * ANSI content keeps its own colours.
    */
   theme?: "dark" | "light";
+  /** Extra classes for the terminal body (padding / type size overrides). */
+  bodyClassName?: string;
 }
 
 /**
@@ -20,7 +22,7 @@ export interface TerminalFrameProps {
  * header bar, body uses font-mono for ANSI preview content. Dark-mode
  * minimalist aesthetic per the design system spec.
  */
-export function TerminalFrame({ children, className, theme = "dark" }: TerminalFrameProps) {
+export function TerminalFrame({ children, className, theme = "dark", bodyClassName }: TerminalFrameProps) {
   const isLight = theme === "light";
   // Inline styles (not dynamic Tailwind arbitrary values, which the JIT can't
   // see) so the swap is reliable in the built bundle.
@@ -40,7 +42,10 @@ export function TerminalFrame({ children, className, theme = "dark" }: TerminalF
         <span className="block w-[10px] h-[10px] rounded-full bg-white/15 transition-colors duration-200 group-hover:bg-[#28C840]" />
       </div>
       <div
-        className="font-mono text-sm px-5 py-4 overflow-x-auto whitespace-nowrap"
+        className={
+          "font-mono text-sm px-5 py-4 overflow-x-auto whitespace-nowrap" +
+          (bodyClassName ? " " + bodyClassName : "")
+        }
         style={{ color: fg }}
       >
         {children}

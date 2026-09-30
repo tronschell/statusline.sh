@@ -1,6 +1,8 @@
 import { CaretRight } from "@phosphor-icons/react";
 import { Link, usePath } from "../../router";
 import { BrandArt } from "../Brand/BrandArt";
+import { AccountMenu } from "../Account/AccountMenu";
+import { ACCOUNTS_ENABLED } from "../../lib/config";
 
 const DOCS_URL = "https://github.com/tronschell/statusline.sh/blob/main/README.md";
 
@@ -13,7 +15,7 @@ export function NavBar() {
 
   return (
     <header className="sticky top-0 z-40 w-full border-b border-white/[0.06] bg-[#0E0E10]/80 backdrop-blur-md">
-      <div className="mx-auto flex max-w-[1400px] items-center gap-6 px-8 py-3">
+      <div className="mx-auto flex max-w-[1400px] flex-wrap items-center gap-x-3 gap-y-2 px-4 py-3 sm:flex-nowrap sm:gap-6 sm:px-8">
         <Link
           href="/"
           aria-label="statusline.sh home"
@@ -22,7 +24,7 @@ export function NavBar() {
           <BrandArt size="xs" />
         </Link>
 
-        <nav className="flex flex-1 items-center justify-center gap-8 text-[13px]">
+        <nav className="order-last flex w-full items-center justify-center gap-5 text-[13px] sm:order-none sm:w-auto sm:flex-1 sm:gap-8">
           <NavLink
             href="/community"
             active={isActive(pathname, "/community")}
@@ -37,19 +39,29 @@ export function NavBar() {
           >
             Guide
           </NavLink>
+          {ACCOUNTS_ENABLED ? (
+            <NavLink href="/pricing" active={isActive(pathname, "/pricing")} title="Statusline.sh Pro pricing">
+              Pricing
+            </NavLink>
+          ) : null}
           <ExternalNavLink href={DOCS_URL} title="Claude Code statusline docs">
             Docs
           </ExternalNavLink>
         </nav>
 
-        <Link
-          href="/builder"
-          title="Claude Code Statusline Builder"
-          className="inline-flex items-center gap-1.5 rounded-[6px] bg-[#E8E8E6] px-4 py-2 text-[13px] font-medium text-[#0E0E10] no-underline transition-transform duration-150 ease-out hover:scale-[0.98] active:scale-[0.96]"
-        >
-          Build
-          <CaretRight size={14} weight="bold" />
-        </Link>
+        {/* Wrapper is layout-neutral (contents) from sm up; on phones it pins account + CTA to the first row. */}
+        <div className="ml-auto flex items-center gap-3 sm:contents">
+          {ACCOUNTS_ENABLED ? <AccountMenu /> : null}
+
+          <Link
+            href="/builder"
+            title="Claude Code Statusline Builder"
+            className="inline-flex items-center gap-1.5 rounded-[6px] bg-[#E8E8E6] px-4 py-2 text-[13px] font-medium text-[#0E0E10] no-underline transition-transform duration-150 ease-out hover:scale-[0.98] active:scale-[0.96]"
+          >
+            Build
+            <CaretRight size={14} weight="bold" />
+          </Link>
+        </div>
       </div>
     </header>
   );

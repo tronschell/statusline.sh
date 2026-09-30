@@ -17,6 +17,10 @@
       "destination": "/how-to-make-a-claude-code-statusline.html"
     },
     {
+      "source": "/claude-code-statusline-command",
+      "destination": "/claude-code-statusline-command.html"
+    },
+    {
       "source": "/claude-code-statusline-git-branch",
       "destination": "/claude-code-statusline-git-branch.html"
     },

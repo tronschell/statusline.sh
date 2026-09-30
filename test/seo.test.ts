@@ -1,4 +1,6 @@
 import { describe, expect, test } from "bun:test";
+import { existsSync } from "node:fs";
+import { join } from "node:path";
 import {
   STATIC_SITEMAP_ROUTES,
   renderStaticRouteHtmlShell,
@@ -7,6 +9,12 @@ import {
   renderSitemapPagesXml,
   renderWebManifest,
 } from "../build";
+import {
+  COMMAND_GUIDE_PATH,
+  GUIDE_OG_IMAGE,
+  GUIDE_PAGES,
+  stripInline,
+} from "../src/frontend/components/Guides/guideContent";
 import {
   DEFAULT_OG_IMAGE,
   STATIC_ROUTE_META,
@@ -119,8 +127,14 @@ describe("static SEO assets", () => {
       image: "https://statusline-community.zoniixyt.workers.dev/og/community/example-statusline.png",
     });
     expect(metaForPath(STATUSLINE_GUIDE_PATH)).toMatchObject({
-      title: "How to Make a Claude Code Status Line | statusline.sh",
+      title: "How to Make a Claude Code Statusline | statusline.sh",
       canonicalPath: STATUSLINE_GUIDE_PATH,
+      image: GUIDE_OG_IMAGE,
+      ogType: "article",
+    });
+    expect(metaForPath(COMMAND_GUIDE_PATH)).toMatchObject({
+      title: "Claude Code /statusline Command Guide | statusline.sh",
+      canonicalPath: COMMAND_GUIDE_PATH,
     });
   });
 
@@ -134,15 +148,57 @@ describe("static SEO assets", () => {
     expect(jsonLd.featureList).toContain("Visual Claude Code statusline builder");
   });
 
-  test("builds guide HowTo and FAQ JSON-LD", () => {
+  test("builds guide HowTo and FAQ JSON-LD from the guide data", () => {
+    const pillar = GUIDE_PAGES.find((p) => p.path === STATUSLINE_GUIDE_PATH)!;
     const howTo = buildGuideHowToJsonLd();
     const faq = buildGuideFaqJsonLd();
 
     expect(howTo["@type"]).toBe("HowTo");
-    expect(howTo.name).toBe("How to make a Claude Code status line");
-    expect(JSON.stringify(howTo)).toContain("Open the statusline.sh builder");
+    expect(howTo.name).toBe(pillar.howTo!.name);
+    expect(JSON.stringify(howTo)).toContain("Open the builder");
     expect(faq["@type"]).toBe("FAQPage");
-    expect(JSON.stringify(faq)).toContain("statusline or a status bar");
+    expect(JSON.stringify(faq)).toContain("statusline, a status line or a status bar");
+  });
+
+  test.each(GUIDE_PAGES.map((p) => [p.path, p] as const))(
+    "guide %s has search-friendly metadata and JSON-LD that mirrors the page",
+    (path, page) => {
+      // Title/description budgets from the SEO brief.
+      expect(page.metaTitle.length).toBeLessThanOrEqual(60);
+      expect(page.metaDescription.length).toBeLessThanOrEqual(155);
+
+      const meta = STATIC_ROUTE_META[path]!;
+      expect(meta.title).toBe(page.metaTitle);
+      expect(meta.description).toBe(page.metaDescription);
+      expect(meta.image).toBe(GUIDE_OG_IMAGE);
+      expect(meta.ogType).toBe("article");
+
+      const types = (meta.jsonLd ?? []).map((j) => j["@type"]);
+      expect(types).toContain("BreadcrumbList");
+      expect(types).toContain("Article");
+      expect(types).toContain("FAQPage");
+      expect(types.includes("HowTo")).toBe(Boolean(page.howTo));
+
+      // FAQPage JSON-LD must list exactly the questions/answers shown on the page.
+      const faqLd = (meta.jsonLd ?? []).find((j) => j["@type"] === "FAQPage") as {
+        mainEntity: Array<{ name: string; acceptedAnswer: { text: string } }>;
+      };
+      expect(faqLd.mainEntity.map((q) => [q.name, q.acceptedAnswer.text])).toEqual(
+        page.faqs.map((f) => [f.q, stripInline(f.a)]),
+      );
+    },
+  );
+
+  test("guide pages have distinct titles, descriptions and canonicals", () => {
+    const metas = GUIDE_PAGES.map((p) => STATIC_ROUTE_META[p.path]!);
+    expect(new Set(metas.map((m) => m.title)).size).toBe(metas.length);
+    expect(new Set(metas.map((m) => m.description)).size).toBe(metas.length);
+    expect(new Set(metas.map((m) => m.canonicalPath)).size).toBe(metas.length);
+  });
+
+  test("sitemap lists every guide page", () => {
+    const paths = STATIC_SITEMAP_ROUTES.map((r) => r.path);
+    for (const page of GUIDE_PAGES) expect(paths).toContain(page.path);
   });
 
   test("renders route-specific HTML shell metadata", () => {
@@ -292,33 +348,70 @@ describe("runtime Seo head application", () => {
 });
 
 describe("static SEO assets (guide body)", () => {
+  const SHELL = [
+    "<html><head>",
+    '<meta name="description" content="Home" />',
+    '<meta name="robots" content="index,follow" />',
+    '<meta property="og:type" content="website" />',
+    '<meta property="og:title" content="Home" />',
+    '<meta property="og:description" content="Home" />',
+    '<meta property="og:url" content="https://statusline.sh/" />',
+    '<meta property="og:image" content="https://statusline.sh/og-default.png" />',
+    '<meta name="twitter:title" content="Home" />',
+    '<meta name="twitter:description" content="Home" />',
+    '<meta name="twitter:image" content="https://statusline.sh/og-default.png" />',
+    '<link rel="canonical" href="https://statusline.sh/" />',
+    "<title>Home</title>",
+    '<script type="application/ld+json">{}</script>',
+    '</head><body><div id="root"></div></body></html>',
+  ].join("\n");
+
   test("renders crawlable static body for the statusline guide", () => {
-    const html = renderStaticRouteHtmlShell(
-      [
-        "<html><head>",
-        '<meta name="description" content="Home" />',
-        '<meta name="robots" content="index,follow" />',
-        '<meta property="og:title" content="Home" />',
-        '<meta property="og:description" content="Home" />',
-        '<meta property="og:url" content="https://statusline.sh/" />',
-        '<meta property="og:image" content="https://statusline.sh/og-default.png" />',
-        '<meta name="twitter:title" content="Home" />',
-        '<meta name="twitter:description" content="Home" />',
-        '<meta name="twitter:image" content="https://statusline.sh/og-default.png" />',
-        '<link rel="canonical" href="https://statusline.sh/" />',
-        "<title>Home</title>",
-        '<script type="application/ld+json">{}</script>',
-        '</head><body><div id="root"></div></body></html>',
-      ].join("\n"),
-      STATIC_ROUTE_META[STATUSLINE_GUIDE_PATH]!,
-    );
+    const html = renderStaticRouteHtmlShell(SHELL, STATIC_ROUTE_META[STATUSLINE_GUIDE_PATH]!);
 
     expect(html).toContain(
-      "<title>How to Make a Claude Code Status Line | statusline.sh</title>",
+      "<title>How to Make a Claude Code Statusline | statusline.sh</title>",
     );
-    expect(html).toContain("How to make a Claude Code status line.");
-    expect(html).toContain("Claude Code calls the bottom bar a statusline");
+    expect(html).toContain("How to make a Claude Code statusline.");
+    expect(html).toContain('<meta property="og:type" content="article" />');
+    expect(html).toContain('<meta property="og:image" content="https://statusline.sh/og-guide.png" />');
     expect(html).toContain('"@type":"HowTo"');
     expect(html).toContain('"@type":"FAQPage"');
+    expect(html).toContain('"@type":"Article"');
   });
+
+  test.each(GUIDE_PAGES.map((p) => p.path))(
+    "static body for %s is a complete, self-consistent article",
+    (path) => {
+      const page = GUIDE_PAGES.find((p) => p.path === path)!;
+      const html = renderStaticRouteHtmlShell(SHELL, STATIC_ROUTE_META[path]!);
+
+      // One H1, one H2 per section plus FAQ / Keep reading / CTA.
+      expect(html.match(/<h1\b/g)).toHaveLength(1);
+      expect(html.match(/<h2\b/g)!.length).toBe(page.sections.length + 3);
+
+      // The FAQ is <details>, one per question, with the exact question text.
+      const summaries = [...html.matchAll(/<summary\b[^>]*>([^<]*)<\/summary>/g)].map((m) => m[1]);
+      for (const faq of page.faqs) {
+        expect(summaries).toContain(faq.q.replace(/&/g, "&amp;").replace(/"/g, "&quot;"));
+      }
+
+      // Every in-page anchor resolves to a section id in the same document.
+      const ids = new Set([...html.matchAll(/\bid="([^"]+)"/g)].map((m) => m[1]));
+      const hashes = [...html.matchAll(/href="#([^"]+)"/g)].map((m) => m[1]!);
+      expect(hashes.length).toBeGreaterThan(0);
+      for (const h of hashes) expect(ids.has(h)).toBe(true);
+
+      // Screenshots: alt text, explicit size (no layout shift), lazy, and the file exists.
+      const imgs = [...html.matchAll(/<img\b[^>]*>/g)].map((m) => m[0]);
+      for (const img of imgs) {
+        expect(img).toMatch(/\balt="[^"]{20,}"/);
+        expect(img).toMatch(/\bwidth="\d+"/);
+        expect(img).toMatch(/\bheight="\d+"/);
+        expect(img).toContain('loading="lazy"');
+        const src = img.match(/\bsrc="([^"]+)"/)![1]!;
+        expect(existsSync(join(import.meta.dir, "..", "src", "static", src))).toBe(true);
+      }
+    },
+  );
 });

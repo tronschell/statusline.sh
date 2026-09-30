@@ -1,3 +1,13 @@
+import {
+  GUIDE_OG_IMAGE,
+  GUIDE_PAGES,
+  STATUSLINE_GUIDE_PATH,
+  stripInline,
+  type GuidePageData,
+} from "./components/Guides/guideContent";
+
+export { STATUSLINE_GUIDE_PATH };
+
 export const SITE_NAME = "statusline.sh";
 export const SITE_URL = "https://statusline.sh";
 // Social link previewers (Twitter/X, Slack, Discord, iMessage, LinkedIn,
@@ -11,7 +21,6 @@ export const DEFAULT_OG_IMAGE = "/og-default.png";
 // these URLs themselves from somewhere remote, so a localhost dev override
 // would be useless to them. Per-design OG URLs always need to be absolute.
 export const OG_IMAGE_ORIGIN = "https://statusline-community.zoniixyt.workers.dev";
-export const STATUSLINE_GUIDE_PATH = "/how-to-make-a-claude-code-statusline";
 
 /**
  * Build the per-design OG share image URL. Returns the `.png` Worker
@@ -243,85 +252,91 @@ export function buildBreadcrumbJsonLd(
   };
 }
 
-const GUIDE_FAQS = [
-  {
-    question: "Is it called a statusline or a status bar?",
-    answer:
-      "Claude Code documentation uses statusline. People often describe the same area as a status line or status bar because it sits at the bottom of the terminal.",
-  },
-  {
-    question: "Do I need to edit settings.json manually?",
-    answer:
-      "No. The builder creates an installer that structurally merges the statusLine setting into your Claude settings while preserving other top-level keys.",
-  },
-  {
-    question: "Does this work on Windows?",
-    answer:
-      "Yes. The builder can generate a PowerShell installer for Windows and a bash installer for macOS or Linux.",
-  },
-  {
-    question: "Can I customize colors and segments?",
-    answer:
-      "Yes. You can add, remove, reorder, and style statusline elements visually, including ANSI colors and conditional elements.",
-  },
-  {
-    question: "Can I share my Claude Code statusline?",
-    answer:
-      "Yes. You can publish a design to the community gallery and other users can preview or fork it into their own builder.",
-  },
-];
+const PILLAR_GUIDE = GUIDE_PAGES.find((page) => page.path === STATUSLINE_GUIDE_PATH)!;
 
-export function buildGuideHowToJsonLd(): JsonLdObject {
+/** Text without the trailing full stop the visual H1 carries. */
+function headlineOf(page: GuidePageData): string {
+  return page.h1.replace(/\.$/, "");
+}
+
+export function buildGuideArticleJsonLd(page: GuidePageData): JsonLdObject {
   return {
     "@context": "https://schema.org",
-    "@type": "HowTo",
-    name: "How to make a Claude Code status line",
-    description:
-      "Create, customize, preview, and install a Claude Code statusline or terminal status bar.",
-    totalTime: "PT5M",
-    tool: [
-      { "@type": "HowToTool", name: "Claude Code" },
-      { "@type": "HowToTool", name: SITE_NAME },
-    ],
-    step: [
-      {
-        "@type": "HowToStep",
-        name: "Open the builder",
-        text: "Open the statusline.sh builder and choose whether to start from scratch or use a template.",
-        url: canonicalUrl("/builder"),
-      },
-      {
-        "@type": "HowToStep",
-        name: "Add statusline elements",
-        text: "Add Claude Code session fields such as model, directory, git branch, context usage, cost, and session duration.",
-      },
-      {
-        "@type": "HowToStep",
-        name: "Preview the terminal output",
-        text: "Use the live preview to check ANSI styling and layout before changing local Claude settings.",
-      },
-      {
-        "@type": "HowToStep",
-        name: "Install the generated script",
-        text: "Run the generated bash or PowerShell installer to merge the statusline command into settings.json.",
-      },
-    ],
+    "@type": "Article",
+    headline: headlineOf(page),
+    description: page.metaDescription,
+    datePublished: page.published,
+    dateModified: page.modified,
+    image: absoluteUrl(GUIDE_OG_IMAGE),
+    mainEntityOfPage: canonicalUrl(page.path),
+    author: { "@type": "Organization", name: SITE_NAME, url: SITE_URL },
+    publisher: { "@type": "Organization", name: SITE_NAME, url: SITE_URL },
   };
 }
 
-export function buildGuideFaqJsonLd(): JsonLdObject {
+export function buildGuideHowToJsonLd(page: GuidePageData = PILLAR_GUIDE): JsonLdObject {
+  const howTo = page.howTo;
+  if (!howTo) throw new Error(`Guide ${page.path} has no HowTo data`);
+  return {
+    "@context": "https://schema.org",
+    "@type": "HowTo",
+    name: howTo.name,
+    description: howTo.description,
+    totalTime: howTo.totalTime,
+    tool: howTo.tools.map((name) => ({ "@type": "HowToTool", name })),
+    step: howTo.steps.map((step) => ({
+      "@type": "HowToStep",
+      name: step.name,
+      text: step.text,
+      ...(step.url ? { url: canonicalUrl(step.url) } : {}),
+    })),
+  };
+}
+
+export function buildGuideFaqJsonLd(page: GuidePageData = PILLAR_GUIDE): JsonLdObject {
   return {
     "@context": "https://schema.org",
     "@type": "FAQPage",
-    mainEntity: GUIDE_FAQS.map((item) => ({
+    mainEntity: page.faqs.map((item) => ({
       "@type": "Question",
-      name: item.question,
+      name: item.q,
       acceptedAnswer: {
         "@type": "Answer",
-        text: item.answer,
+        text: stripInline(item.a),
       },
     })),
   };
+}
+
+function buildGuideRouteMeta(): Record<string, RouteMeta> {
+  const entries: Record<string, RouteMeta> = {};
+  for (const page of GUIDE_PAGES) {
+    const crumbs =
+      page.path === STATUSLINE_GUIDE_PATH
+        ? [
+            { name: "Home", path: "/" },
+            { name: page.breadcrumbName, path: page.path },
+          ]
+        : [
+            { name: "Home", path: "/" },
+            { name: PILLAR_GUIDE.breadcrumbName, path: PILLAR_GUIDE.path },
+            { name: page.breadcrumbName, path: page.path },
+          ];
+    entries[page.path] = {
+      title: page.metaTitle,
+      description: page.metaDescription,
+      canonicalPath: page.path,
+      image: GUIDE_OG_IMAGE,
+      ogType: "article",
+      jsonLd: [
+        buildBreadcrumbJsonLd(crumbs),
+        buildGuideArticleJsonLd(page),
+        ...(page.howTo ? [buildGuideHowToJsonLd(page)] : []),
+        buildGuideFaqJsonLd(page),
+      ],
+    };
+  }
+  return entries;
 }
 
 /**
@@ -439,20 +454,7 @@ export const STATIC_ROUTE_META: Record<string, RouteMeta> = {
       ]),
     ],
   },
-  [STATUSLINE_GUIDE_PATH]: {
-    title: "How to Make a Claude Code Status Line | statusline.sh",
-    description:
-      "Learn how to build, customize, preview, and install a Claude Code statusline or status bar with statusline.sh.",
-    canonicalPath: STATUSLINE_GUIDE_PATH,
-    jsonLd: [
-      buildBreadcrumbJsonLd([
-        { name: "Home", path: "/" },
-        { name: "Claude Code Statusline Guide", path: STATUSLINE_GUIDE_PATH },
-      ]),
-      buildGuideHowToJsonLd(),
-      buildGuideFaqJsonLd(),
-    ],
-  },
+  ...buildGuideRouteMeta(),
   "/privacy": {
     title: "Privacy Policy | statusline.sh",
     description:
@@ -465,6 +467,31 @@ export const STATIC_ROUTE_META: Record<string, RouteMeta> = {
       "Terms of service for statusline.sh, the open-source Claude Code statusline builder.",
     canonicalPath: "/terms",
   },
+  "/pricing": {
+    title: "statusline.sh Pro — Auto-updating Claude Code Statuslines | statusline.sh",
+    description:
+      "Free builder for everyone. Pro adds permanent auto-updating install links, a private cloud library, team statuslines, featured slots and a verified badge for $5/month.",
+    canonicalPath: "/pricing",
+  },
+  ...Object.fromEntries(
+    [
+      ["/signin", "Sign in"],
+      ["/reset-password", "Reset password"],
+      ["/account", "Account"],
+      ["/library", "Library"],
+      ["/teams", "Teams"],
+      ["/join-team", "Join a team"],
+      ["/auth/callback", "Signing in"],
+    ].map(([path, name]) => [
+      path,
+      {
+        title: `${name} | statusline.sh`,
+        description: "Manage your statusline.sh account.",
+        canonicalPath: path!,
+        robots: "noindex,nofollow",
+      } satisfies RouteMeta,
+    ]),
+  ),
   ...buildProgrammaticRouteMeta(),
 };
 
@@ -478,6 +505,20 @@ export function metaForPath(path: string): RouteMeta {
     const slug = safeDecode(segments[2] ?? "");
     const label = titleFromSlug(slug);
     return buildCommunityDetailMeta({ slug, name: label });
+  }
+
+  if (
+    (normalized.startsWith("/u/") || normalized.startsWith("/teams/")) &&
+    segments.length === 3
+  ) {
+    return {
+      title: `${safeDecode(segments[2] ?? "")} | ${SITE_NAME}`,
+      description: "A statusline.sh creator profile.",
+      canonicalPath: normalized,
+      // Profiles are thin, user-generated pages; keep them out of the index
+      // until there is a sitemap + SSR for them. Team pages are private.
+      robots: "noindex,follow",
+    };
   }
 
   // Unknown / dynamic route with no static shell and no SSR backing. Give it

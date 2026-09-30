@@ -46,6 +46,8 @@ export interface PublishInput {
   author_name: string;
   description: string;
   forked_from?: string | null;
+  /** Set only for signed-in publishes; anonymous publishes never carry it. */
+  owner_id?: string | null;
 }
 
 export interface ListOptions {
@@ -191,6 +193,27 @@ async function tryInsertDesign(
   // submitted card name even if the design was originally drafted with a
   // different `name` field.
   const designToStore: Design = { ...input.design, name: input.name };
+  if (input.owner_id) {
+    await env.DB
+      .prepare(
+        `INSERT INTO designs (id, json, slug, name, author_name, description, forked_from, published_at, owner_id)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      )
+      .bind(
+        id,
+        JSON.stringify(designToStore),
+        slug,
+        input.name,
+        input.author_name,
+        input.description,
+        input.forked_from ?? null,
+        publishedAt,
+        input.owner_id,
+      )
+      .run();
+    return;
+  }
+  // Anonymous path: byte-for-byte the pre-accounts statement.
   await env.DB
     .prepare(
       `INSERT INTO designs (id, json, slug, name, author_name, description, forked_from, published_at)
@@ -477,7 +500,7 @@ export async function insertInstallRecord(
 export async function getInstallTarget(
   env: DbEnv,
   id: string,
-): Promise<{ design: Design; source: "designs" | "install_records" } | null> {
+): Promise<{ design: Design; source: "designs" | "install_records" | "cloud" } | null> {
   const designRow = (await env.DB
     .prepare("SELECT json FROM designs WHERE id = ?")
     .bind(id)
@@ -494,6 +517,15 @@ export async function getInstallTarget(
       design: JSON.parse(installRow.json) as Design,
       source: "install_records",
     };
+  }
+  // Permanent (auto-updating) links use 12-char ids; legacy ids are 10, so
+  // existing links never reach this query.
+  if (id.length === 12) {
+    const cloudRow = (await env.DB
+      .prepare("SELECT json FROM cloud_designs WHERE id = ? AND link_enabled = 1")
+      .bind(id)
+      .first()) as { json: string } | null;
+    if (cloudRow) return { design: JSON.parse(cloudRow.json) as Design, source: "cloud" };
   }
   return null;
 }

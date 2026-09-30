@@ -16,9 +16,19 @@ export interface RateLimitEnv {
   RATE_LIMITER_LIST?: RateLimitBinding;
   RATE_LIMITER_DETAIL?: RateLimitBinding;
   RATE_LIMITER_INSTALLER?: RateLimitBinding;
+  RATE_LIMITER_AUTH?: RateLimitBinding;
+  RATE_LIMITER_ACCOUNT?: RateLimitBinding;
 }
 
-export type Endpoint = "publish" | "fork" | "install" | "list" | "detail" | "installer";
+export type Endpoint =
+  | "publish"
+  | "fork"
+  | "install"
+  | "list"
+  | "detail"
+  | "installer"
+  | "auth"
+  | "account";
 
 const BINDING_MAP: Record<Endpoint, keyof RateLimitEnv> = {
   publish: "RATE_LIMITER_PUBLISH",
@@ -27,6 +37,8 @@ const BINDING_MAP: Record<Endpoint, keyof RateLimitEnv> = {
   list: "RATE_LIMITER_LIST",
   detail: "RATE_LIMITER_DETAIL",
   installer: "RATE_LIMITER_INSTALLER",
+  auth: "RATE_LIMITER_AUTH",
+  account: "RATE_LIMITER_ACCOUNT",
 };
 
 export async function checkRateLimit(

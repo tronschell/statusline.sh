@@ -1,0 +1,422 @@
+import { useEffect, useRef, useState, type FormEvent } from "react";
+import { accountApi, type Me, type MyDesign } from "../../lib/accountApi";
+import { useAuthStore } from "../../store/authStore";
+import { navigate } from "../../lib/navigate";
+import { Link } from "../../router";
+import { Avatar, Btn, Card, Field, LinkBtn, Notice, Page, RequireAuth, VerifiedBadge, fmtDate, inputClass } from "./ui";
+
+const errMsg = (e: unknown) => (e instanceof Error ? e.message : String(e));
+
+export function AccountPage() {
+  return <RequireAuth>{(me) => <AccountInner me={me} />}</RequireAuth>;
+}
+
+function AccountInner({ me }: { me: Me }) {
+  const signOut = useAuthStore((s) => s.signOut);
+  const params = new URLSearchParams(window.location.search);
+  const justPaid = params.get("checkout") === "success";
+  const justReset = params.get("reset") === "1";
+
+  return (
+    <Page
+      eyebrow="Account"
+      title={`@${me.user.username}`}
+      lead={me.pro.active ? <span className="inline-flex items-center gap-1.5"><VerifiedBadge /> Pro member</span> : "Free plan"}
+      actions={
+        <>
+          <LinkBtn href="/library">Library</LinkBtn>
+          <LinkBtn href={`/u/${me.user.username}`}>Public profile</LinkBtn>
+          <Btn
+            variant="ghost"
+            onClick={async () => {
+              await signOut();
+              navigate("/");
+            }}
+          >
+            Sign out
+          </Btn>
+        </>
+      }
+    >
+      <div className="flex flex-col gap-5">
+        {justReset ? <Notice tone="ok">Password updated. Your other sessions were signed out.</Notice> : null}
+        {justPaid ? <CheckoutWatcher /> : null}
+        <SubscriptionCard me={me} awaitingPayment={justPaid && !me.pro.active} />
+        <ProfileCard me={me} />
+        <SecurityCard me={me} />
+        <PublishedCard me={me} />
+      </div>
+    </Page>
+  );
+}
+
+/** After Lemon Squeezy redirects back, the webhook may lag a few seconds — poll /me until Pro shows up. */
+function CheckoutWatcher() {
+  const refresh = useAuthStore((s) => s.refresh);
+  const active = useAuthStore((s) => s.me?.pro.active ?? false);
+  const [gaveUp, setGaveUp] = useState(false);
+  useEffect(() => {
+    if (active) return;
+    let n = 0;
+    const t = setInterval(() => {
+      n += 1;
+      void refresh();
+      if (n >= 15) {
+        clearInterval(t);
+        setGaveUp(true);
+      }
+    }, 2000);
+    return () => clearInterval(t);
+  }, [active, refresh]);
+  if (active) return <Notice tone="ok">Payment confirmed — welcome to Pro.</Notice>;
+  return gaveUp ? (
+    <Notice tone="info">
+      Payment received, but confirmation is taking longer than usual. Refresh in a minute; if Pro still hasn't
+      appeared, your payment provider's receipt has the details to send us.
+    </Notice>
+  ) : (
+    <Notice tone="info">Confirming your payment…</Notice>
+  );
+}
+
+function SubscriptionCard({ me, awaitingPayment }: { me: Me; awaitingPayment: boolean }) {
+  const refresh = useAuthStore((s) => s.refresh);
+  const [busy, setBusy] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [info, setInfo] = useState<string | null>(null);
+  const { pro, plan } = me;
+
+  async function run(key: string, fn: () => Promise<void>) {
+    setBusy(key);
+    setError(null);
+    setInfo(null);
+    try {
+      await fn();
+    } catch (e) {
+      setError(errMsg(e));
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  const openPortal = (which: "url" | "update_payment_method_url") =>
+    run(which, async () => {
+      const r = await accountApi.portal();
+      const url = which === "url" ? r.url : (r.update_payment_method_url ?? r.url);
+      window.location.assign(url);
+    });
+
+  const cancelled = pro.status === "cancelled";
+  const pastDue = pro.status === "past_due" || pro.status === "unpaid";
+  const hasSub = pro.status !== null;
+  const canCancel = hasSub && (pro.status === "active" || pro.status === "on_trial" || pastDue);
+
+  let summary: string;
+  if (!hasSub) summary = "You're on the Free plan.";
+  else if (cancelled && pro.active) summary = `Cancelled — Pro stays on until ${fmtDate(pro.ends_at ?? pro.until)}.`;
+  else if (cancelled) summary = `Your Pro plan ended on ${fmtDate(pro.ends_at ?? pro.until)}.`;
+  else if (pastDue) summary = "Your last payment didn't go through. Update your payment method to keep Pro.";
+  else if (pro.active) summary = `Pro is active. Renews on ${fmtDate(pro.renews_at)}.`;
+  else summary = `Subscription status: ${pro.status}.`;
+
+  return (
+    <Card
+      title="Subscription"
+      description={summary}
+      right={
+        <span
+          className={`rounded-full border px-2.5 py-1 text-[11px] uppercase tracking-[0.12em] ${
+            pro.active ? "border-[#8FB8DA]/40 text-[#8FB8DA]" : "border-white/[0.1] text-[#8A8A86]"
+          }`}
+        >
+          {pro.active ? "Pro" : "Free"}
+        </span>
+      }
+    >
+      <div className="flex flex-col gap-4">
+        {!pro.active && !cancelled && !hasSub ? (
+          <p className="text-[13px] text-[#8A8A86]">
+            Pro is ${plan.priceUsdPerMonth}/month: permanent auto-updating links, a {plan.proLibraryCap}-design private
+            library, teams, featured slots and a verified badge. <Link href="/pricing" className="text-[#E8E8E6] underline underline-offset-[4px]">See what's included</Link>.
+          </p>
+        ) : null}
+
+        <div className="flex flex-wrap gap-2">
+          {/* Hidden while a just-paid checkout awaits its webhook, so nobody pays twice. */}
+          {!pro.active && !pastDue && !awaitingPayment ? (
+            <Btn
+              variant="primary"
+              disabled={busy !== null}
+              onClick={() =>
+                run("checkout", async () => {
+                  window.location.assign((await accountApi.checkout()).url);
+                })
+              }
+            >
+              {busy === "checkout" ? "Opening checkout…" : cancelled ? "Resubscribe" : `Upgrade to Pro — $${plan.priceUsdPerMonth}/mo`}
+            </Btn>
+          ) : null}
+          {hasSub ? (
+            <>
+              <Btn disabled={busy !== null} onClick={() => openPortal("url")}>
+                {busy === "url" ? "Opening…" : "Manage billing & invoices"}
+              </Btn>
+              <Btn variant={pastDue ? "primary" : "secondary"} disabled={busy !== null} onClick={() => openPortal("update_payment_method_url")}>
+                Update payment method
+              </Btn>
+            </>
+          ) : null}
+          {cancelled && pro.active ? (
+            <Btn
+              variant="primary"
+              disabled={busy !== null}
+              onClick={() =>
+                run("resume", async () => {
+                  await accountApi.resumeSub();
+                  await refresh();
+                  setInfo("Subscription resumed.");
+                })
+              }
+            >
+              Resume subscription
+            </Btn>
+          ) : null}
+          {canCancel && !cancelled ? (
+            <Btn
+              variant="danger"
+              disabled={busy !== null}
+              onClick={() => {
+                if (!window.confirm(`Cancel Pro? You keep it until ${fmtDate(pro.renews_at ?? pro.until)}.`)) return;
+                void run("cancel", async () => {
+                  await accountApi.cancelSub();
+                  await refresh();
+                  setInfo("Subscription cancelled. Pro stays on until the end of the period you paid for.");
+                });
+              }}
+            >
+              Cancel subscription
+            </Btn>
+          ) : null}
+        </div>
+
+        {!me.billing_configured ? (
+          <Notice tone="info">Billing isn't enabled on this server yet.</Notice>
+        ) : null}
+        {error ? <Notice>{error}</Notice> : null}
+        {info ? <Notice tone="ok">{info}</Notice> : null}
+      </div>
+    </Card>
+  );
+}
+
+function ProfileCard({ me }: { me: Me }) {
+  const refresh = useAuthStore((s) => s.refresh);
+  const [username, setUsername] = useState(me.user.username);
+  const [displayName, setDisplayName] = useState(me.user.display_name);
+  const [donation, setDonation] = useState(me.user.donation_url ?? "");
+  const [avail, setAvail] = useState<{ ok: boolean; text: string } | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [saved, setSaved] = useState(false);
+  const seq = useRef(0);
+
+  // Debounced availability check for the username field.
+  useEffect(() => {
+    setAvail(null);
+    const u = username.trim().toLowerCase();
+    if (!u || u === me.user.username) return;
+    const mine = ++seq.current;
+    const t = setTimeout(() => {
+      accountApi
+        .usernameAvailable(u)
+        .then((r) => {
+          if (mine === seq.current)
+            setAvail(r.available ? { ok: true, text: "Available" } : { ok: false, text: r.reason ?? "Not available" });
+        })
+        .catch(() => {});
+    }, 350);
+    return () => clearTimeout(t);
+  }, [username, me.user.username]);
+
+  async function submit(e: FormEvent) {
+    e.preventDefault();
+    setBusy(true);
+    setError(null);
+    setSaved(false);
+    try {
+      await accountApi.updateMe({
+        username: username.trim(),
+        display_name: displayName.trim(),
+        donation_url: donation.trim() || null,
+      });
+      await refresh();
+      setSaved(true);
+    } catch (err) {
+      setError(errMsg(err));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <Card
+      title="Profile"
+      description="Your @username and display name appear on everything you publish. The donation link shows in the top right of your profile and your design pages."
+      right={<Avatar name={me.user.display_name} url={me.user.avatar_url} size={40} />}
+    >
+      <form onSubmit={submit} className="grid gap-4 md:grid-cols-2">
+        <Field
+          label="Username"
+          hint={
+            avail ? (
+              <span className={avail.ok ? "text-[#9CC09F]" : "text-[#E89B9E]"}>{avail.text}</span>
+            ) : (
+              "3–30 characters: letters, numbers, - and _."
+            )
+          }
+        >
+          <input className={inputClass} value={username} onChange={(e) => setUsername(e.target.value)} maxLength={30} autoComplete="off" />
+        </Field>
+        <Field label="Display name">
+          <input className={inputClass} value={displayName} onChange={(e) => setDisplayName(e.target.value)} maxLength={60} />
+        </Field>
+        <div className="md:col-span-2">
+          <Field label="Donation link" hint="GitHub Sponsors, Ko-fi, Buy Me a Coffee, PayPal.me… any https link. Leave blank to hide.">
+            <input className={inputClass} type="url" placeholder="https://ko-fi.com/you" value={donation} onChange={(e) => setDonation(e.target.value)} maxLength={300} />
+          </Field>
+        </div>
+        <div className="flex items-center gap-3 md:col-span-2">
+          <Btn type="submit" variant="primary" disabled={busy || avail?.ok === false}>
+            {busy ? "Saving…" : "Save profile"}
+          </Btn>
+          {saved ? <span className="text-[13px] text-[#9CC09F]">Saved</span> : null}
+        </div>
+        {error ? (
+          <div className="md:col-span-2">
+            <Notice>{error}</Notice>
+          </div>
+        ) : null}
+      </form>
+    </Card>
+  );
+}
+
+function SecurityCard({ me }: { me: Me }) {
+  const refresh = useAuthStore((s) => s.refresh);
+  const [current, setCurrent] = useState("");
+  const [next, setNext] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [ok, setOk] = useState(false);
+  const { account } = me;
+
+  async function submit(e: FormEvent) {
+    e.preventDefault();
+    setBusy(true);
+    setError(null);
+    setOk(false);
+    try {
+      await accountApi.changePassword(account.has_password ? current : undefined, next);
+      setCurrent("");
+      setNext("");
+      setOk(true);
+      await refresh();
+    } catch (err) {
+      setError(errMsg(err));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <Card title="Sign-in & security" description="How you get into this account.">
+      <dl className="mb-6 grid gap-3 text-[13px] sm:grid-cols-2">
+        <div>
+          <dt className="text-[11px] uppercase tracking-[0.12em] text-[#6F6F6B]">Email</dt>
+          <dd className="mt-1 text-[#E8E8E6]">
+            {account.email ?? "None on file"}
+            {account.email && !account.email_verified ? <span className="ml-2 text-[#D8B870]">unverified</span> : null}
+          </dd>
+        </div>
+        <div>
+          <dt className="text-[11px] uppercase tracking-[0.12em] text-[#6F6F6B]">Connected</dt>
+          <dd className="mt-1 text-[#E8E8E6]">
+            {[...account.providers.map((p) => (p === "github" ? "GitHub" : "Google")), ...(account.has_password ? ["Password"] : [])].join(", ") || "—"}
+          </dd>
+        </div>
+      </dl>
+      <form onSubmit={submit} className="grid max-w-[520px] gap-4">
+        {account.has_password ? (
+          <Field label="Current password">
+            <input className={inputClass} type="password" value={current} onChange={(e) => setCurrent(e.target.value)} autoComplete="current-password" required />
+          </Field>
+        ) : null}
+        <Field label={account.has_password ? "New password" : "Set a password"} hint="At least 8 characters. Other devices are signed out.">
+          <input className={inputClass} type="password" value={next} onChange={(e) => setNext(e.target.value)} autoComplete="new-password" minLength={8} required />
+        </Field>
+        {error ? <Notice>{error}</Notice> : null}
+        {ok ? <Notice tone="ok">Password updated.</Notice> : null}
+        <div>
+          <Btn type="submit" disabled={busy}>
+            {busy ? "Saving…" : account.has_password ? "Change password" : "Set password"}
+          </Btn>
+        </div>
+      </form>
+    </Card>
+  );
+}
+
+function PublishedCard({ me }: { me: Me }) {
+  const [data, setData] = useState<{ items: MyDesign[]; featured_count: number; featured_cap: number } | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  const load = () => accountApi.myDesigns().then(setData).catch((e) => setError(errMsg(e)));
+  useEffect(() => {
+    void load();
+  }, []);
+
+  async function toggle(d: MyDesign) {
+    setError(null);
+    try {
+      await accountApi.setFeatured(d.id, !d.featured);
+      await load();
+    } catch (e) {
+      setError(errMsg(e));
+    }
+  }
+
+  return (
+    <Card
+      title="Published designs"
+      description={
+        me.pro.active
+          ? `Feature up to ${data?.featured_cap ?? me.plan.featuredCap} designs at the top of the community gallery.${data ? ` ${data.featured_count} in use.` : ""}`
+          : "Designs you publish while signed in show here. Featuring them at the top of the gallery is part of Pro."
+      }
+    >
+      {error ? <Notice>{error}</Notice> : null}
+      {data && data.items.length === 0 ? (
+        <p className="text-[13px] text-[#8A8A86]">
+          Nothing published yet. Publish from the <Link href="/builder" className="text-[#E8E8E6] underline underline-offset-[4px]">builder</Link> while signed in and it appears here under your name.
+        </p>
+      ) : null}
+      <ul className="divide-y divide-white/[0.05]">
+        {data?.items.map((d) => (
+          <li key={d.id} className="flex flex-wrap items-center justify-between gap-3 py-3">
+            <div className="min-w-0">
+              <Link href={`/community/${d.slug}`} className="truncate text-[14px] text-[#E8E8E6] no-underline hover:underline">
+                {d.name}
+              </Link>
+              <div className="mt-0.5 text-[12px] text-[#6F6F6B]">
+                {fmtDate(d.published_at)} · {d.installs} installs · {d.forks} forks · {d.views} views
+              </div>
+            </div>
+            <Btn variant={d.featured ? "primary" : "secondary"} disabled={!me.pro.active && !d.featured} onClick={() => void toggle(d)}>
+              {d.featured ? "Featured" : "Feature"}
+            </Btn>
+          </li>
+        ))}
+      </ul>
+    </Card>
+  );
+}

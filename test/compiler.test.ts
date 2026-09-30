@@ -123,7 +123,7 @@ describe("compileToOps", () => {
 describe("interpret renderToAnsi", () => {
   test("simple design produces correct stripped text", () => {
     const ansi = renderToAnsi(SIMPLE, DEFAULT_MOCK_STDIN);
-    expect(stripAnsi(ansi)).toBe("Opus 4.7 | statusline-maker");
+    expect(stripAnsi(ansi)).toBe(`${DEFAULT_MOCK_STDIN.model!.display_name} | statusline-maker`);
   });
 
   test("contextBar reflects percentage", () => {
@@ -199,7 +199,7 @@ describe("interpret renderToAnsi", () => {
       ],
     };
     expect(stripAnsi(renderToAnsi(d, MOCK_PRESETS["noGit"]!))).toBe("");
-    expect(stripAnsi(renderToAnsi(d, DEFAULT_MOCK_STDIN))).toBe("Opus 4.7");
+    expect(stripAnsi(renderToAnsi(d, DEFAULT_MOCK_STDIN))).toBe(DEFAULT_MOCK_STDIN.model!.display_name!);
   });
 
   test("cost formats with precision", () => {
@@ -436,7 +436,7 @@ describe("lineBreak (multi-deck)", () => {
     expect(stripped.match(/\n/g)?.length ?? 0).toBe(1);
     const [first, second, ...rest] = stripped.split("\n");
     expect(rest.length).toBe(0);
-    expect(first).toBe("Opus 4.7");
+    expect(first).toBe(DEFAULT_MOCK_STDIN.model!.display_name!);
     expect(second).toBe("statusline-maker");
   });
 
@@ -1327,6 +1327,49 @@ const PS_EXE = (() => {
   }
   return null;
 })();
+
+for (const backend of ["interpret", "bash", "powershell"] as const) {
+  describe.skipIf(backend === "bash" ? !HAS_BASH : backend === "powershell" && !PS_EXE)(`${backend} text regressions`, () => {
+    function render(design: Design): string {
+      if (backend === "interpret") return renderToAnsi(design, {});
+      const script = backend === "bash" ? compileToBash(design) : compileToPS(design);
+      const path = join(mkdtempSync(join(tmpdir(), "sl-text-")), backend === "bash" ? "sl.sh" : "sl.ps1");
+      writeFileSync(path, script);
+      const r = spawnSync(backend === "bash" ? "bash" : PS_EXE!, backend === "bash" ? [path] : ["-NoProfile", "-File", path], {
+        input: "{}", encoding: "utf8", env: process.env,
+      });
+      expect(r.status).toBe(0);
+      expect(r.stderr).toBe("");
+      return r.stdout;
+    }
+
+    test("fractional cycle intervals match whole-second shell ticks", () => {
+      const prev = process.env.STATUSLINE_CLOCK_OVERRIDE;
+      process.env.STATUSLINE_CLOCK_OVERRIDE = "2";
+      try {
+        expect(render({ version: 1, name: "cycle", elements: [{
+          id: "r", type: "rotator", items: ["alpha", "beta"], intervalSeconds: 2.5,
+          pickMode: "cycle", style: { bold: true },
+        }] })).toBe("\x1b[1mbeta\x1b[0m");
+      } finally {
+        if (prev === undefined) delete process.env.STATUSLINE_CLOCK_OVERRIDE;
+        else process.env.STATUSLINE_CLOCK_OVERRIDE = prev;
+      }
+    });
+
+    test.each([
+      ["alpha:beta::gamma::", "::", "[alpha:beta]|[gamma]|[]"],
+      [" alpha  beta ", " ", "[]|[alpha]|[]|[beta]|[]"],
+      ["alpha\nbeta::gamma", "::", "[alpha\nbeta]|[gamma]"],
+      ["", "::", ""],
+    ])("literal split preserves segments: %j", (text, delimiter, expected) => {
+      expect(render({ version: 1, name: "split", elements: [{
+        id: "s", type: "segmentSplit", source: { kind: "literal", text },
+        delimiter, joinWith: "|", segments: [{ prefix: "[", suffix: "]", style: {} }], style: {},
+      }] })).toBe(expected);
+    });
+  });
+}
 
 describe.skipIf(!PS_EXE)("powershell backend executes correctly", () => {
   // Returns raw stdout bytes so we can assert exact UTF-8 encoding, not just

@@ -11,7 +11,8 @@ import {
 import {
   DndContext,
   DragOverlay,
-  PointerSensor,
+  MouseSensor,
+  TouchSensor,
   KeyboardSensor,
   useSensor,
   useSensors,
@@ -175,9 +176,11 @@ function getPointerFromEvent(
 
 export interface DndProviderProps {
   children: ReactNode;
+  /** Fired when a palette item starts dragging (e.g. to fold the inspector away). */
+  onPaletteDragStart?: () => void;
 }
 
-export function DndProvider({ children }: DndProviderProps) {
+export function DndProvider({ children, onPaletteDragStart }: DndProviderProps) {
   const reorder = useDesignStore((s) => s.reorder);
   const addElementAt = useDesignStore((s) => s.addElementAt);
   const elements = useDesignStore((s) => s.design.elements);
@@ -203,7 +206,9 @@ export function DndProvider({ children }: DndProviderProps) {
   const livePointerRef = useRef<{ x: number; y: number } | null>(null);
 
   const sensors = useSensors(
-    useSensor(PointerSensor, { activationConstraint: { distance: 4 } }),
+    useSensor(MouseSensor, { activationConstraint: { distance: 4 } }),
+    // Touch needs a short press so a swipe still scrolls the mobile drawer.
+    useSensor(TouchSensor, { activationConstraint: { delay: 180, tolerance: 8 } }),
     useSensor(KeyboardSensor, {
       coordinateGetter: sortableKeyboardCoordinates,
     }),
@@ -266,7 +271,9 @@ export function DndProvider({ children }: DndProviderProps) {
         livePointerRef.current = { x: e.clientX, y: e.clientY };
       }
     }
-    setActive(parseDragId(event.active.id as string));
+    const parsed = parseDragId(event.active.id as string);
+    if (parsed?.kind === "palette") onPaletteDragStart?.();
+    setActive(parsed);
   }
 
   /**
@@ -482,6 +489,14 @@ export function DndProvider({ children }: DndProviderProps) {
       if (rafRef.current !== null) cancelAnimationFrame(rafRef.current);
     };
   }, []);
+
+  // Lets CSS (the mobile elements drawer) shrink itself out of the way while a
+  // palette item is being dragged, without unmounting the dragged node.
+  useEffect(() => {
+    const root = document.documentElement;
+    if (active?.kind === "palette") root.setAttribute("data-palette-drag", "");
+    return () => root.removeAttribute("data-palette-drag");
+  }, [active]);
 
   // While a drag is active, track the live pointer via a capture-phase
   // pointermove/pointerup listener on the window. Capture-phase runs before

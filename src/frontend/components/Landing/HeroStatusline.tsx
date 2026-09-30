@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { CaretRight, Pause, Play } from "@phosphor-icons/react";
 import { renderToAnsi } from "@statusline/shared/compiler/interpret";
 import { DEFAULT_MOCK_STDIN } from "@statusline/shared/mockStdin";
@@ -224,25 +224,103 @@ export function HeroStatusline() {
   );
 }
 
+// Bayer 4x4 ordered-dither thresholds (0..15), same as the pricing page glow.
+const BAYER = [0, 8, 2, 10, 12, 4, 14, 6, 3, 11, 1, 9, 15, 7, 13, 5];
+const CELL = 3; // CSS px per dither cell
+// Blobs drift left → right on independent clocks: [rgb, period s, phase 0..1, y 0..1, rx, ry]
+const BLOBS: [number[], number, number, number, number, number][] = [
+  [[236, 124, 120], 32, 0, 0.35, 0.3, 0.32],
+  [[110, 168, 232], 38, 0.25, 0.6, 0.32, 0.3],
+  [[110, 200, 140], 34, 0.5, 0.4, 0.28, 0.34],
+  [[222, 192, 90], 40, 0.75, 0.65, 0.3, 0.3],
+];
+
 /**
- * Soft animated glow that sits behind the terminal frame. Four colored
- * blobs sweep slowly from left to right on independent timelines; each one
- * also morphs its border-radius to drift between organic shapes. The
- * radial mask + SVG fractal-noise overlay together feather the edges and
- * dither away dark-mode gradient banding.
+ * Animated glow behind the terminal frame, rendered as an ordered dither: four colored
+ * gaussian blobs sweep across on their own clocks; their summed intensity is thresholded
+ * against a Bayer matrix so the glow reads as a pixel-grain shader. The radial mask on
+ * .hero-glow feathers the edges. Static under prefers-reduced-motion.
  */
 function HeroGlow() {
+  const ref = useRef<HTMLCanvasElement>(null);
+
+  useEffect(() => {
+    const canvas = ref.current;
+    const ctx = canvas?.getContext("2d");
+    if (!canvas || !ctx) return;
+    const still = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    let cols = 0;
+    let rows = 0;
+    let raf = 0;
+    let last = 0;
+
+    const draw = (now: number) => {
+      raf = requestAnimationFrame(draw);
+      if (now - last < 60) return;
+      last = now;
+      const img = ctx.createImageData(cols, rows);
+      const t = still ? 12 : now / 1000;
+      const state = BLOBS.map(([rgb, period, phase, cy, rx, ry]) => ({
+        rgb,
+        cx: -0.3 + 1.6 * ((t / period + phase) % 1),
+        cy: cy + 0.06 * Math.sin(t / 5 + phase * 9),
+        rx,
+        ry,
+      }));
+      for (let y = 0; y < rows; y++) {
+        const v = y / rows;
+        for (let x = 0; x < cols; x++) {
+          const u = x / cols;
+          let sum = 0;
+          let r = 0;
+          let g = 0;
+          let b = 0;
+          for (const s of state) {
+            const dx = (u - s.cx) / s.rx;
+            const dy = (v - s.cy) / s.ry;
+            const w = Math.exp(-(dx * dx + dy * dy) * 2);
+            sum += w;
+            r += s.rgb[0]! * w;
+            g += s.rgb[1]! * w;
+            b += s.rgb[2]! * w;
+          }
+          const level = Math.min(1, sum * 1.3);
+          if (level > (BAYER[(y & 3) * 4 + (x & 3)]! + 0.5) / 16) {
+            const i = (y * cols + x) * 4;
+            img.data[i] = r / sum;
+            img.data[i + 1] = g / sum;
+            img.data[i + 2] = b / sum;
+            img.data[i + 3] = 200;
+          }
+        }
+      }
+      ctx.putImageData(img, 0, 0);
+      if (still) cancelAnimationFrame(raf);
+    };
+
+    const size = () => {
+      cancelAnimationFrame(raf);
+      cols = Math.ceil(canvas.clientWidth / CELL);
+      rows = Math.ceil(canvas.clientHeight / CELL);
+      canvas.width = cols;
+      canvas.height = rows;
+      raf = requestAnimationFrame(draw);
+    };
+    const ro = new ResizeObserver(size);
+    ro.observe(canvas);
+    size();
+    return () => {
+      ro.disconnect();
+      cancelAnimationFrame(raf);
+    };
+  }, []);
+
   return (
-    <div
+    <canvas
+      ref={ref}
       aria-hidden
-      className="hero-glow absolute -inset-x-24 -inset-y-20 -z-10 pointer-events-none overflow-hidden"
-    >
-      <span className="hero-glow-blob hero-glow-blob--a" />
-      <span className="hero-glow-blob hero-glow-blob--b" />
-      <span className="hero-glow-blob hero-glow-blob--c" />
-      <span className="hero-glow-blob hero-glow-blob--d" />
-      <span className="hero-glow-noise" />
-    </div>
+      className="hero-glow pointer-events-none absolute -inset-x-24 -inset-y-20 -z-10 h-[calc(100%+10rem)] w-[calc(100%+12rem)] [image-rendering:pixelated]"
+    />
   );
 }
 

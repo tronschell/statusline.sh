@@ -5,7 +5,7 @@ import type {
 } from "@statusline/shared/types";
 import { DEFAULT_CONTEXT_THRESHOLDS } from "@statusline/shared/types";
 import BarCharFields from "./BarCharFields";
-import { type FieldsProps, inputClass, labelClass } from "./common";
+import { type FieldsProps, inputClass, labelClass, tabListClass, tabClass, nestedClass } from "./common";
 
 type BarElement = Extract<Element, { type: "contextBar" }>;
 
@@ -60,7 +60,7 @@ export default function ContextBarFields({
 
       <div className="flex flex-col gap-2">
         <label className={labelClass}>Color mode</label>
-        <div className="grid grid-cols-3 gap-1 rounded-[4px] border border-white/[0.06] bg-[#1C1C1F] p-1">
+        <div className={tabListClass}>
           {COLOR_MODES.map((m) => {
             const active = colorMode === m.value;
             return (
@@ -68,11 +68,7 @@ export default function ContextBarFields({
                 key={m.value}
                 type="button"
                 onClick={() => setColorMode(m.value)}
-                className={`rounded-[4px] px-2 py-1 text-xs transition-colors ${
-                  active
-                    ? "bg-[#1E2A36] text-[#E8E8E6]"
-                    : "text-[#8A8A86] hover:text-[#E8E8E6]"
-                }`}
+                className={tabClass(active)}
               >
                 {m.label}
               </button>
@@ -80,7 +76,7 @@ export default function ContextBarFields({
           })}
         </div>
         {colorMode === "absolute" && (
-          <div className="flex flex-col gap-2 rounded-[4px] border border-white/[0.06] p-3">
+          <div className={nestedClass}>
             <span className="text-xs text-[#8A8A86]">
               Token thresholds. Color picks the highest band ≤ tokens.
             </span>

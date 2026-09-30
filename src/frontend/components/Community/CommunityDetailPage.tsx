@@ -8,6 +8,9 @@ import { navigate } from "../../lib/navigate";
 import { useDesignStore } from "../../store/designStore";
 import { TurnstileWidget } from "../../lib/turnstile";
 import { Link } from "../../router";
+import { Avatar, VerifiedBadge } from "../Account/ui";
+import { CardGrid, CommunityDesignCard, relativeTime } from "./CommunityDesignCard";
+import { DonateButton } from "../Account/ProfilePage";
 import { StaticPreview } from "../Preview/StaticPreview";
 import {
   buildCommunityDetailMeta,
@@ -17,23 +20,6 @@ import {
   clearRouteMetaOverride,
   setRouteMetaOverride,
 } from "../Seo";
-
-function relativeTime(ts: number): string {
-  const diff = Date.now() - ts;
-  if (diff < 0) return "just now";
-  const sec = Math.floor(diff / 1000);
-  if (sec < 60) return "just now";
-  const min = Math.floor(sec / 60);
-  if (min < 60) return `${min}m ago`;
-  const hr = Math.floor(min / 60);
-  if (hr < 24) return `${hr}h ago`;
-  const day = Math.floor(hr / 24);
-  if (day < 30) return `${day}d ago`;
-  const mo = Math.floor(day / 30);
-  if (mo < 12) return `${mo}mo ago`;
-  const yr = Math.floor(day / 365);
-  return `${yr}y ago`;
-}
 
 function formatPublishDate(ts: number): string {
   try {
@@ -173,13 +159,13 @@ export function CommunityDetailPage({ slug: slugProp }: CommunityDetailPageProps
 
   return (
     <div className="min-h-screen w-full bg-[#0E0E10] text-[#E8E8E6]">
-      <div className="mx-auto max-w-[1100px] px-6 py-10 md:px-8">
+      <div className="mx-auto max-w-[1100px] px-6 pb-28 pt-10 md:px-8">
         {/* Breadcrumb nav — visible counterpart to the BreadcrumbList JSON-LD
             emitted by `buildCommunityDetailMeta`. Mirrors the same trail of
             Home → Community → {design name}. */}
         <nav
           aria-label="Breadcrumb"
-          className="mb-8 text-[12px] text-[#6F6F6B]"
+          className="mb-10 text-[12px] text-[#6F6F6B] md:mb-14"
         >
           <ol className="flex flex-wrap items-center gap-1.5">
             <li>
@@ -207,130 +193,125 @@ export function CommunityDetailPage({ slug: slugProp }: CommunityDetailPageProps
         </nav>
 
         {loading ? (
-          <div className="text-[13px] text-[#8A8A86]">Loading…</div>
+          <div aria-busy="true" className="animate-pulse">
+            <span className="sr-only">Loading…</span>
+            <div className="h-14 w-2/3 rounded bg-white/[0.05] md:h-20" />
+            <div className="mt-6 h-4 w-1/3 rounded bg-white/[0.04]" />
+            <div className="mt-10 h-[110px] rounded-[10px] bg-white/[0.04]" />
+          </div>
         ) : error ? (
-          <div className="rounded-[10px] border border-[#E89B9E]/30 bg-[#3A1F21]/30 px-4 py-3 text-[13px] text-[#E89B9E]">
-            {error}
+          <div role="alert" className="border-l-2 border-[#E89B9E]/60 py-1 pl-4">
+            <p className="text-[14px] text-[#E89B9E]">{error}</p>
+            <p className="mt-2 text-[13px] text-[#8A8A86]">
+              <Link
+                href="/community"
+                className="text-[#E8E8E6] underline decoration-white/20 underline-offset-[4px] hover:decoration-white/50"
+              >
+                Back to the community gallery
+              </Link>
+            </p>
           </div>
         ) : data ? (
-          <article className="flex flex-col gap-10">
+          <article className="flex flex-col">
             {/* Header: name + author + publish date + description */}
-            <header className="flex flex-col gap-4">
-              <h1
-                className="text-4xl font-light tracking-tight md:text-5xl"
-                style={{ fontFamily: "ui-serif, Georgia, 'Times New Roman', serif" }}
-              >
-                {data.name}
-              </h1>
+            <header className="flex flex-col gap-6 md:flex-row md:items-start md:justify-between md:gap-12">
+              <div className="min-w-0">
+                <h1
+                  className="font-serif text-[44px] leading-[1.02] tracking-tight md:text-[68px]"
+                  style={{ fontFamily: "var(--font-serif, 'Instrument Serif', Georgia, serif)" }}
+                >
+                  {data.name}
+                </h1>
 
-              <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-[13px] text-[#8A8A86]">
-                <span>
-                  by{" "}
-                  <span className="text-[#E8E8E6]">
-                    {data.author_name?.trim() ? data.author_name : "anonymous"}
+                <div className="mt-5 flex flex-wrap items-center gap-x-3 gap-y-1.5 text-[14px] text-[#8A8A86]">
+                  <span className="inline-flex items-center gap-2">
+                    {data.owner ? (
+                      <>
+                        <Avatar
+                          name={data.owner.display_name || data.owner.username}
+                          url={data.owner.avatar_url || undefined}
+                          size={22}
+                        />
+                        <Link
+                          href={`/u/${data.owner.username}`}
+                          className="text-[#E8E8E6] no-underline hover:underline"
+                        >
+                          @{data.owner.username}
+                        </Link>
+                        {data.owner.verified ? <VerifiedBadge size={15} /> : null}
+                      </>
+                    ) : (
+                      <>
+                        by{" "}
+                        <span className="text-[#E8E8E6]">
+                          {data.author_name?.trim() ? data.author_name : "anonymous"}
+                        </span>
+                      </>
+                    )}
                   </span>
-                </span>
-                <span aria-hidden="true">·</span>
-                <span>
-                  Published{" "}
-                  <time dateTime={new Date(data.published_at).toISOString()}>
-                    {formatPublishDate(data.published_at)}
-                  </time>{" "}
-                  <span className="text-[#6F6F6B]">
-                    ({relativeTime(data.published_at)})
+                  <span aria-hidden="true" className="hidden sm:inline">·</span>
+                  <span>
+                    Published{" "}
+                    <time dateTime={new Date(data.published_at).toISOString()}>
+                      {formatPublishDate(data.published_at)}
+                    </time>{" "}
+                    <span className="text-[#6F6F6B]">
+                      ({relativeTime(data.published_at)})
+                    </span>
                   </span>
-                </span>
+                </div>
+
+                <p className="mt-6 max-w-[62ch] text-[17px] leading-relaxed text-[#B4B4B0]">
+                  {description}
+                </p>
+
+                {data.forked_from ? (
+                  <p className="mt-4 text-[12px] text-[#6F6F6B]">
+                    Forked from{" "}
+                    <code className="rounded bg-white/[0.04] px-1.5 py-0.5 text-[#A8A8A4]">
+                      {data.forked_from}
+                    </code>
+                  </p>
+                ) : null}
               </div>
 
-              <p className="max-w-[70ch] text-[15px] leading-relaxed text-[#A8A8A4]">
-                {description}
-              </p>
+              {data.owner?.donation_url ? (
+                <div className="shrink-0">
+                  <DonateButton url={data.owner.donation_url} />
+                </div>
+              ) : null}
+            </header>
 
+            {/* Live preview — the one framed object on the page. */}
+            <section aria-label="Live terminal preview" className="mt-12 md:mt-14">
+              <StaticPreview design={data.design} />
+            </section>
+
+            {/* Stats (machine-readable definition list) + share actions */}
+            <section
+              aria-labelledby="stats-heading"
+              className="mt-5 flex flex-wrap items-center justify-between gap-x-8 gap-y-3"
+            >
+              <h2 id="stats-heading" className="sr-only">
+                Statistics
+              </h2>
+              <dl className="flex gap-x-7">
+                <Stat label="Installs" value={data.installs} />
+                <Stat label="Forks" value={data.forks} />
+                <Stat label="Views" value={data.views} />
+              </dl>
               <ShareCluster
                 url={canonicalUrl(`/community/${encodeURIComponent(data.slug)}`)}
                 shareText={`${data.name} by ${
                   data.author_name?.trim() ? data.author_name : "anonymous"
                 } — a Claude Code statusline`}
               />
-
-              {data.forked_from ? (
-                <div className="text-[12px] text-[#6F6F6B]">
-                  Forked from{" "}
-                  <code className="rounded bg-white/[0.04] px-1.5 py-0.5 text-[#A8A8A4]">
-                    {data.forked_from}
-                  </code>
-                </div>
-              ) : null}
-            </header>
-
-            {/* Live preview */}
-            <section aria-label="Live terminal preview">
-              <StaticPreview design={data.design} />
             </section>
-
-            {/* Stats — machine-readable definition list */}
-            <section aria-labelledby="stats-heading">
-              <h2 id="stats-heading" className="sr-only">
-                Statistics
-              </h2>
-              <dl className="grid grid-cols-3 gap-3 sm:max-w-[420px]">
-                <Stat label="Installs" value={data.installs} />
-                <Stat label="Forks" value={data.forks} />
-                <Stat label="Views" value={data.views} />
-              </dl>
-            </section>
-
-            {/* Element breakdown — keyword-rich crawlable body content. The
-                list of distinct elements puts Claude Code statusline keyword
-                variants into the page body (git branch, context usage bar,
-                session cost, etc.) instead of being trapped inside the ANSI
-                preview SVG-style element. */}
-            {elementSummary.length > 0 ? (
-              <section
-                aria-labelledby="contains-heading"
-                className="flex flex-col gap-3 border-t border-white/[0.06] pt-8"
-              >
-                <h2
-                  id="contains-heading"
-                  className="text-2xl font-light tracking-tight"
-                  style={{ fontFamily: "ui-serif, Georgia, 'Times New Roman', serif" }}
-                >
-                  What this statusline shows
-                </h2>
-                <p className="max-w-[70ch] text-[14px] leading-relaxed text-[#A8A8A4]">
-                  This Claude Code statusline contains{" "}
-                  {elementSummary.length} field
-                  {elementSummary.length === 1 ? "" : "s"}: it renders the{" "}
-                  {joinWithAnd(elementSummary)} into a single status line for
-                  the bottom of your terminal.
-                </p>
-                <ul className="flex flex-wrap gap-2">
-                  {elementSummary.map((label) => (
-                    <li
-                      key={label}
-                      className="rounded-[10px] border border-white/[0.06] bg-[#161618] px-3 py-1.5 text-[12px] text-[#E8E8E6]"
-                    >
-                      {label}
-                    </li>
-                  ))}
-                </ul>
-              </section>
-            ) : null}
 
             {/* Install — inline commands (bash + PowerShell) so a user can copy
                 without opening the drawer. */}
-            <section
-              aria-labelledby="install-heading"
-              className="flex flex-col gap-4 border-t border-white/[0.06] pt-8"
-            >
-              <h2
-                id="install-heading"
-                className="text-2xl font-light tracking-tight"
-                style={{ fontFamily: "ui-serif, Georgia, 'Times New Roman', serif" }}
-              >
-                Install this statusline
-              </h2>
-              <p className="max-w-[70ch] text-[13px] text-[#8A8A86]">
+            <Section id="install-heading" title="Install this statusline">
+              <p className="max-w-[62ch] text-[14px] leading-relaxed text-[#8A8A86]">
                 Run one of the commands below in your terminal. The installer
                 merges the statusLine setting into your Claude{" "}
                 <code className="rounded bg-white/[0.04] px-1 text-[12px] text-[#A8A8A4]">
@@ -340,18 +321,20 @@ export function CommunityDetailPage({ slug: slugProp }: CommunityDetailPageProps
                 <span className="text-[#A8A8A4]">{detectedOs}</span>.
               </p>
 
-              <CommandBlock
-                label="macOS / Linux"
-                command={bashCmd}
-                preferred={os !== "windows"}
-              />
-              <CommandBlock
-                label="Windows (PowerShell)"
-                command={psCmd}
-                preferred={os === "windows"}
-              />
+              <div className="mt-6 flex flex-col gap-6">
+                <CommandBlock
+                  label="macOS / Linux"
+                  command={bashCmd}
+                  preferred={os !== "windows"}
+                />
+                <CommandBlock
+                  label="Windows (PowerShell)"
+                  command={psCmd}
+                  preferred={os === "windows"}
+                />
+              </div>
 
-              <div className="mt-2 flex flex-col gap-3">
+              <div className="mt-8 flex flex-col gap-3">
                 <TurnstileWidget
                   onToken={setForkToken}
                   onError={() => setForkToken(null)}
@@ -360,61 +343,85 @@ export function CommunityDetailPage({ slug: slugProp }: CommunityDetailPageProps
                   type="button"
                   onClick={onFork}
                   disabled={forking}
-                  className="w-fit rounded-[6px] border border-white/[0.12] px-4 py-2 text-[13px] transition-colors hover:border-white/[0.24] hover:bg-white/[0.03] disabled:cursor-not-allowed disabled:opacity-50"
+                  className="w-fit rounded-[6px] bg-[#E8E8E6] px-4 py-2 text-[13px] font-medium text-[#0E0E10] transition-opacity hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/60 disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   {forking ? "Forking…" : "Customize first → Fork to Builder"}
                 </button>
               </div>
-            </section>
+            </Section>
+
+            {/* Element breakdown — keyword-rich crawlable body content. The
+                list of distinct elements puts Claude Code statusline keyword
+                variants into the page body (git branch, context usage bar,
+                session cost, etc.) instead of being trapped inside the ANSI
+                preview SVG-style element. */}
+            {elementSummary.length > 0 ? (
+              <Section id="contains-heading" title="What this statusline shows">
+                <p className="max-w-[62ch] text-[14px] leading-relaxed text-[#8A8A86]">
+                  This Claude Code statusline contains{" "}
+                  {elementSummary.length} field
+                  {elementSummary.length === 1 ? "" : "s"}: it renders the{" "}
+                  {joinWithAnd(elementSummary)} into a single status line for
+                  the bottom of your terminal.
+                </p>
+                <ul className="mt-5 border-t border-white/[0.06] sm:columns-2 sm:gap-x-10">
+                  {elementSummary.map((label) => (
+                    <li
+                      key={label}
+                      className="break-inside-avoid border-b border-white/[0.06] py-2 text-[13px] text-[#E8E8E6]"
+                    >
+                      {label}
+                    </li>
+                  ))}
+                </ul>
+              </Section>
+            ) : null}
 
             {/* Raw design JSON — collapsed for power users who want to inspect
                 or hand-edit the underlying schema. */}
-            <section className="border-t border-white/[0.06] pt-8">
+            <Section id="json-heading" title="Design JSON">
               <details className="group">
                 <summary className="cursor-pointer text-[14px] text-[#A8A8A4] outline-none transition-colors hover:text-[#E8E8E6] focus-visible:rounded focus-visible:ring-2 focus-visible:ring-white/40">
-                  Design JSON
+                  Show the raw design
                 </summary>
-                <pre className="mt-4 max-h-[420px] overflow-auto rounded-[10px] border border-white/[0.06] bg-black/40 p-4 font-mono text-[12px] text-[#A8A8A4]">
+                <pre className="mt-4 max-h-[420px] overflow-auto rounded-[10px] border border-white/[0.06] bg-[#0A0A0B] p-4 font-mono text-[12px] text-[#A8A8A4]">
                   <code>{JSON.stringify(data.design, null, 2)}</code>
                 </pre>
               </details>
-            </section>
+            </Section>
 
             {/* Related designs — top 3 popular, excluding the current slug. */}
             {related.length > 0 ? (
               <section
                 aria-labelledby="related-heading"
-                className="border-t border-white/[0.06] pt-8"
+                className="mt-16 border-t border-white/[0.07] pt-10 md:mt-20"
               >
                 <h2
                   id="related-heading"
-                  className="mb-5 text-2xl font-light tracking-tight"
-                  style={{ fontFamily: "ui-serif, Georgia, 'Times New Roman', serif" }}
+                  className="mb-8 font-serif text-[28px] leading-tight tracking-tight"
                 >
                   Related Claude Code statuslines
                 </h2>
-                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                <CardGrid>
                   {related.map((r) => (
-                    <RelatedCard key={r.id} summary={r} />
+                    <CommunityDesignCard key={r.id} summary={r} />
                   ))}
-                </div>
+                </CardGrid>
               </section>
             ) : null}
 
             {/* Forward link to the guide — keyword-rich anchor text for both
                 humans (learn the concepts) and crawlers (internal-link signal). */}
-            <section className="border-t border-white/[0.06] pt-8">
-              <p className="text-[14px] leading-relaxed text-[#A8A8A4]">
-                <Link
-                  href="/how-to-make-a-claude-code-statusline"
-                  title="How to make a Claude Code statusline"
-                  className="text-[#E8E8E6] underline decoration-white/20 underline-offset-[4px] hover:decoration-white/50"
-                >
-                  Learn how to make your own Claude Code statusline
-                </Link>
-                .
-              </p>
-            </section>
+            <p className="mt-16 border-t border-white/[0.07] pt-8 text-[14px] leading-relaxed text-[#A8A8A4]">
+              <Link
+                href="/how-to-make-a-claude-code-statusline"
+                title="How to make a Claude Code statusline"
+                className="text-[#E8E8E6] underline decoration-white/20 underline-offset-[4px] hover:decoration-white/50"
+              >
+                Learn how to make your own Claude Code statusline
+              </Link>
+              .
+            </p>
 
             {/* Hidden link for crawlers — gives the canonical URL inline. */}
             <link rel="canonical" href={canonicalUrl(`/community/${encodeURIComponent(data.slug)}`)} />
@@ -432,6 +439,29 @@ function joinWithAnd(items: string[]): string {
   return `${items.slice(0, -1).join(", ")}, and ${items[items.length - 1]}`;
 }
 
+/** Editorial section: serif heading in a left rail on desktop, content to the right, hairline above. */
+function Section({
+  id,
+  title,
+  children,
+}: {
+  id?: string;
+  title: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <section
+      aria-labelledby={id}
+      className="mt-14 grid gap-x-12 gap-y-5 border-t border-white/[0.07] pt-9 md:mt-16 md:grid-cols-[220px_minmax(0,1fr)]"
+    >
+      <h2 id={id} className="font-serif text-[26px] leading-tight tracking-tight">
+        {title}
+      </h2>
+      <div className="min-w-0">{children}</div>
+    </section>
+  );
+}
+
 interface StatProps {
   label: string;
   value: number;
@@ -439,13 +469,11 @@ interface StatProps {
 
 function Stat({ label, value }: StatProps) {
   return (
-    <div className="rounded-[10px] border border-white/[0.06] bg-[#161618] px-4 py-3">
-      <dt className="text-[11px] uppercase tracking-[0.12em] text-[#6F6F6B]">
-        {label}
-      </dt>
-      <dd className="mt-1 font-mono text-[18px] tabular-nums text-[#E8E8E6]">
+    <div className="flex items-baseline gap-2">
+      <dd className="order-1 font-mono text-[15px] tabular-nums text-[#E8E8E6]">
         {value.toLocaleString()}
       </dd>
+      <dt className="order-2 text-[12px] text-[#6F6F6B]">{label.toLowerCase()}</dt>
     </div>
   );
 }
@@ -454,6 +482,9 @@ interface ShareClusterProps {
   url: string;
   shareText: string;
 }
+
+const textAction =
+  "inline-flex items-center gap-1.5 text-[13px] text-[#A8A8A4] no-underline transition-colors hover:text-[#E8E8E6] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/40 focus-visible:rounded-[4px]";
 
 function ShareCluster({ url, shareText }: ShareClusterProps) {
   const [copied, setCopied] = useState(false);
@@ -472,12 +503,12 @@ function ShareCluster({ url, shareText }: ShareClusterProps) {
   )}&url=${encodeURIComponent(url)}`;
 
   return (
-    <div className="flex flex-wrap items-center gap-2">
+    <div className="flex flex-wrap items-center gap-x-6 gap-y-2">
       <button
         type="button"
         onClick={onCopyLink}
         aria-label="Copy link to this statusline"
-        className="flex items-center gap-1.5 rounded-[6px] border border-white/[0.12] px-3 py-1.5 text-[13px] text-[#E8E8E6] transition-colors hover:border-white/[0.24] hover:bg-white/[0.03]"
+        className={textAction}
       >
         {copied ? (
           <>
@@ -496,7 +527,7 @@ function ShareCluster({ url, shareText }: ShareClusterProps) {
         target="_blank"
         rel="noopener noreferrer"
         aria-label="Share on X"
-        className="flex items-center gap-1.5 rounded-[6px] border border-white/[0.12] px-3 py-1.5 text-[13px] text-[#E8E8E6] no-underline transition-colors hover:border-white/[0.24] hover:bg-white/[0.03]"
+        className={textAction}
       >
         <XLogo size={13} weight="bold" />
         Share on X
@@ -525,55 +556,24 @@ function CommandBlock({ label, command, preferred }: CommandBlockProps) {
   };
 
   return (
-    <div className="flex flex-col gap-1.5">
-      <div className="flex items-center gap-2 text-[11px] uppercase tracking-[0.12em] text-[#6F6F6B]">
-        <span>{label}</span>
-        {preferred ? (
-          <span className="rounded-[4px] border border-white/[0.08] px-1.5 py-0.5 text-[10px] normal-case tracking-normal text-[#A8A8A4]">
-            detected
-          </span>
-        ) : null}
-      </div>
-      <div className="flex items-stretch gap-2">
-        <pre className="flex-1 overflow-x-auto rounded-[6px] border border-white/[0.06] bg-black/40 px-3 py-2 font-mono text-[12px] text-[#E8E8E6]">
-          <code>{command}</code>
-        </pre>
+    <div className="flex flex-col gap-2">
+      <div className="flex items-center justify-between gap-3 text-[12px] text-[#8A8A86]">
+        <span>
+          {label}
+          {preferred ? <span className="text-[#6F6F6B]"> · detected</span> : null}
+        </span>
         <button
           type="button"
           onClick={onCopy}
-          className="whitespace-nowrap rounded-[6px] border border-white/[0.08] px-3 py-2 text-[13px] transition-colors hover:border-white/[0.18] hover:bg-white/[0.02]"
+          className="text-[13px] text-[#A8A8A4] underline decoration-white/20 underline-offset-[4px] transition-colors hover:text-[#E8E8E6] hover:decoration-white/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/40"
         >
           {copied ? "Copied" : "Copy"}
         </button>
       </div>
+      <pre className="overflow-x-auto rounded-[10px] border border-white/[0.06] bg-[#0A0A0B] px-4 py-3.5 font-mono text-[12px] text-[#E8E8E6]">
+        <code>{command}</code>
+      </pre>
     </div>
-  );
-}
-
-interface RelatedCardProps {
-  summary: CommunityCardSummary;
-}
-
-function RelatedCard({ summary }: RelatedCardProps) {
-  return (
-    <Link
-      href={`/community/${summary.slug}`}
-      className="group flex flex-col overflow-hidden rounded-[10px] border border-white/[0.06] bg-[#161618] no-underline transition-colors hover:border-white/[0.14] hover:bg-[#19191B]"
-    >
-      <div className="flex h-[100px] items-center justify-center overflow-hidden border-b border-white/[0.06] bg-[#0E0E10] px-4">
-        <div className="w-full overflow-hidden">
-          <StaticPreview design={summary.design} />
-        </div>
-      </div>
-      <div className="flex flex-col gap-1 p-4">
-        <div className="truncate text-[13px] font-medium text-[#E8E8E6] group-hover:text-white">
-          {summary.name}
-        </div>
-        <div className="text-[11px] text-[#8A8A86]">
-          by {summary.author_name?.trim() ? summary.author_name : "anonymous"}
-        </div>
-      </div>
-    </Link>
   );
 }
 

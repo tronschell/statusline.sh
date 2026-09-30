@@ -80,7 +80,7 @@ describe("E2E install flow (bash)", () => {
     mkdirSync(claudeDir, { recursive: true });
     writeFileSync(
       join(claudeDir, "settings.json"),
-      JSON.stringify({ model: "claude-opus-4-7", existing: "preserved" }),
+      JSON.stringify({ model: "claude-fable-5-1", existing: "preserved" }),
     );
 
     // Run the installer against the temp HOME
@@ -110,7 +110,7 @@ describe("E2E install flow (bash)", () => {
     const settings = JSON.parse(
       readFileSync(join(claudeDir, "settings.json"), "utf8"),
     );
-    expect(settings.model).toBe("claude-opus-4-7");
+    expect(settings.model).toBe("claude-fable-5-1");
     expect(settings.existing).toBe("preserved");
     expect(settings.statusLine).toBeDefined();
     expect(settings.statusLine.type).toBe("command");
@@ -124,7 +124,7 @@ describe("E2E install flow (bash)", () => {
 
     // Finally: run the statusline against a mock stdin and verify it produces output
     const mockStdin = JSON.stringify({
-      model: { display_name: "Opus 4.7" },
+      model: { display_name: "Fable 5.1" },
       workspace: { current_dir: "/Users/dev/projects/statusline-maker" },
       context_window: { used_percentage: 30 },
     });
@@ -136,7 +136,7 @@ describe("E2E install flow (bash)", () => {
     expect(slResult.status).toBe(0);
     // strip ANSI for assertion
     const stripped = slResult.stdout.replace(/\x1b\[[0-9;]*m/g, "");
-    expect(stripped).toContain("Opus 4.7");
+    expect(stripped).toContain("Fable 5.1");
     expect(stripped).toContain("statusline-maker");
     expect(stripped).toContain("###");
   });
