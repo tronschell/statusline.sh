@@ -1,4 +1,4 @@
-import { useMemo, type ReactNode } from "react";
+import { useMemo, useRef, type ReactNode } from "react";
 import { ArrowRightIcon, DownloadSimpleIcon, EyeIcon, GitForkIcon } from "@phosphor-icons/react";
 import { renderToAnsi } from "@statusline/shared/compiler/interpret";
 import { DEFAULT_MOCK_STDIN } from "@statusline/shared/mockStdin";
@@ -6,6 +6,7 @@ import type { CommunityCardSummary, Design } from "@statusline/shared/types";
 import { Link } from "../../router";
 import { VerifiedBadge } from "../Account/ui";
 import { AnsiToHtml } from "../Preview/AnsiToHtml";
+import { CardGlow, randomPastelPair, useCardActive } from "./CardGlow";
 
 export interface CommunityDesignCardProps {
   summary: CommunityCardSummary;
@@ -90,7 +91,13 @@ const linkFocus =
  */
 export function CommunityDesignCard({ summary, hideCreator = false }: CommunityDesignCardProps) {
   const detailHref = `/community/${summary.slug}`;
+  const ref = useRef<HTMLDivElement>(null);
+  const active = useCardActive(ref);
+  // A fresh random pastel each time the card lights up.
+  const glow = useMemo(() => (active ? randomPastelPair() : null), [active]);
   return (
+    <div ref={ref} className={`relative isolate h-full ${glow ? "z-10" : ""}`}>
+      {glow ? <CardGlow colors={glow} /> : null}
     <article className="group relative flex h-full flex-col overflow-hidden rounded-[10px] border border-white/[0.07] bg-[#131315] transition-colors hover:border-white/[0.2] hover:bg-[#161618]">
       <PreviewStrip design={summary.design} />
       <div className="flex flex-1 flex-col gap-2 p-5">
@@ -133,6 +140,7 @@ export function CommunityDesignCard({ summary, hideCreator = false }: CommunityD
         </div>
       </div>
     </article>
+    </div>
   );
 }
 

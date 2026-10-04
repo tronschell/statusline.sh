@@ -101,7 +101,13 @@ from `src/accountRoutes.ts`; schema in `migrations/0004_accounts.sql`.
 
 In Lemon Squeezy, point the webhook at `https://<worker>/webhooks/lemonsqueezy`
 and subscribe to the `subscription_*` events. Pro is granted only by that signed
-webhook, never by the checkout redirect.
+webhook, never by the checkout redirect. Billing accepts only objects explicitly
+marked `test_mode: false` and matching the configured store and variant:
+signed test, missing-mode or other-commerce subscription events are
+acknowledged without changing entitlements, and test/missing-mode checkout or
+cancel/resume API responses are rejected. Portal responses also require the
+matching mode, store and variant. Billing failures log HTTP status only. Test products must use an isolated
+development integration; do not point a test webhook at production for Pro access.
 
 ### Local dev
 
@@ -110,3 +116,23 @@ Add to `worker/.dev.vars` (gitignored): `DEV_AUTH=1` enables `POST /auth/dev
 `/auth/forgot-password` echo `dev_token`. `LEMONSQUEEZY_API_BASE` can point at a
 stub server. Simulate a payment by POSTing a subscription payload signed with
 `LEMONSQUEEZY_WEBHOOK_SECRET` (HMAC-SHA256 hex in `x-signature`).
+
+
+### Isolated Lemon Squeezy test integration
+
+`wrangler.test.toml` targets only `statusline-community-test`, fresh D1
+`a57b8712-a932-4a66-b586-0a0717149640`, and localhost frontend origins. It excludes production
+analytics, cron triggers, email, and public dev authentication. The public
+Turnstile simulator keys are test fixtures, not credentials.
+
+`BILLING_MODE=test` works only at `https://statusline-community-test.zoniixyt.workers.dev`, with the exact
+test database marker and localhost SITE_URL. It accepts only explicit test
+subscriptions for store 487279, product 1401667, and the configured variant.
+Live or missing mode, wrong store/product/variant, and a test setting on the
+production hostname fail closed. Default production billing remains live-only.
+Secret entry must verify the actual version's D1 binding before upload. Do not
+copy production data or bind the production database to the test Worker.
+
+Both GitHub and Google requests specify the request-origin callback in the
+authorization and exchange steps. Register the test callbacks in addition to
+the existing live callbacks; keep basic profile/email scopes unchanged.

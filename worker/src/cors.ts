@@ -39,9 +39,15 @@ export interface CorsResult {
 
 export function isAllowedOrigin(
   origin: string | null,
-  env: { ALLOWED_ORIGINS?: string },
+  env: { ALLOWED_ORIGINS?: string; BILLING_MODE?: string },
 ): boolean {
   if (origin === null) return false;
+  // The isolated test Worker must never return an identity or checkout to
+  // the production SPA, including origins allowed by the production defaults.
+  if (env.BILLING_MODE === "test") {
+    return (origin === "http://localhost:3001" || origin === "http://127.0.0.1:3001") &&
+      parseAllowedOrigins(env.ALLOWED_ORIGINS).has(origin);
+  }
   return (
     parseAllowedOrigins(env.ALLOWED_ORIGINS).has(origin) ||
     ALLOWED_PATTERNS.some((re) => re.test(origin))
@@ -50,7 +56,7 @@ export function isAllowedOrigin(
 
 export function cors(
   req: Request,
-  env: { ALLOWED_ORIGINS?: string },
+  env: { ALLOWED_ORIGINS?: string; BILLING_MODE?: string },
 ): CorsResult {
   const origin = req.headers.get("origin");
   const allowed = isAllowedOrigin(origin, env);

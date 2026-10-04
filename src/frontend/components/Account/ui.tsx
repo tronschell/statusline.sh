@@ -4,6 +4,7 @@ import { navigate } from "../../lib/navigate";
 import { useAuthStore } from "../../store/authStore";
 import { ACCOUNTS_ENABLED } from "../../lib/config";
 import { Link } from "../../router";
+import { DitherGlow } from "./DitherGlow";
 
 export const inputClass =
   "w-full rounded-[6px] border border-white/[0.08] bg-[#0E0E10] px-3 py-2 text-[14px] text-[#E8E8E6] placeholder:text-[#5A5A57] transition-colors hover:border-white/[0.16] focus:border-[#8FB8DA] focus:outline-none disabled:opacity-50";
@@ -19,14 +20,22 @@ const variants: Record<Variant, string> = {
 export function Btn({
   variant = "secondary",
   className = "",
+  dither = false,
+  children,
   ...rest
-}: ButtonHTMLAttributes<HTMLButtonElement> & { variant?: Variant }) {
+}: ButtonHTMLAttributes<HTMLButtonElement> & { variant?: Variant; dither?: boolean }) {
+  const [hover, setHover] = useState(false);
   return (
     <button
       type="button"
+      onMouseEnter={dither ? () => setHover(true) : undefined}
+      onMouseLeave={dither ? () => setHover(false) : undefined}
       {...rest}
-      className={`inline-flex items-center justify-center gap-1.5 rounded-[6px] border px-3.5 py-2 text-[13px] font-medium transition-transform duration-150 hover:scale-[0.98] active:scale-[0.96] disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:scale-100 ${variants[variant]} ${className}`}
-    />
+      className={`${dither ? "relative overflow-hidden " : ""}inline-flex items-center justify-center gap-1.5 rounded-[6px] border px-3.5 py-2 text-[13px] font-medium transition-transform duration-150 hover:scale-[0.98] active:scale-[0.96] disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:scale-100 ${variants[variant]} ${className}`}
+    >
+      {dither && hover && !rest.disabled ? <DitherGlow className="h-full animate-[fadein_200ms_ease-out]" /> : null}
+      {dither ? <span className="relative">{children}</span> : children}
+    </button>
   );
 }
 

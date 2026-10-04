@@ -1,0 +1,71 @@
+# Isolated test integration. Never bind this Worker to production D1.
+name = "statusline-community-test"
+main = "src/index.ts"
+compatibility_date = "2025-05-01"
+workers_dev = true
+
+[[d1_databases]]
+binding = "DB"
+database_name = "statusline-community-test"
+database_id = "a57b8712-a932-4a66-b586-0a0717149640"
+migrations_dir = "migrations"
+
+[vars]
+BILLING_MODE = "test"
+BILLING_TEST_DATABASE_ID = "a57b8712-a932-4a66-b586-0a0717149640"
+ALLOWED_ORIGINS = "http://localhost:3001,http://127.0.0.1:3001"
+SITE_URL = "http://localhost:3001"
+# Official public Turnstile simulator keys, not production credentials.
+TURNSTILE_SITE_KEY = "1x00000000000000000000AA"
+TURNSTILE_SECRET_KEY = "1x0000000000000000000000000000000AA"
+
+[triggers]
+crons = []
+
+[[unsafe.bindings]]
+name = "RATE_LIMITER_PUBLISH"
+type = "ratelimit"
+namespace_id = "804729101"
+simple = { limit = 5, period = 60 }
+
+[[unsafe.bindings]]
+name = "RATE_LIMITER_FORK"
+type = "ratelimit"
+namespace_id = "804729102"
+simple = { limit = 20, period = 60 }
+
+[[unsafe.bindings]]
+name = "RATE_LIMITER_INSTALL"
+type = "ratelimit"
+namespace_id = "804729103"
+simple = { limit = 30, period = 60 }
+
+[[unsafe.bindings]]
+name = "RATE_LIMITER_LIST"
+type = "ratelimit"
+namespace_id = "804729104"
+simple = { limit = 120, period = 60 }
+
+[[unsafe.bindings]]
+name = "RATE_LIMITER_DETAIL"
+type = "ratelimit"
+namespace_id = "804729105"
+simple = { limit = 240, period = 60 }
+
+[[unsafe.bindings]]
+name = "RATE_LIMITER_INSTALLER"
+type = "ratelimit"
+namespace_id = "804729106"
+simple = { limit = 60, period = 60 }
+
+[[unsafe.bindings]]
+name = "RATE_LIMITER_AUTH"
+type = "ratelimit"
+namespace_id = "804729107"
+simple = { limit = 20, period = 60 }
+
+[[unsafe.bindings]]
+name = "RATE_LIMITER_ACCOUNT"
+type = "ratelimit"
+namespace_id = "804729108"
+simple = { limit = 120, period = 60 }

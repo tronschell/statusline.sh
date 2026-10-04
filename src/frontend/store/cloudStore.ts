@@ -54,7 +54,10 @@ export const useCloudStore = create<CloudState>()(
             ? await accountApi.librarySave(cur.id, { name, design, expected_version: cur.version })
             : await accountApi.libraryCreate(name, design);
           get().bind(cd);
-          set({ saving: false });
+          // Validation may normalize property order and defaults. The saved
+          // snapshot must represent the submitted editor state; later edits
+          // made while this request was in flight must still remain dirty.
+          set({ snapshot: JSON.stringify(design), saving: false });
           return cd;
         } catch (e) {
           const err =

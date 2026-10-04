@@ -68,6 +68,7 @@ export async function handleOAuthStart(req: Request, env: AccountEnv, p: Provide
   if (p === "github") {
     const u = new URL("https://github.com/login/oauth/authorize");
     u.searchParams.set("client_id", env.GITHUB_CLIENT_ID!);
+    u.searchParams.set("redirect_uri", callbackUrl(req, "github"));
     u.searchParams.set("state", state);
     u.searchParams.set("scope", "read:user user:email");
     u.searchParams.set("allow_signup", "true");
@@ -83,11 +84,11 @@ export async function handleOAuthStart(req: Request, env: AccountEnv, p: Provide
   return redirect(u.toString());
 }
 
-async function githubProfile(env: AccountEnv, code: string): Promise<Profile> {
+async function githubProfile(req: Request, env: AccountEnv, code: string): Promise<Profile> {
   const tok = await fetch("https://github.com/login/oauth/access_token", {
     method: "POST",
     headers: { accept: "application/json", "content-type": "application/json" },
-    body: JSON.stringify({ client_id: env.GITHUB_CLIENT_ID, client_secret: env.GITHUB_CLIENT_SECRET, code }),
+    body: JSON.stringify({ client_id: env.GITHUB_CLIENT_ID, client_secret: env.GITHUB_CLIENT_SECRET, code, redirect_uri: callbackUrl(req, "github") }),
   });
   const { access_token } = (await tok.json()) as { access_token?: string };
   if (!tok.ok || !access_token) throw new Error("github token exchange failed");
@@ -227,7 +228,7 @@ export async function handleOAuthCallback(req: Request, env: AccountEnv, p: Prov
 
   if (!code) return back("error=cancelled");
   try {
-    const prof = p === "github" ? await githubProfile(env, code) : await googleProfile(req, env, code);
+    const prof = p === "github" ? await githubProfile(req, env, code) : await googleProfile(req, env, code);
     const userId = await resolveOAuthUser(env, p, prof);
     const token = await createSession(env, userId);
     return back(`token=${token}&next=${encodeURIComponent(ret.pathname)}`);

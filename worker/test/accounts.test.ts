@@ -57,12 +57,12 @@ afterEach(() => {
   globalThis.fetch = realFetch;
 });
 
-async function api(method: string, path: string, opts: { token?: string; body?: unknown; headers?: Record<string, string> } = {}) {
+async function api(method: string, path: string, opts: { token?: string; body?: unknown; headers?: Record<string, string>; workerOrigin?: string } = {}) {
   const headers: Record<string, string> = { origin: ORIGIN, ...(opts.headers ?? {}) };
   if (opts.token) headers.authorization = `Bearer ${opts.token}`;
   if (opts.body !== undefined) headers["content-type"] = "application/json";
   const res = await worker.fetch(
-    new Request(`http://localhost:8787${path}`, {
+    new Request(`${opts.workerOrigin ?? "http://localhost:8787"}${path}`, {
       method,
       headers,
       body: opts.body === undefined ? undefined : JSON.stringify(opts.body),
@@ -91,13 +91,13 @@ async function signWebhook(body: object, secret = SECRET) {
   return { raw, sig: [...sig].map((b) => b.toString(16).padStart(2, "0")).join("") };
 }
 
-async function sendWebhook(userId: string, attrs: Record<string, unknown>, subId = "sub_1") {
+async function sendWebhook(userId: string, attrs: Record<string, unknown>, subId = "sub_1", workerOrigin = "http://localhost:8787") {
   const { raw, sig } = await signWebhook({
     meta: { event_name: "subscription_updated", custom_data: { user_id: userId } },
     data: { type: "subscriptions", id: subId, attributes: attrs },
   });
   const res = await worker.fetch(
-    new Request("http://localhost:8787/webhooks/lemonsqueezy", { method: "POST", body: raw, headers: { "x-signature": sig } }),
+    new Request(`${workerOrigin}/webhooks/lemonsqueezy`, { method: "POST", body: raw, headers: { "x-signature": sig } }),
     env,
     ctx,
   );
@@ -106,7 +106,7 @@ async function sendWebhook(userId: string, attrs: Record<string, unknown>, subId
 
 const iso = (ms: number) => new Date(ms).toISOString();
 function activeSub(over: Record<string, unknown> = {}) {
-  return { status: "active", customer_id: 9, renews_at: iso(Date.now() + 20 * DAY), ends_at: null, updated_at: iso(Date.now()), ...over };
+  return { test_mode: false, store_id: 1, variant_id: 2, status: "active", customer_id: 9, renews_at: iso(Date.now() + 20 * DAY), ends_at: null, updated_at: iso(Date.now()), ...over };
 }
 
 // ---------------------------------------------------------------------------
@@ -220,6 +220,31 @@ describe("password accounts", () => {
 
 // ---------------------------------------------------------------------------
 describe("oauth (github + google)", () => {
+  test("both providers explicitly select the request-host callback for live and test login", async () => {
+    for (const workerOrigin of ["https://statusline-community.zoniixyt.workers.dev", "https://statusline-community-test.zoniixyt.workers.dev"]) {
+      for (const provider of ["github", "google"] as const) {
+        calls = [];
+        fetchImpl = (url) => {
+          if (url.includes("/token") || url.endsWith("/access_token")) return Response.json({ access_token: "synthetic-token" });
+          if (url.endsWith("/user/emails")) return Response.json([{ email: "oauth-test@example.com", primary: true, verified: true }]);
+          if (url.endsWith("/user")) return Response.json({ id: 4242, login: "callback-test", name: "Callback Test", avatar_url: "" });
+          if (url.includes("/userinfo")) return Response.json({ sub: "test-sub", email: "oauth-test@example.com", email_verified: true, name: "Callback Test" });
+          return new Response("missing mock", { status: 404 });
+        };
+        const start = await api("GET", `/auth/${provider}/start?return=${encodeURIComponent(ORIGIN + "/account")}`, { workerOrigin });
+        const authorize = new URL(start.headers.get("location")!);
+        expect(authorize.searchParams.get("redirect_uri")).toBe(`${workerOrigin}/auth/${provider}/callback`);
+        expect(authorize.searchParams.get("scope")).toBe(provider === "github" ? "read:user user:email" : "openid email profile");
+        const state = authorize.searchParams.get("state")!;
+        const callback = await api("GET", `/auth/${provider}/callback?code=synthetic-code&state=${state}`, { workerOrigin });
+        const exchange = calls.find(call => call.url.includes("/token") || call.url.endsWith("/access_token"))!;
+        const sent = provider === "github" ? JSON.parse(String(exchange.init!.body)) : Object.fromEntries(new URLSearchParams(String(exchange.init!.body)));
+        expect(sent.redirect_uri).toBe(`${workerOrigin}/auth/${provider}/callback`);
+        expect(new URL(callback.headers.get("location")!).origin).toBe(ORIGIN);
+        expect(new URL(callback.headers.get("location")!).hash).toContain("token=");
+      }
+    }
+  });
   test("providers endpoint reports configuration", async () => {
     expect((await api("GET", "/auth/providers")).json).toMatchObject({ github: true, google: true, password: true, email: true });
     delete env.GOOGLE_CLIENT_ID;
@@ -418,15 +443,122 @@ describe("billing (Lemon Squeezy)", () => {
 
   test("checkout: creates an LS checkout carrying the user id; 409 if already Pro", async () => {
     const u = await devUser("buyer");
-    fetchImpl = () => Response.json({ data: { attributes: { url: "https://pay.lemonsqueezy.com/checkout/abc" } } });
+    fetchImpl = () => Response.json({ data: { attributes: { url: "https://pay.lemonsqueezy.com/checkout/abc", test_mode: false } } });
     const r = await api("POST", "/billing/checkout", { token: u.token });
     expect(r.json.url).toBe("https://pay.lemonsqueezy.com/checkout/abc");
     const sent = JSON.parse(String(calls[0]!.init!.body));
+    expect(sent.data.attributes.test_mode).toBe(false);
     expect(sent.data.attributes.checkout_data.custom.user_id).toBe(u.id);
     expect(sent.data.attributes.product_options.redirect_url).toBe(`${ORIGIN}/account?checkout=success`);
     expect((calls[0]!.init!.headers as any).authorization).toBe("Bearer k");
     const pro = await devUser("already", true);
     expect((await api("POST", "/billing/checkout", { token: pro.token })).status).toBe(409);
+  });
+
+  test("signed test or unknown billing modes cannot grant Pro", async () => {
+    const u = await devUser("modeguard");
+    env.SITE_URL = "https://statusline.sh";
+    for (const mode of [true, undefined, "false", null, 0]) {
+      const r = await sendWebhook(u.id, activeSub({ test_mode: mode }));
+      expect(r.status).toBe(200);
+      expect(r.json.ignored).toBe("not a live subscription");
+      expect(env.DB.raw.query("SELECT COUNT(*) n FROM subscriptions").get()).toEqual({ n: 0 });
+      expect((await api("GET", "/me", { token: u.token })).json.pro.active).toBe(false);
+    }
+    const { raw } = await signWebhook({
+      meta: { custom_data: { user_id: u.id } },
+      data: { type: "subscriptions", id: "test", attributes: activeSub({ test_mode: true }) },
+    });
+    const invalid = await worker.fetch(new Request("http://localhost:8787/webhooks/lemonsqueezy", {
+      method: "POST", body: raw, headers: { "x-signature": "00".repeat(32) },
+    }), env, ctx);
+    expect(invalid.status).toBe(401);
+  });
+
+  test("live webhook rejects missing or different store/variant without changing entitlements", async () => {
+    const u = await devUser("livecommerce");
+    const t0 = Date.now();
+    await sendWebhook(u.id, activeSub({ updated_at: iso(t0) }));
+    const original = env.DB.raw.query("SELECT * FROM subscriptions").all();
+    const entitlement = env.DB.raw.query("SELECT pro_until FROM users WHERE id = ?").get(u.id);
+    for (const mismatch of [{ store_id: 99 }, { variant_id: 99 }, { store_id: undefined }, { variant_id: undefined }]) {
+      const r = await sendWebhook(u.id, activeSub({ ...mismatch, status: "expired", updated_at: iso(t0 + 1000) }));
+      expect(r.json.ignored).toBeDefined();
+      expect(env.DB.raw.query("SELECT * FROM subscriptions").all()).toEqual(original);
+      expect(env.DB.raw.query("SELECT pro_until FROM users WHERE id = ?").get(u.id)).toEqual(entitlement);
+    }
+  });
+
+  test("live portal and subscription management withhold other mode/store/variant responses", async () => {
+    let index = 0;
+    for (const mismatch of [{ test_mode: true }, { test_mode: undefined }, { store_id: 99 }, { variant_id: 99 }, { store_id: undefined }, { variant_id: undefined }]) {
+      const u = await devUser(`liveportal${index++}`);
+      const t0 = Date.now();
+      await sendWebhook(u.id, activeSub({ updated_at: iso(t0) }), `liveportal_${index}`);
+      const original = env.DB.raw.query("SELECT * FROM subscriptions WHERE user_id = ?").all(u.id);
+      fetchImpl = () => Response.json({ data: { attributes: activeSub({
+        ...mismatch, status: "cancelled", updated_at: iso(t0 + 1000),
+        urls: { customer_portal: "https://x.lemonsqueezy.com/billing" },
+      }) } });
+      const portal = await api("POST", "/billing/portal", { token: u.token });
+      expect(portal.status).toBe(502);
+      expect(portal.json.url).toBeUndefined();
+      expect((await api("POST", "/billing/cancel", { token: u.token })).status).toBe(502);
+      expect(env.DB.raw.query("SELECT * FROM subscriptions WHERE user_id = ?").all(u.id)).toEqual(original);
+    }
+  });
+
+  test("test cancellation and expiration cannot overwrite live entitlements", async () => {
+    const u = await devUser("livepayer");
+    env.SITE_URL = "https://statusline.sh";
+    const t0 = Date.now();
+    await sendWebhook(u.id, activeSub({ updated_at: iso(t0) }));
+    const original = env.DB.raw.query("SELECT * FROM subscriptions").all();
+    const entitlement = env.DB.raw.query("SELECT pro_until FROM users WHERE id = ?").get(u.id);
+    for (const status of ["cancelled", "expired"]) {
+      const r = await sendWebhook(u.id, activeSub({
+        test_mode: true, status, ends_at: iso(t0 - DAY), renews_at: null, updated_at: iso(t0 + 1000),
+      }));
+      expect(r.json.ignored).toBe("not a live subscription");
+      expect(env.DB.raw.query("SELECT * FROM subscriptions").all()).toEqual(original);
+      expect(env.DB.raw.query("SELECT pro_until FROM users WHERE id = ?").get(u.id)).toEqual(entitlement);
+    }
+  });
+
+  test("checkout withholds test or unknown mode responses", async () => {
+    const u = await devUser("checkoutguard");
+    env.SITE_URL = "https://statusline.sh";
+    for (const mode of [true, undefined, "false", null]) {
+      fetchImpl = () => Response.json({ data: { attributes: {
+        url: "https://pay.lemonsqueezy.com/checkout/test", test_mode: mode,
+      } } });
+      const r = await api("POST", "/billing/checkout", { token: u.token });
+      expect(r.status).toBe(502);
+      expect(r.json.url).toBeUndefined();
+    }
+  });
+
+  test("cancel and resume cannot apply test or unknown mode API responses", async () => {
+    let index = 0;
+    env.SITE_URL = "https://statusline.sh";
+    for (const cancel of [true, false]) {
+      for (const mode of [true, undefined, "false", null]) {
+        const u = await devUser(`manageguard${index++}`);
+        const t0 = Date.now();
+        await sendWebhook(u.id, activeSub({
+          status: cancel ? "active" : "cancelled", updated_at: iso(t0), ends_at: iso(t0 + 20 * DAY),
+        }), `managed_${index}`);
+        const original = env.DB.raw.query("SELECT * FROM subscriptions WHERE user_id = ?").all(u.id);
+        const entitlement = env.DB.raw.query("SELECT pro_until FROM users WHERE id = ?").get(u.id);
+        fetchImpl = () => Response.json({ data: { attributes: activeSub({
+          test_mode: mode, status: cancel ? "cancelled" : "active", updated_at: iso(t0 + 1000),
+        }) } });
+        const r = await api("POST", cancel ? "/billing/cancel" : "/billing/resume", { token: u.token });
+        expect(r.status).toBe(502);
+        expect(env.DB.raw.query("SELECT * FROM subscriptions WHERE user_id = ?").all(u.id)).toEqual(original);
+        expect(env.DB.raw.query("SELECT pro_until FROM users WHERE id = ?").get(u.id)).toEqual(entitlement);
+      }
+    }
   });
 
   test("manage subscription: portal links, cancel, resume", async () => {
@@ -439,12 +571,12 @@ describe("billing (Lemon Squeezy)", () => {
       if (init?.method === "PATCH") {
         const cancelled = JSON.parse(String(init.body)).data.attributes.cancelled;
         return Response.json({
-          data: { attributes: cancelled
+          data: { attributes: { test_mode: false, store_id: 1, variant_id: 2, ...(cancelled
             ? { status: "cancelled", customer_id: 9, renews_at: null, ends_at: iso(t0 + 20 * DAY), updated_at: iso(t0 + 5000) }
-            : { status: "active", customer_id: 9, renews_at: iso(t0 + 20 * DAY), ends_at: null, updated_at: iso(t0 + 9000) } },
+            : { status: "active", customer_id: 9, renews_at: iso(t0 + 20 * DAY), ends_at: null, updated_at: iso(t0 + 9000) }) } },
         });
       }
-      return Response.json({ data: { attributes: { urls: { customer_portal: "https://x.lemonsqueezy.com/billing", update_payment_method: "https://x.lemonsqueezy.com/pm" } } } });
+      return Response.json({ data: { attributes: { test_mode: false, store_id: 1, variant_id: 2, urls: { customer_portal: "https://x.lemonsqueezy.com/billing", update_payment_method: "https://x.lemonsqueezy.com/pm" } } } });
     };
     const portal = await api("POST", "/billing/portal", { token: u.token });
     expect(portal.json).toEqual({ url: "https://x.lemonsqueezy.com/billing", update_payment_method_url: "https://x.lemonsqueezy.com/pm" });
@@ -457,6 +589,115 @@ describe("billing (Lemon Squeezy)", () => {
     expect((await api("POST", "/billing/resume", { token: u.token })).status).toBe(200);
     me = await api("GET", "/me", { token: u.token });
     expect(me.json.pro.status).toBe("active");
+  });
+});
+
+// ---------------------------------------------------------------------------
+describe("isolated test billing", () => {
+  const testOrigin = "https://statusline-community-test.zoniixyt.workers.dev";
+  const productionOrigin = "https://statusline-community.zoniixyt.workers.dev";
+  function configureTest() {
+    env.BILLING_MODE = "test";
+    env.BILLING_TEST_DATABASE_ID = "a57b8712-a932-4a66-b586-0a0717149640";
+    env.LEMONSQUEEZY_STORE_ID = "487279";
+  }
+  function testSub(over: Record<string, unknown> = {}) {
+    return activeSub({ test_mode: true, store_id: 487279, product_id: 1401667, variant_id: 2, ...over });
+  }
+  test("test OAuth and CORS accept only the explicitly configured local frontend", async () => {
+    configureTest();
+    for (const origin of [ORIGIN, "http://127.0.0.1:3001", "https://statusline.sh", "https://statusline-maker.vercel.app", "https://unrelated.example"]) {
+      env.ALLOWED_ORIGINS = `${ORIGIN},http://127.0.0.1:3001,https://unrelated.example`;
+      const response = await api("GET", "/auth/providers", { workerOrigin: testOrigin, headers: { origin } });
+      expect(response.headers.get("access-control-allow-origin")).toBe(origin.startsWith("http://") ? origin : null);
+      const start = await api("GET", `/auth/github/start?return=${encodeURIComponent(origin + "/account")}`, { workerOrigin: testOrigin });
+      expect(start.status).toBe(origin.startsWith("http://") ? 302 : 400);
+    }
+  });
+  test("test configuration cannot enable billing on production or with another DB/site", async () => {
+    const user = await devUser("isolation-check");
+    configureTest();
+    expect((await sendWebhook(user.id, testSub(), "sub", productionOrigin)).status).toBe(503);
+    expect((await api("POST", "/billing/checkout", { token: user.token, workerOrigin: productionOrigin })).status).toBe(503);
+    expect(calls).toHaveLength(0);
+    for (const databaseId of [undefined, "c14c1902-21df-4cdd-a7bb-29921e8203d2", "another-db"]) {
+      env.BILLING_TEST_DATABASE_ID = databaseId;
+      expect((await sendWebhook(user.id, testSub(), "sub", testOrigin)).status).toBe(503);
+    }
+    configureTest();
+    env.SITE_URL = "https://statusline.sh";
+    expect((await sendWebhook(user.id, testSub(), "sub", testOrigin)).status).toBe(503);
+    env.SITE_URL = ORIGIN;
+    env.BILLING_MODE = undefined;
+    expect((await sendWebhook(user.id, activeSub(), "sub", testOrigin)).status).toBe(503);
+    expect(env.DB.raw.query("SELECT COUNT(*) n FROM subscriptions").get()).toEqual({ n: 0 });
+  });
+  test("isolated webhook rejects live/unknown modes, other commerce data and forged signatures", async () => {
+    const user = await devUser("test-mode-check");
+    configureTest();
+    for (const changes of [{ test_mode: false }, { test_mode: undefined }, { test_mode: "true" }, { store_id: 406791 }, { variant_id: 3 }, { product_id: 1 }]) {
+      const response = await sendWebhook(user.id, testSub(changes), "sub", testOrigin);
+      expect(response.json.ignored).toBe("not a matching test subscription");
+    }
+    const { raw, sig } = await signWebhook({ meta: { custom_data: { user_id: user.id } }, data: { type: "subscriptions", id: "sub", attributes: testSub() } }, "wrong-key");
+    expect((await worker.fetch(new Request(`${testOrigin}/webhooks/lemonsqueezy`, { method: "POST", body: raw, headers: { "x-signature": sig } }), env, ctx)).status).toBe(401);
+    expect(env.DB.raw.query("SELECT COUNT(*) n FROM subscriptions").get()).toEqual({ n: 0 });
+    expect((await api("GET", "/me", { token: user.token })).json.pro.active).toBe(false);
+  });
+  test("test lifecycle grants only test access and preserves replay/stale/cancel/resume/expiry behavior", async () => {
+    const user = await devUser("test-lifecycle");
+    configureTest();
+    const now = Date.now();
+    const send = (changes: Record<string, unknown>) => sendWebhook(user.id, testSub(changes), "test-sub", testOrigin);
+    expect((await send({ updated_at: iso(now) })).status).toBe(200);
+    expect((await api("GET", "/me", { token: user.token })).json.pro.active).toBe(true);
+    await send({ updated_at: iso(now) });
+    expect(env.DB.raw.query("SELECT COUNT(*) n FROM subscriptions").get()).toEqual({ n: 1 });
+    await send({ status: "cancelled", ends_at: iso(now + 20 * DAY), renews_at: null, updated_at: iso(now + 1000) });
+    await send({ updated_at: iso(now - 1000) });
+    expect((await api("GET", "/me", { token: user.token })).json.pro.status).toBe("cancelled");
+    await send({ updated_at: iso(now + 2000) });
+    expect((await api("GET", "/me", { token: user.token })).json.pro.status).toBe("active");
+    await send({ status: "expired", ends_at: iso(now - DAY), renews_at: null, updated_at: iso(now + 3000) });
+    expect((await api("GET", "/me", { token: user.token })).json.pro.active).toBe(false);
+  });
+  test("test checkout requests test mode and withholds live/unknown response URLs", async () => {
+    const user = await devUser("test-buyer");
+    configureTest();
+    fetchImpl = () => Response.json({ data: { attributes: { test_mode: true, url: "https://test.lemonsqueezy.com/checkout/example" } } });
+    expect((await api("POST", "/billing/checkout", { token: user.token, workerOrigin: testOrigin })).status).toBe(200);
+    const posted = JSON.parse(String(calls[0]!.init!.body));
+    expect(posted.data.attributes.test_mode).toBe(true);
+    expect(posted.data.relationships.store.data.id).toBe("487279");
+    expect(posted.data.attributes.product_options.redirect_url).toBe(`${ORIGIN}/account?checkout=success`);
+    for (const mode of [false, undefined, "true"]) {
+      fetchImpl = () => Response.json({ data: { attributes: { test_mode: mode, url: "https://test.lemonsqueezy.com/checkout/example" } } });
+      const response = await api("POST", "/billing/checkout", { token: user.token, workerOrigin: testOrigin });
+      expect(response.status).toBe(502);
+      expect(response.json.url).toBeUndefined();
+    }
+  });
+  test("test cancel/resume and portal reject live or other-store responses before entitlement writes", async () => {
+    const user = await devUser("test-manager");
+    configureTest();
+    const now = Date.now();
+    await sendWebhook(user.id, testSub({ updated_at: iso(now) }), "test-managed", testOrigin);
+    const original = env.DB.raw.query("SELECT * FROM subscriptions").all();
+    for (const changes of [{ test_mode: false }, { store_id: 406791 }, { variant_id: 3 }]) {
+      fetchImpl = () => Response.json({ data: { attributes: testSub({ ...changes, status: "cancelled", updated_at: iso(now + 1000), urls: { customer_portal: "https://test.lemonsqueezy.com/portal" } }) } });
+      expect((await api("POST", "/billing/cancel", { token: user.token, workerOrigin: testOrigin })).status).toBe(502);
+      expect((await api("POST", "/billing/portal", { token: user.token, workerOrigin: testOrigin })).status).toBe(502);
+      expect(env.DB.raw.query("SELECT * FROM subscriptions").all()).toEqual(original);
+    }
+    fetchImpl = () => Response.json({ data: { attributes: testSub({ status: "cancelled", ends_at: iso(now + 20 * DAY), updated_at: iso(now + 1000) }) } });
+    expect((await api("POST", "/billing/cancel", { token: user.token, workerOrigin: testOrigin })).status).toBe(200);
+    const cancelled = env.DB.raw.query("SELECT * FROM subscriptions").all();
+    fetchImpl = () => Response.json({ data: { attributes: testSub({ test_mode: false, updated_at: iso(now + 2000) }) } });
+    expect((await api("POST", "/billing/resume", { token: user.token, workerOrigin: testOrigin })).status).toBe(502);
+    expect(env.DB.raw.query("SELECT * FROM subscriptions").all()).toEqual(cancelled);
+    fetchImpl = () => Response.json({ data: { attributes: testSub({ updated_at: iso(now + 2000) }) } });
+    expect((await api("POST", "/billing/resume", { token: user.token, workerOrigin: testOrigin })).status).toBe(200);
+    expect((await api("GET", "/me", { token: user.token })).json.pro.status).toBe("active");
   });
 });
 
