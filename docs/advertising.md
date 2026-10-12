@@ -3,8 +3,16 @@
 Ads are disabled. The HTML shell includes the existing publisher account's
 public `google-adsense-account` meta tag for site ownership verification. This
 tag does not load an ad SDK, request ads, or establish site approval. There is
-no CMP or ads.txt seller entry. The existing Google Analytics and Vercel
-Analytics integrations are separate and unchanged.
+no live CMP integration or ads.txt seller entry. The privacy page excludes
+Google Analytics and Vercel Analytics. Navigation into and out of `/privacy`
+uses a new document so previously loaded analytics cannot follow a visitor
+into the policy. Analytics on other routes are unchanged.
+
+The footer's **Advertising and choices** link opens `/privacy#advertising`.
+While ads and the CMP are inactive, that section explains the current state;
+it is not a consent-withdrawal control. A published CMP will need its real
+revocation link on the pages where it runs, while the privacy page stays free
+of consent-dependent scripts and consent messages.
 
 ## Placement review
 

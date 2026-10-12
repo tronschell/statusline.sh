@@ -251,6 +251,9 @@ export function renderStaticRouteHtmlShell(
   const image = escapeHtml(absoluteUrl(meta.image ?? DEFAULT_OG_IMAGE));
 
   let html = indexHtml;
+  if (meta.canonicalPath === "/privacy") {
+    html = html.replace(/<script\b[^>]*\bid="page-analytics"[^>]*>[\s\S]*?<\/script>/, "");
+  }
   html = replaceFirst(html, /<title>[\s\S]*?<\/title>/, `<title>${title}</title>`);
   html = replaceFirst(
     html,

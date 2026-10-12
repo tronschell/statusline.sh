@@ -39,7 +39,8 @@ import { useShareState } from "./frontend/hooks/useShareState";
 import { useUndoRedo } from "./frontend/hooks/useUndoRedo";
 import { useDesignStore } from "./frontend/store/designStore";
 import { useUiStore } from "./frontend/store/uiStore";
-import { Route, Router, useParams } from "./frontend/router";
+import { Route, Router, useParams, usePath } from "./frontend/router";
+import { isPrivacyPath } from "./frontend/lib/navigate";
 // T12 owns LandingPage; T9 ships a placeholder so the build is green from day
 // one. The import is static — if T12 has shipped the real file, this resolves
 // to the full marketing page; otherwise the placeholder renders.
@@ -107,9 +108,13 @@ export function App() {
       </Route>
 
       <Footer />
-      <Analytics />
+      <PageAnalytics />
     </Router>
   );
+}
+
+function PageAnalytics() {
+  return isPrivacyPath(usePath()) ? null : <Analytics />;
 }
 
 function CommunityDetailRoute() {
