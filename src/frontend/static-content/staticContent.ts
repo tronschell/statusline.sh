@@ -238,12 +238,14 @@ const COMMUNITY_CONTENT: StaticPageContent = {
 const PRIVACY_CONTENT: StaticPageContent = {
   eyebrow: "Legal",
   h1: "Privacy policy.",
-  lede: "statusline.sh is an open-source Claude Code statusline builder. Your designs are stored in your browser; publishing to the community gallery is opt-in.",
+  lede: "statusline.sh has a free, open-source builder and optional accounts and Pro subscriptions. Publishing to the community gallery is opt-in.",
   sections: [
     {
       heading: "What we store.",
       paragraphs: [
-        "Draft statusline designs are persisted locally in your browser and never leave your device unless you choose to publish them. Publishing a design to the community gallery sends only the design JSON you created. We do not collect Claude Code session data — that JSON is processed locally by the statusline command on your own machine.",
+        "Draft designs are stored in your browser. Saving or publishing sends the design to our servers. Private library designs and versions are linked to your account; community designs include the name, author, and description you provide. Team features store membership and a shared design. Claude Code session data is processed locally by the statusline command on your own machine.",
+        "Optional accounts store profile and sign-in information, session records, and a password hash when password sign-in is used. Your browser stores a session token to keep you signed in. Lemon Squeezy processes checkout and payment information; our application stores subscription identifiers, status, and renewal or end dates to manage Pro access, rather than card details.",
+        "The site uses Google Analytics, Vercel Web Analytics, Google Fonts, and Cloudflare Turnstile. Google may set analytics cookies. You can delete private designs from your library and unpublish community designs using the site's controls; contact us through our GitHub repository for other data-removal requests.",
       ],
     },
   ],
@@ -256,12 +258,19 @@ const PRIVACY_CONTENT: StaticPageContent = {
 const TERMS_CONTENT: StaticPageContent = {
   eyebrow: "Legal",
   h1: "Terms of service.",
-  lede: "statusline.sh is provided as-is as a free, open-source Claude Code statusline builder. By using it you agree to these terms.",
+  lede: "statusline.sh is an open-source Claude Code statusline builder with a free builder and an optional paid Pro subscription. By using it you agree to these terms.",
   sections: [
     {
       heading: "Using the builder.",
       paragraphs: [
         "You may use statusline.sh to design, preview, and install Claude Code statuslines for personal or commercial projects at no cost. Designs you publish to the community gallery may be viewed and forked by other users. The service is provided without warranty of any kind.",
+      ],
+    },
+    {
+      heading: "Accounts and Pro subscriptions.",
+      paragraphs: [
+        "Signing in adds a private library and account-linked community designs. Pro is an optional hosted subscription advertised at $5 USD per month. Lemon Squeezy handles checkout and recurring payments. Review the price, taxes, and billing interval at checkout before purchasing. Pro access is activated automatically when payment is confirmed.",
+        "Manage or cancel your subscription from your account. Cancellation keeps Pro available until the end of the paid period. The free builder and generated installers remain available without Pro.",
       ],
     },
   ],

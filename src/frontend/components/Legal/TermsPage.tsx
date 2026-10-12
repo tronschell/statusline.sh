@@ -1,7 +1,7 @@
 import { LegalLayout, LegalSection } from "./LegalLayout";
 
 /**
- * /terms — straightforward terms for a free, open-source tool. Covers
+ * /terms — terms for the open-source builder and optional hosted Pro plan. Covers
  * community submissions, the install script (which writes to the user's
  * filesystem), and the standard "as-is" disclaimer that any OSS project ships.
  */
@@ -10,12 +10,13 @@ export function TermsPage() {
     <LegalLayout
       title="Terms of service."
       subtitle="Plain-English terms for using statusline.sh. By using the site you agree to these."
-      lastUpdated="May 24, 2026"
+      lastUpdated="October 12, 2026"
     >
       <LegalSection title="What this is">
         <p>
-          statusline.sh is a free, open-source web app that lets you design,
-          save, and share Claude Code statusline configurations. The source
+          statusline.sh is an open-source web app with a free builder and an
+          optional paid Pro subscription. It lets you design, save, and share
+          Claude Code statusline configurations. The source
           code is available on{" "}
           <a
             href="https://github.com/tronschell/statusline.sh"
@@ -31,9 +32,24 @@ export function TermsPage() {
 
       <LegalSection title="Your account">
         <p>
-          There isn't one. You don't sign up, you don't log in. Designs are
-          identified by random IDs, and ownership is established by
-          possession of the ID rather than by an authenticated session.
+          You can use the builder and anonymous installers without an account.
+          Signing in adds a private library and account-linked community
+          designs. Pro features require a signed-in account and an active
+          subscription. Keep your sign-in details private.
+        </p>
+      </LegalSection>
+
+      <LegalSection title="Pro subscriptions">
+        <p>
+          Pro is an optional hosted subscription advertised at $5 USD per month.
+          Lemon Squeezy handles checkout and recurring payments. Review the
+          price, taxes, and billing interval shown at checkout before purchasing.
+          Pro access is activated automatically when payment is confirmed.
+        </p>
+        <p>
+          You can manage or cancel your subscription from your account. When
+          you cancel, Pro remains available until the end of the paid period.
+          The free builder and generated installers remain available without Pro.
         </p>
       </LegalSection>
 

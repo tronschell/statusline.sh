@@ -114,8 +114,8 @@ function CheckoutWatcher() {
   if (active) return <Notice tone="ok">Payment confirmed — welcome to Pro.</Notice>;
   return gaveUp ? (
     <Notice tone="info">
-      Payment received, but confirmation is taking longer than usual. Refresh in a minute; if Pro still hasn't
-      appeared, your payment provider's receipt has the details to send us.
+      We haven't confirmed your payment yet. Refresh in a minute. If you received a receipt but Pro still
+      hasn't appeared, contact support with the receipt details.
     </Notice>
   ) : (
     <Notice tone="info">Confirming your payment…</Notice>

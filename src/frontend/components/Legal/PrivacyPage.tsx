@@ -1,27 +1,24 @@
 import { LegalLayout, LegalSection } from "./LegalLayout";
 
 /**
- * /privacy — tailored to what the app actually collects and stores. There is
- * no auth and no tracking cookies. Aggregate page views are measured via
- * Google Analytics. Designs are stored server-side only when the user
- * explicitly saves or publishes; otherwise everything lives in the browser
- * via localStorage / sessionStorage.
+ * /privacy — describes the builder, optional accounts, hosted storage,
+ * subscription billing, and the analytics integrations used by the app.
  */
 export function PrivacyPage() {
   return (
     <LegalLayout
       title="Privacy policy."
-      subtitle="statusline.sh is a free, open-source tool. We collect as little as we can and never sell what we have."
-      lastUpdated="May 24, 2026"
+      subtitle="statusline.sh has a free, open-source builder and optional accounts and Pro subscriptions."
+      lastUpdated="October 12, 2026"
     >
       <LegalSection title="The short version">
         <p>
-          We don't ask for an account. We don't set tracking cookies. We use
-          Google Analytics to measure aggregate page views so we can see what
-          parts of the site people use. The only data tied to you on our
-          servers is what you choose to upload — the designs you save and the
-          optional name and description you attach when publishing to the
-          community.
+          You can use the builder without an account. If you sign in, we store
+          the account information needed to provide your private library and
+          other account features. If you subscribe to Pro, Lemon Squeezy
+          processes the payment and we store subscription details to manage
+          your access. We also use Google Analytics and Vercel Web Analytics
+          to understand how the site is used.
         </p>
       </LegalSection>
 
@@ -31,7 +28,8 @@ export function PrivacyPage() {
           your in-progress design between visits so a refresh doesn't lose
           your work, and <code>sessionStorage</code> to remember which
           design ID you most recently saved. Both stay on your device.
-          Clearing your browser storage removes them.
+          Clearing your browser storage removes them. When you sign in, the
+          browser also stores a session token so you can stay signed in.
         </p>
       </LegalSection>
 
@@ -39,7 +37,7 @@ export function PrivacyPage() {
         <p>When you click <em>Save</em>, we store:</p>
         <ul className="list-disc space-y-2 pl-6">
           <li>The JSON of your design.</li>
-          <li>A random 10-character ID we generate for the design.</li>
+          <li>A randomly generated design ID.</li>
           <li>Created and updated timestamps.</li>
         </ul>
         <p>If you then click <em>Publish to community</em>, we also store:</p>
@@ -52,8 +50,27 @@ export function PrivacyPage() {
           <li>A fork count, incremented when another visitor forks it.</li>
         </ul>
         <p>
-          We do not associate any of this with an email address, IP address,
-          or device identifier in our application database.
+          Designs saved to your private library are linked to your account,
+          along with their saved versions. Publishing while signed in links
+          the community design to your public profile. Team features store
+          team membership and the shared design.
+        </p>
+      </LegalSection>
+
+      <LegalSection title="Accounts and subscriptions">
+        <p>
+          Account records include your username, email address when provided,
+          display name, avatar, linked sign-in provider identifiers, and session
+          records. For password sign-in, we store a password hash rather than
+          the password itself. Google and GitHub sign-in provide the profile
+          information used to create or link your account.
+        </p>
+        <p>
+          Lemon Squeezy processes checkout and payment information. Our
+          application stores customer and subscription identifiers, subscription
+          status, and renewal or end dates to determine Pro access; it does not
+          store your card details. Checkout includes your internal account ID
+          so the subscription can be linked to your account.
         </p>
       </LegalSection>
 
@@ -81,12 +98,9 @@ export function PrivacyPage() {
           >
             Google privacy policy
           </a>
-          . We don't run any other third-party analytics (Plausible, PostHog,
-          Segment, etc.) and we don't load third-party advertising. The site
-          also uses Google Fonts via CDN. To opt out of analytics, install
-          any standard tracker blocker (uBlock Origin, Privacy Badger, etc.)
-          or enable your browser's "Do Not Track" / "Global Privacy Control"
-          setting.
+          . We also use Vercel Web Analytics. The site uses Google Fonts via
+          CDN and Cloudflare Turnstile for abuse prevention. Browser privacy
+          tools and tracker blockers can limit third-party analytics requests.
         </p>
       </LegalSection>
 
@@ -99,8 +113,9 @@ export function PrivacyPage() {
 
       <LegalSection title="Deleting your data">
         <p>
-          To remove a published design, unpublish it from the builder. To
-          fully delete a saved design from our servers, open an issue on{" "}
+          You can delete private designs from your library and unpublish
+          community designs using the site's controls. For other data-removal
+          requests, contact us through{" "}
           <a
             href="https://github.com/tronschell/statusline.sh/issues"
             target="_blank"
@@ -108,11 +123,7 @@ export function PrivacyPage() {
             className="text-[#8FB8DA] underline-offset-2 hover:underline"
           >
             our GitHub repository
-          </a>{" "}
-          with the design ID and we'll remove it. Because there are no
-          accounts, we can only verify ownership by your possession of the
-          ID, so don't share it publicly if you don't want others to
-          request deletion.
+          </a>.
         </p>
       </LegalSection>
 
