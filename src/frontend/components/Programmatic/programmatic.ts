@@ -265,14 +265,16 @@ export const PROGRAMMATIC_PAGES: ProgrammaticPageConfig[] = [
       {
         heading: "Why include the git branch?",
         paragraphs: [
-          "When Claude Code spans multiple sessions, it is easy to lose track of which branch is checked out. The git branch element reads `workspace.git_worktree` from the session JSON Claude pipes to your statusline command on every render and prints the active branch name.",
+          "When Claude Code spans multiple sessions, it is easy to lose track of which branch is checked out. With Git installed, the exported Bash and PowerShell scripts query the checkout using `git -C <directory> rev-parse --abbrev-ref HEAD`. They take the directory from `workspace.current_dir`, falling back to `cwd` in Claude Code's session JSON.",
+          "`workspace.git_worktree` is the name of a linked worktree, not a reliable branch name. It is absent in the main working tree, and the worktree name can differ from the branch checked out there. See Anthropic's [official statusline field reference](https://code.claude.com/docs/en/statusline#available-data).",
           "Branch context is especially helpful when you keep separate worktrees for review, experiment, and main lines of work. A glance at the bottom of the terminal confirms whether the agent is editing the right tree before you accept a multi-file edit.",
         ],
       },
       {
         heading: "How it looks",
         paragraphs: [
-          "The preview below pairs the model name with the active directory and the branch, styled green and bold to call attention. The git branch element is conditional by default — when you are outside a git worktree, the element simply renders nothing and your statusline collapses cleanly around it.",
+          "The preview above pairs the model name with a sample directory and branch, styled green and bold. Browser previews use sample session data; they do not inspect a Git checkout on your machine. Use the installed script to see your own branch.",
+          "For a missing or unexpected branch, check that Git is installed and the session directory is inside the intended repository. In detached HEAD state, the generated command reports `HEAD`. Do not use a linked worktree's name as a substitute for checking its branch.",
         ],
       },
       {

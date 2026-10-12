@@ -1,10 +1,19 @@
 import { LegalLayout, LegalSection } from "./LegalLayout";
+import { ADVERTISING_PRIVACY } from "../Advertising/advertising";
+import { Inline } from "../Guides/guideUi";
+import { useEffect } from "react";
 
 /**
  * /privacy — describes the builder, optional accounts, hosted storage,
  * subscription billing, and the analytics integrations used by the app.
  */
 export function PrivacyPage() {
+  useEffect(() => {
+    if (window.location.hash === "#advertising") {
+      document.getElementById(ADVERTISING_PRIVACY.id)?.scrollIntoView();
+    }
+  }, []);
+
   return (
     <LegalLayout
       title="Privacy policy."
@@ -18,7 +27,7 @@ export function PrivacyPage() {
           other account features. If you subscribe to Pro, Lemon Squeezy
           processes the payment and we store subscription details to manage
           your access. We also use Google Analytics and Vercel Web Analytics
-          to understand how the site is used.
+          to understand how the site is used. Advertising is currently disabled.
         </p>
       </LegalSection>
 
@@ -102,6 +111,12 @@ export function PrivacyPage() {
           CDN and Cloudflare Turnstile for abuse prevention. Browser privacy
           tools and tracker blockers can limit third-party analytics requests.
         </p>
+      </LegalSection>
+
+      <LegalSection id={ADVERTISING_PRIVACY.id} title={ADVERTISING_PRIVACY.heading}>
+        {ADVERTISING_PRIVACY.paragraphs.map((paragraph) => (
+          <p key={paragraph}><Inline text={paragraph} /></p>
+        ))}
       </LegalSection>
 
       <LegalSection title="Children">

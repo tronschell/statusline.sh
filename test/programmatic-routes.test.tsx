@@ -43,3 +43,14 @@ test("the mid-segment :topic pattern does not match (why literal routes are used
 test("unknown programmatic slug renders nothing", () => {
   expect(renderAt("/claude-code-statusline-nope", <ProgrammaticRoutes />)).toBe("");
 });
+
+test("branch guide distinguishes checkout branches, worktree names, and sample data", () => {
+  const path = "/claude-code-statusline-git-branch";
+  for (const html of [renderAt(path, <ProgrammaticRoutes />), renderStaticRouteBody(path)]) {
+    expect(html).toContain("rev-parse --abbrev-ref HEAD");
+    expect(html).toContain("not a reliable branch name");
+    expect(html).toContain("Browser previews use sample session data");
+    expect(html).toContain('href="https://code.claude.com/docs/en/statusline#available-data"');
+    expect(html).not.toContain("element reads");
+  }
+});

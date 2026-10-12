@@ -39,6 +39,7 @@ import {
   buildSoftwareApplicationJsonLd,
   type JsonLdObject,
 } from "../seo";
+import { ADVERTISING_PRIVACY } from "../components/Advertising/advertising";
 
 const STYLE = {
   main: 'background:#0E0E10;color:#E8E8E6;min-height:100vh;font-family:Geist,system-ui,sans-serif;padding:72px 24px;',
@@ -83,7 +84,7 @@ interface StaticPageContent {
   eyebrow: string;
   h1: string;
   lede: string;
-  sections: Array<{ heading: string; paragraphs: string[] }>;
+  sections: Array<{ id?: string; heading: string; paragraphs: string[] }>;
   /** Crawlable internal links rendered as a "Keep exploring" list. */
   related?: Array<{ href: string; label: string }>;
   cta?: { href: string; label: string };
@@ -248,6 +249,7 @@ const PRIVACY_CONTENT: StaticPageContent = {
         "The site uses Google Analytics, Vercel Web Analytics, Google Fonts, and Cloudflare Turnstile. Google may set analytics cookies. You can delete private designs from your library and unpublish community designs using the site's controls; contact us through our GitHub repository for other data-removal requests.",
       ],
     },
+    ADVERTISING_PRIVACY,
   ],
   related: [
     { href: "/terms", label: "Terms of service" },
@@ -315,7 +317,7 @@ export function renderStaticRouteBody(canonicalPath: string): string {
   }
 
   for (const section of content.sections) {
-    parts.push(`<section style="${STYLE.section}">`);
+    parts.push(`<section${section.id ? ` id="${escapeHtml(section.id)}"` : ""} style="${STYLE.section}">`);
     parts.push(`<h2 style="${STYLE.h2}">${escapeHtml(section.heading)}</h2>`);
     for (const paragraph of section.paragraphs) {
       parts.push(`<p style="${STYLE.para}">${renderInlineHtml(paragraph)}</p>`);
