@@ -54,7 +54,7 @@
       "source": "/community/:slug",
       "destination": "https://statusline-community.zoniixyt.workers.dev/ssr/community/:slug"
     },
-    { "source": "/((?!_next|assets|.*\\..*).*)", "destination": "/index.html" }
+    { "source": "/((?!_next|assets|.*\\..*).*)", "destination": "/" }
   ],
   "headers": [
     {
