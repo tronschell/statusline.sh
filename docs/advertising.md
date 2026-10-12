@@ -1,9 +1,10 @@
 # Advertising preparation
 
-Ads are disabled. This change does not install an ad SDK or CMP, create an
-AdSense account, submit the site, add a publisher ID or ads.txt seller entry, or
-enable advertising. The existing Google Analytics and Vercel Analytics
-integrations are separate and unchanged.
+Ads are disabled. The HTML shell includes the existing publisher account's
+public `google-adsense-account` meta tag for site ownership verification. This
+tag does not load an ad SDK, request ads, or establish site approval. There is
+no CMP or ads.txt seller entry. The existing Google Analytics and Vercel
+Analytics integrations are separate and unchanged.
 
 ## Placement review
 
