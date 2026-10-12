@@ -73,8 +73,7 @@ export function ProgrammaticPage({ config }: ProgrammaticPageProps) {
             </span>
           </TerminalFrame>
           <p className="mt-3 text-[12px] text-[#6F6F6B]">
-            Rendered with the same interpreter that powers the in-builder
-            preview and the installed bash and PowerShell scripts.
+            Preview rendered in your browser using sample session data.
           </p>
         </section>
 

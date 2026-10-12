@@ -77,6 +77,11 @@ export function Footer() {
 
           <FooterColumn title="Legal">
             <FooterLink href="/privacy">Privacy policy</FooterLink>
+            <li>
+              <a href="/privacy#advertising" className="text-[#8A8A86] no-underline transition-colors hover:text-[#E8E8E6]">
+                Advertising and choices
+              </a>
+            </li>
             <FooterLink href="/terms">Terms of service</FooterLink>
           </FooterColumn>
         </div>

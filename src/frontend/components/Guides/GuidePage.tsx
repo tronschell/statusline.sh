@@ -13,7 +13,7 @@ import {
   Lightbulb,
   Warning,
 } from "@phosphor-icons/react";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { Fragment, useEffect, useMemo, useRef, useState } from "react";
 import { renderToAnsi } from "@statusline/shared/compiler/interpret";
 import { DEFAULT_MOCK_STDIN } from "@statusline/shared/mockStdin";
 import { getTemplate } from "@statusline/shared/templates";
@@ -39,6 +39,7 @@ import {
   useReducedMotion,
 } from "./guideUi";
 import { GuideWidget } from "./guideWidgets";
+import { EditorialAdPlacement } from "../Advertising/EditorialAdPlacement";
 
 type TemplateLike = NonNullable<ReturnType<typeof getTemplate>>;
 
@@ -760,26 +761,28 @@ export function GuidePage({ page }: { page: GuidePageData }) {
             </aside>
 
             {page.sections.map((section, i) => (
-              <section
-                key={section.id}
-                id={section.id}
-                className="mt-20 scroll-mt-24 border-t border-white/[0.06] pt-12"
-              >
-                <div className="font-mono text-[12px] text-[#6F6F6B]">
-                  {String(i + 1).padStart(2, "0")}
-                </div>
-                <h2
-                  className="mt-2 text-[32px] leading-[1.1] tracking-[-0.03em] text-[#E8E8E6] md:text-4xl"
-                  style={SERIF}
+              <Fragment key={section.id}>
+                <section
+                  id={section.id}
+                  className="mt-20 scroll-mt-24 border-t border-white/[0.06] pt-12"
                 >
-                  {section.title}
-                </h2>
-                <div className="mt-7 space-y-6">
-                  {section.blocks.map((block, b) => (
-                    <Block key={b} block={block} />
-                  ))}
-                </div>
-              </section>
+                  <div className="font-mono text-[12px] text-[#6F6F6B]">
+                    {String(i + 1).padStart(2, "0")}
+                  </div>
+                  <h2
+                    className="mt-2 text-[32px] leading-[1.1] tracking-[-0.03em] text-[#E8E8E6] md:text-4xl"
+                    style={SERIF}
+                  >
+                    {section.title}
+                  </h2>
+                  <div className="mt-7 space-y-6">
+                    {section.blocks.map((block, b) => (
+                      <Block key={b} block={block} />
+                    ))}
+                  </div>
+                </section>
+                <EditorialAdPlacement afterSection={section.id} />
+              </Fragment>
             ))}
 
             <section id="faq" className="mt-20 scroll-mt-24 border-t border-white/[0.06] pt-12">
