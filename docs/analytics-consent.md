@@ -1,12 +1,12 @@
 # Google Analytics consent gate
 
-This draft pauses Google Analytics across the frontend and Worker-rendered
+This change pauses Google Analytics across the frontend and Worker-rendered
 community HTML while the Google CMP remains unconfigured/unpublished. A small
 Google API adapter is connected to the gate; no CMP or advertising loader is
 installed. Publishing a message alone cannot enable tracking without the
 approved loader, analytics-purpose configuration, and explicit user grant.
-The change is prepared for review; production retains its previous behavior
-until both deployment targets are updated with approval.
+The user approved the paused-measurement rollout on October 13, 2026. Both
+deployment targets must be updated; CMP activation remains separately gated.
 
 ## Behavior and impact
 
@@ -128,8 +128,8 @@ the Worker regression tests pass.
 
 ## Deployment and decisions
 
-Do not merge or deploy this draft without the user's review of lost GA
-measurement and the withdrawal reload behavior. A later approved rollout must
+The user reviewed the lost GA measurement and withdrawal reload behavior and
+approved merging/deploying on October 13, 2026. The approved rollout must
 update the existing Worker as well as the frontend; deploying the frontend
 alone leaves direct community pages with their old inline GA loader. Verify
 the existing Worker version/bindings and deploy only the reviewed source.

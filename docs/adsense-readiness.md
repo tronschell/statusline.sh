@@ -3,7 +3,10 @@
 Reviewed October 13, 2026 against the public site, existing code, Google's
 current official guidance, and the actual statusline.sh AdSense draft. This
 records evidence and gaps; it is not a guarantee of approval or a blanket
-legal-compliance certification. Ads remain off. PR #10 is draft and undeployed.
+legal-compliance certification. Ads remain off. The tables below record the
+pre-rollout review. On October 13 the user approved merging/deploying PR #10
+with GA paused worldwide and Vercel unchanged outside privacy. This approval
+does not cover shared Consent Mode, CMP publication or advertising activation.
 
 ## Live passes
 
@@ -25,7 +28,7 @@ legal-compliance certification. Ads remain off. PR #10 is draft and undeployed.
 | Google-native adapter | Uses documented callbackQueue entries, TCF changes, and Google's current analyticsStoragePurposeConsentStatus. Only GRANTED (1) permits collection; missing, invalid, denied, NOT_APPLICABLE and NOT_CONFIGURED do not. No invented TCF strings, localStorage consent, custom consent banner or regional grant. No CMP/ad loader is installed. |
 | Native withdrawal entry | Footer and builder toolbar show Privacy and cookie settings only when Google's real EU revocation API is available. It calls showRevocationMessage through Google's queue; Google owns the record and UI. Active GA is disabled before a reload discards its listeners. Real persistence and ordering remain unverified. |
 | Accurate publishing copy | React and static privacy/guide text now distinguish private-library deletion from unavailable community self-service edit/unpublish controls. Existing GitHub removal-request guidance remains. No new legal policy or removal capability is invented. |
-| Local verification | Latest focused run: 60 passing tests, 244 assertions, root TypeScript and production build pass. Includes Google API contract simulations, grant/refusal/failure/revocation, privacy isolation, copy consistency and placement exclusions. Earlier gate baseline: 528 tests passed, 11 macOS PowerShell skips. Earlier actual-build desktop/mobile checks are not a real Google CMP test. |
+| Local verification | Final release run: 537 passing tests, 11 macOS PowerShell skips, 1,989 assertions; root TypeScript, production build and whitespace checks pass. Includes Google API contract simulations, grant/refusal/failure/revocation, privacy isolation, copy consistency and placement exclusions. Earlier actual-build desktop/mobile checks are not a real Google CMP test. |
 | Review scope | Custom analytics-only design prototype and its storage code removed from this PR; recoverable in prior commit ebadb35. The clearly labelled technical mock gate harness remains loopback-only. Branch-specific Vercel Git deployments stay disabled. |
 
 ## Google-native draft styling
@@ -45,8 +48,8 @@ bottom-placement control.
 | Formatting check | Observed result |
 | --- | --- |
 | Choice contrast | Consent and Do not consent: #f6f5f2 on #252521; Manage: reverse colors. All three calculate to 14.11:1, above Google's minimum 5:1. |
-| Same choice font/style | **Unresolved.** Computed desktop preview styles: Consent/Do not consent Roboto 14px normal 700; Manage Arial 14px normal 600 despite the common Roboto setting. No separate Manage font control or Arial option was exposed. This may be preview-specific, but that is not established. Do not claim formatting fully passes. |
-| Required purposes/vendors | **Unresolved.** Settings list 198 ad partners, including Google Advertising Products; the first screen says 0 and the vendor preview is empty. Selected partners normally populate messages. No documented explanation was found and no shared vendor setting was changed as a workaround. |
+| Same choice font/style | **Unresolved.** Computed desktop preview styles: Consent/Do not consent Roboto 14px normal 700; Manage Arial 14px normal 600 despite the common Roboto setting. A bounded Arimo trial changed only the first two; Manage stayed Arial. Roboto was restored and the editor closed without saving. No separate Manage font control or Arial option was exposed. This may be preview-specific, but that is not established. |
+| Required purposes/vendors | **Unresolved.** Settings list 198 ad partners, including Google Advertising Products; the first screen says 0 and the vendor preview is empty. The already-published kanbanthing.com message also displays 0 in its editor. This rules out an issue unique to Statusline's draft status, but does not prove a harmless placeholder or correct live vendor delivery. Official troubleshooting does not explain it. Shared partner settings were unchanged. |
 | Real mobile accessibility | Editor mobile preview inspected; actual-device keyboard, focus, readable purposes, all choices and revocation flow still need staged verification. |
 
 ## Unverified requirements and blockers
@@ -77,10 +80,57 @@ bottom-placement control.
 
 ## Manual decisions and exact next actions
 
-1. **Code review first:** review PR #10's loss of GA measurement and withdrawal
-   reload behavior. If approved later, deploy the reviewed frontend and existing
-   Worker together; otherwise direct Worker HTML retains the old GA bootstrap.
-   There is no approval to merge or deploy now.
+### Scope of the shared Consent Mode decision
+
+Read-only account inspection found exactly these messages and three account
+sites on October 13, 2026:
+
+| Message/site | Message status | Site approval status |
+| --- | --- | --- |
+| European regulations message - kanbanthing.com | Published; modified February 17, 2025 | Requires review |
+| European regulations message - pourfol.io | Published; modified November 20, 2024 | Requires review |
+| European regulations message - statusline.sh | Draft | Getting ready |
+
+Enabling the shared setting therefore also configures the two published
+messages, wherever they run. Publication is not evidence that they are
+currently being served. The existing maximize-coverage setting is on and can
+serve a fallback across all account sites when a required TC string is missing;
+this and automatic messages for new sites remain unchanged.
+
+Google documents the switch as interpreting existing EEA/UK/Swiss choices for
+ad storage, personalization and user data, with an optional analytics-storage
+mapping. It applies to all European web/app messages, excluding AMP, without
+changing the displayed message. It is not a per-site switch and does not by
+itself implement basic tag blocking; Google supports advanced mode by default.
+Other sites' actual tag implementations and traffic effects were not audited.
+
+**YouTube:** no YouTube channel is a target in the message/site inventories.
+The documented scope concerns publisher websites/apps and products deployed
+there. No direct YouTube channel, monetization or payout effect is indicated;
+that is a scope-based inference, not an explicit Google assurance of zero
+YouTube effect. No YouTube or payment setting was opened or changed in this
+follow-up.
+
+### Loader review boundary
+
+The reviewed draft still contains only the conditional GA loader and a Google
+API adapter; there is no Google CMP bootstrap. The documented deployment route
+normally uses an existing AdSense/Publisher tag after publication. An
+ad-blocking recovery tag is not a documented substitute for this task.
+Live-site debug preview requires publication. Do not deploy a guessed tag.
+
+The gate's dataLayer reset, event-only gtag wrapper, TCF notification ordering
+relative to updated Google values, native revocation/reload, and actual SDK
+network behavior need a real integration test before activation. The existing
+simulations do not resolve those interoperability questions. No implementation
+was expanded during this review and no additional live test was claimed.
+
+### Approval sequence
+
+1. **Approved code rollout:** deploy PR #10's reviewed frontend and existing
+   Worker together so direct Worker HTML also loses the old GA bootstrap. The
+   user approved this paused-measurement rollout on October 13, including its
+   loss of GA measurement and withdrawal reload behavior.
 2. **Shared setting approval:** before any change, obtain permission for AdSense
    → Privacy & messaging → European regulations → Settings → Enable consent
    mode for advertising purposes, then review the newly exposed analytics
@@ -103,9 +153,9 @@ bottom-placement control.
    copy/install/download controls and all unreviewed or flagged UGC ad-free.
    Consider only the reviewed editorial placement; do not click live ads.
 
-No further implementation, repeated unavailable live checks, deployment or
-publication is included in this handoff. The checklist and saved visual draft
-are ready to review; the consent integration is not ready for activation.
+The scope follow-up added no implementation and did not repeat blocked live
+checks. The approved frontend/Worker rollout pauses GA; it does not complete
+or activate the real consent integration. Publication remains a separate decision.
 
 ## Official references
 
@@ -117,6 +167,7 @@ are ready to review; the consent integration is not ready for activation.
 - [Certified CMP requirements](https://support.google.com/adsense/answer/13554116?hl=en)
 - [Message formatting and contrast](https://support.google.com/adsense/answer/10958856?hl=en)
 - [Ad-partner selection](https://support.google.com/adsense/answer/10960670?hl=en)
+- [Google message deployment troubleshooting](https://support.google.com/adsense/answer/14660912?hl=en)
 - [European messages and optional Consent Mode](https://support.google.com/adsense/answer/10961068?hl=en)
 - [Google CMP API, current values and live preview](https://developers.google.com/funding-choices/fc-api-docs)
 - [Publisher responsibility for UGC](https://support.google.com/adsense/answer/1355699?hl=en)
