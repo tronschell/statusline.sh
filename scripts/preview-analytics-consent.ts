@@ -1,20 +1,5 @@
 /** Local mock CMP/SDK harness + production build preview. No live Google calls. */
 import { join } from "node:path";
-import tailwind from "bun-plugin-tailwind";
-
-const design = await Bun.build({
-  entrypoints: [join(import.meta.dir, "../test/fixtures/analytics-consent-preview.html")],
-  plugins: [tailwind], target: "browser", minify: true,
-  publicPath: "/__consent-design-assets/",
-  define: {
-    "process.env.NODE_ENV": '"production"',
-    "process.env.NEXT_PUBLIC_WORKER_URL": '"http://127.0.0.1:4319/__preview-no-api"',
-    "process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY": "undefined",
-    "process.env.NEXT_PUBLIC_ACCOUNTS": '"0"',
-  },
-});
-if (!design.success) throw new Error(design.logs.join("\n"));
-const designAssets = new Map(design.outputs.map(asset => [asset.path.split("/").pop()!, asset]));
 
 const build = await Bun.build({
   entrypoints: [join(import.meta.dir, "../test/fixtures/google-consent-harness.ts")],
@@ -61,13 +46,6 @@ const server = Bun.serve({
   port: 4319,
   async fetch(request) {
     const path = new URL(request.url).pathname;
-    if (path === "/__consent-design" || path.startsWith("/__consent-design-assets/")) {
-      const asset = designAssets.get(path === "/__consent-design" ? "analytics-consent-preview.html" : path.split("/").pop()!);
-      return asset ? new Response(asset, { headers: {
-        "Content-Type": asset.type,
-        "Content-Security-Policy": "default-src 'self'; connect-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'",
-      } }) : new Response("Not found", { status: 404 });
-    }
     if (path.startsWith("/__consent-test")) return new Response(html, { headers: { "Content-Type": "text/html" } });
     if (path === "/__consent-harness.js") return new Response(harness, { headers: { "Content-Type": "text/javascript" } });
     if (path === "/__mock-gtag.js") {
@@ -94,4 +72,3 @@ const server = Bun.serve({
   },
 });
 console.log(`Mock consent harness: http://127.0.0.1:${server.port}/__consent-test`);
-console.log(`Local design preview: http://127.0.0.1:${server.port}/__consent-design`);

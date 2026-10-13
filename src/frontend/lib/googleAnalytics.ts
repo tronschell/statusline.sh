@@ -9,7 +9,7 @@ export type AnalyticsConsent = "unknown" | "denied" | "granted";
  * A reviewed CMP adapter must supply current, explicit analytics consent and
  * notify on changes/failure. It owns persistence, consent evidence, and the
  * real preferences UI. A TCF string, region, or localStorage boolean alone is
- * not this contract. There is no production adapter while the CMP is a draft.
+ * not this contract. The Google adapter stays closed without explicit data.
  */
 export interface AnalyticsConsentSource {
   getSnapshot(): AnalyticsConsent;

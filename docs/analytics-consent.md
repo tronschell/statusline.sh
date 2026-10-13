@@ -1,8 +1,10 @@
 # Google Analytics consent gate
 
 This draft pauses Google Analytics across the frontend and Worker-rendered
-community HTML. No live CMP is installed and no production consent adapter
-is connected. Publishing a consent message alone cannot enable tracking.
+community HTML while the Google CMP remains unconfigured/unpublished. A small
+Google API adapter is connected to the gate; no CMP or advertising loader is
+installed. Publishing a message alone cannot enable tracking without the
+approved loader, analytics-purpose configuration, and explicit user grant.
 The change is prepared for review; production retains its previous behavior
 until both deployment targets are updated with approval.
 
@@ -13,16 +15,15 @@ until both deployment targets are updated with approval.
   source of explicit analytics consent, it creates no Google script or event
   queue. No cookieless denied pings are used. A missing, invalid, unavailable,
   or refusing provider keeps the gate closed for every region.
-- A future reviewed adapter must own the actual consent UI, current consent
-  state, records, persistence, updates, and revocation. A localStorage flag,
+- Google must own the actual consent UI, current consent state, records,
+  persistence, updates, and revocation. A localStorage flag,
   region, TCF string alone, `NOT_CONFIGURED`, or a timeout is not consent.
   There is no query parameter, browser-global setter, or build flag that grants
-  production consent. The entry point deliberately supplies no adapter.
+  production consent. The entry point supplies the Google adapter; missing Google APIs stay closed.
 - With an explicit grant from the injected test provider, the gate loads one
   SDK and sends only the current page and subsequent activity. Duplicate
   effect/callback events are deduplicated; earlier denied activity is dropped.
-  Page-view query strings and fragments are excluded. Advertising consent
-  remains denied; Google signals/ad-personalization features remain disabled.
+  Page-view query strings and fragments are excluded. The gate's own advertising-consent commands remain denied; Google signals/ad-personalization features remain disabled.
 - On refusal/withdrawal/provider failure after a grant, collection is disabled
   before the denied update. The event function and script element are removed,
   then the document reloads to discard the SDK's existing listeners/timers.
@@ -35,8 +36,7 @@ until both deployment targets are updated with approval.
   navigation intact and means they stay untracked even after a future SPA grant.
 
 **Expected impact if approved:** GA page views, builder-start, install-handoff,
-and publish-success events stop until a reviewed live consent integration is
-added. Existing data is not deleted. The Vercel analytics component outside
+and publish-success events stop until the Google CMP integration is configured and validated live. Existing data is not deleted. The Vercel analytics component outside
 the privacy page and server-side operational/community counters are unchanged.
 
 Vercel documents aggregate analytics without cross-site personal identifiers,
@@ -71,39 +71,48 @@ These tests validate gate mechanics and generated HTML. They do not establish
 real Google CMP consent, legal validity, or actual Google SDK behavior after
 acceptance. A live CMP test is still required before enabling tracking.
 
-### Own-style design preview
+### Google-native adapter preparation
 
-The same local server serves `/__consent-design`: a 58-line React component
-using the existing `Btn`, plus a 21-line versioned preview-choice store. The
-fixture's HTML, CSS, and local fake-SDK wiring bring its total to 158 lines.
-There are no new dependencies and no production entry-point changes for this
-preview. Its isolated localStorage key is never read by the application.
+`googleConsent.ts` uses the documented `CONSENT_API_READY` and
+`CONSENT_MODE_DATA_READY` callbacks, a TCF change listener, and Google's
+current `analyticsStoragePurposeConsentStatus`. Only numeric GRANTED (`1`)
+allows analytics. DENIED (`2`) refuses it; unknown, invalid, inapplicable (`3`),
+and not-configured (`4`) remain closed worldwide. No TCF string or vendor
+consent is interpreted as analytics permission. There is no locally written
+consent record, fabricated grant, or regional permission bypass.
 
-Accept, reject, and manage use the same button treatment. Manage expands an
-inline panel with an initially unchecked optional-analytics control; the
-footer's Privacy choices control reopens it. Choices persist across reloads;
-withdrawal uses the existing gate's document reload to discard the fake SDK.
-The page labels all collection as simulated, uses no external font request,
-and restricts network destinations to its own loopback origin with CSP.
-This is an analytics UI design prototype, not a certified advertising CMP,
-production consent record, or substitute for Google's advertising controls.
+The footer and builder toolbar expose **Privacy and cookie settings** only
+when Google's EU revocation API is available and GDPR applies. The control
+calls `showRevocationMessage` through Google's queue; Google clears its old
+record and reopens its own message. The gate disables collection and reloads
+an active document to discard the SDK. `/privacy` initializes neither the
+adapter nor that control. Google's persisted choices are read afresh on each
+page load. The separate custom banner/store/preview has been removed from
+PR scope; its prior commit and private screenshots remain recoverable.
 
-Focused validation: 32 tests / 185 assertions passed; root TypeScript and
-production build passed. Browser checks at 1280×720 and 390×844 verified equal
-44px choice controls, keyboard operation/focus return, no horizontal overflow,
-zero local SDK/events before consent and after refusal, grant persistence,
-and withdrawal persistence without another SDK load or event. After grant
-and one reload the counters were 2 SDK loads / 2 simulated events; withdrawal
-and another reload left them at 2 / 2 with the SDK absent. Preview assets and
-its storage key are absent from `dist`.
+**This is prepared code, not a verified live integration.** There is no Google
+CMP/ad bootstrap in the repository. Enabling shared Consent Mode, configuring
+its analytics purpose, choosing an approved tag-loading arrangement, publishing
+the message, and real-device tests remain blocked on review/approval. The
+setting affects other existing European messages; do not toggle it as a
+site-local change. Google documents live preview as requiring publication.
+Until these steps, this build has no real API data and keeps GA paused. Direct
+Worker community HTML remains untracked and carries no CMP or Vercel loader.
 
-The same draft corrects a separate copy discrepancy: the privacy page claimed
-community designs could be unpublished, while current API/UI only support
-private-library deletion. Privacy and guide copy now describe the available
-controls consistently, with a focused test covering React and static HTML.
-This discrepancy is not evidence of any historical AdSense rejection cause.
+Latest focused validation: 60 tests / 244 assertions pass, including eight
+Google API-contract simulations and the gate, privacy, copy-consistency, and
+advertising exclusions. Root TypeScript and production build pass. Simulations
+cover stored grant/refusal values on a fresh adapter, unavailable/failed APIs,
+TCF change events, native revocation ordering, and gate disable-before-reload.
+They do not establish Google's actual storage writes, callback ordering,
+post-grant network behavior, regional behavior, or live revocation flow.
 
-Validation recorded for this draft: 528 tests passed, 11 PowerShell execution
+The privacy/guide correction remains: private-library deletion exists, while
+community designs have no self-service edit or unpublish controls. The
+existing removal-request guidance is preserved. This is not evidence of any
+historical AdSense rejection cause.
+
+Earlier gate baseline validation (before the native adapter): 528 tests passed, 11 PowerShell execution
 skips on macOS, 0 failures; 1,940 assertions. Root TypeScript and the production
 build passed. Local browser simulation recorded zero SDK/collector requests
 for unknown/refused consent; acceptance loaded one fake SDK, and withdrawal
@@ -125,7 +134,7 @@ update the existing Worker as well as the frontend; deploying the frontend
 alone leaves direct community pages with their old inline GA loader. Verify
 the existing Worker version/bindings and deploy only the reviewed source.
 No new Worker, secret, vendor setting, ad unit, or CMP publication is needed
-to keep GA paused. Do not apply migrations or change account/payout settings
+to keep GA paused while the native integration awaits activation. Do not apply migrations or change account/payout settings
 as part of this analytics change.
 
 `vercel.json` disables automatic Git deployments for this draft branch only

@@ -9,10 +9,11 @@ import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import { App } from "./App";
 import { startGoogleAnalytics } from "./frontend/lib/googleAnalytics";
+import { googleConsent } from "./frontend/lib/googleConsentRuntime";
 
-// No consent provider is connected while the CMP is unpublished. This pauses
-// GA everywhere; a later reviewed CMP integration must supply the adapter.
-startGoogleAnalytics(window);
+// Google owns the consent record and UI. Without its configured/published
+// message and explicit analytics grant, the gate stays closed worldwide.
+startGoogleAnalytics(window, googleConsent);
 
 const elem = document.getElementById("root")!;
 const app = (

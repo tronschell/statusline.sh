@@ -8,7 +8,7 @@ supplied by this account's AdSense dashboard; it does not enable ads. The
 privacy page excludes Google Analytics and Vercel Analytics. Navigation into and out of `/privacy`
 uses a new document so previously loaded analytics cannot follow a visitor
 into the policy. Google Analytics is paused across the SPA and Worker HTML
-while no reviewed consent adapter is connected. Vercel Web Analytics remains
+while the Google CMP is unconfigured/unpublished; the draft API adapter alone cannot enable it. Vercel Web Analytics remains
 unchanged outside the privacy page.
 
 The [readiness review](adsense-readiness.md) records the current review status,
@@ -19,9 +19,10 @@ the CMP, supply real consent controls, or establish site-wide legal compliance.
 
 The footer's **Advertising and choices** link opens `/privacy#advertising`.
 While ads and the CMP are inactive, that section explains the current state;
-it is not a consent-withdrawal control. A published CMP will need its real
-revocation link on the pages where it runs, while the privacy page stays free
-of consent-dependent scripts and consent messages.
+it is not a consent-withdrawal control. The draft includes a separate native Google revocation control in the footer
+and builder toolbar, visible only after the real Google API is ready. It is
+not active while the CMP is unpublished. The privacy page stays free of
+consent-dependent scripts and consent messages.
 
 ## Placement review
 
