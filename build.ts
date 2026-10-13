@@ -251,6 +251,9 @@ export function renderStaticRouteHtmlShell(
   const image = escapeHtml(absoluteUrl(meta.image ?? DEFAULT_OG_IMAGE));
 
   let html = indexHtml;
+  if (meta.canonicalPath === "/privacy") {
+    html = html.replace(/<script\b[^>]*\bid="page-analytics"[^>]*>[\s\S]*?<\/script>/, "");
+  }
   html = replaceFirst(html, /<title>[\s\S]*?<\/title>/, `<title>${title}</title>`);
   html = replaceFirst(
     html,
@@ -359,6 +362,12 @@ async function writeStaticSeoAssets(): Promise<void> {
   const ogSvgPath = path.join(process.cwd(), "src", "static", "og-default.svg");
   await Promise.all([
     writeFile(path.join(outdir, "robots.txt"), renderRobotsTxt(), "utf8"),
+    // Exact seller entry supplied by this site's existing AdSense account.
+    // This static authorization file does not load or enable advertising.
+    copyFile(
+      path.join(process.cwd(), "src", "static", "ads.txt"),
+      path.join(outdir, "ads.txt"),
+    ),
     writeFile(
       path.join(outdir, "sitemap.xml"),
       renderSitemapIndexXml(),

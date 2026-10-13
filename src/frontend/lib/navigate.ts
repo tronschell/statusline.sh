@@ -6,8 +6,19 @@
 
 import { useEffect, useState } from "react";
 
+export function isPrivacyPath(path: string): boolean {
+  return (path.split(/[?#]/)[0] ?? "").replace(/\/+$/, "") === "/privacy";
+}
+
 export function navigate(url: string): void {
   if (typeof window === "undefined") return;
+  // A new document drops scripts/listeners already loaded on another page.
+  // Leaving the policy also needs a fresh document to restore normal analytics.
+  const destination = new URL(url, window.location.href);
+  if (isPrivacyPath(window.location.pathname) || isPrivacyPath(destination.pathname)) {
+    window.location.assign(url);
+    return;
+  }
   window.history.pushState({}, "", url);
   window.dispatchEvent(new PopStateEvent("popstate"));
 }

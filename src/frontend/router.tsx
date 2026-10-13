@@ -26,7 +26,7 @@ import {
   type AnchorHTMLAttributes,
   type ReactNode,
 } from "react";
-import { getPath, navigate } from "./lib/navigate";
+import { getPath, isPrivacyPath, navigate } from "./lib/navigate";
 
 interface RouterContextValue {
   path: string; // full path + search (mirrors getPath)
@@ -56,6 +56,7 @@ export function Router({ children }: RouterProps) {
   }, []);
 
   useEffect(() => {
+    if (isPrivacyPath(path)) return;
     const w = window as unknown as { gtag?: (...args: unknown[]) => void };
     w.gtag?.("event", "page_view", {
       page_path: path,
