@@ -19,7 +19,7 @@ import {
 } from "../src/seo";
 import { STATIC_SITEMAP_ROUTES as BUILD_STATIC_SITEMAP_ROUTES } from "../../build";
 import { renderCommunityOgSvg } from "../src/og";
-import { renderCommunityDetailHtml } from "../src/ssr";
+import { renderCommunityDetailHtml, renderCommunityListHtml } from "../src/ssr";
 import type { DesignRow } from "../src/designs";
 
 interface FakeDesignRow {
@@ -237,6 +237,15 @@ describe("community detail indexability", () => {
     expect(html).toContain('"@type":"SoftwareApplication"');
     expect(html).toContain('rel="canonical" href="https://statusline.sh/community/minimal-fork"');
     expect(html).toContain("/i/fork000001.sh");
+  });
+
+  test("both Worker HTML entry points contain content without any GA bootstrap", () => {
+    for (const html of [renderCommunityDetailHtml({ row }), renderCommunityListHtml({ designs: [row] })]) {
+      expect(html).not.toMatch(/googletagmanager|google-analytics|gtag\(|dataLayer/);
+      expect(html).toContain('id="root"');
+      expect(html).toContain("Minimal");
+      expect(html).toContain('href="/builder');
+    }
   });
 
   test("noindexes empty or structurally missing designs without hiding their page", () => {

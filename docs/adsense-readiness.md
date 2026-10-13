@@ -1,7 +1,7 @@
 # AdSense readiness review
 
-Reviewed October 12, 2026 against Google's current documentation and the
-public production site. This is a technical review, not a guarantee of
+Reviewed October 12–13, 2026 against Google's current documentation and the
+public production site, with a separate draft analytics-gate follow-up. This is a technical review, not a guarantee of
 Google's approval or a legal-compliance certification. Ads remain disabled.
 
 ## Site review and technical checks
@@ -34,13 +34,23 @@ preview discrepancy. It remains unresolved. No shared partner/purpose setting
 was changed to conceal or work around it. Do not publish or activate the
 message until the real vendor list and purpose presentation can be verified.
 
-**Existing Google Analytics is a separate, current consent gap outside the
-policy page:** other routes, including Worker-rendered community pages, load
-GA without a consent gate. The unpublished draft cannot provide consent for
-those scripts. Before claiming site-wide readiness, implement and validate
-the applicable analytics consent flow or pause those tags across both deploy
-targets. That change needs an explicit review of the frontend and Worker;
-this PR does not deploy unrelated Worker code or alter shared account settings.
+Bounded diagnosis: the actual selector is populated (including the required
+Google vendor), so this is not evidence of an empty saved partner selection.
+Both the first-screen count and vendor-preferences editor are empty. Google's
+partner-selection and troubleshooting documentation do not identify this as
+normal preview behavior. Classify it as an **unresolved Google CMP dashboard
+discrepancy**, not a confirmed preview-only limitation or a proven server-side
+fault. Resolution needs a correct preview/live integration test or a specific
+answer from Google; changing shared vendors merely to affect the preview is
+not justified. No message was published to diagnose it.
+
+**The separate draft analytics change closes the unconditional-loader gap in
+code, but has not been deployed:** it removes GA bootstraps from the frontend
+and both Worker HTML renderers, and uses a default-denied gate with no
+production consent adapter. GA therefore remains paused in that build. See
+[analytics consent and validation](analytics-consent.md). Production still has
+the previous behavior until the user approves and both targets are deployed.
+The local simulated acceptance/withdrawal tests do not prove live CMP behavior.
 
 Before any advertising activation, resolve that gap and the vendor discrepancy,
 integrate the chosen certified CMP and real consent-revocation control, review
@@ -52,6 +62,18 @@ Keep the privacy page free of consent-dependent scripts and consent messages.
 The inherited account-level fallback-message setting can apply to all sites
 when a required TC string is missing. A site's draft status alone must not be
 treated as an advertising consent gate.
+
+## Review readiness versus ad-serving readiness
+
+| Check | Current result |
+| --- | --- |
+| Accessible content, navigation, privacy disclosures | Reviewed; privacy isolation and ads.txt from PR #9 are deployed. Google still decides content quality and site approval. |
+| GA before consent | Fixed and tested in the separate draft only. Pending user review and coordinated frontend/Worker deployment. |
+| Analytics after future consent | Gate lifecycle tested with a local mock CMP/SDK. No real CMP adapter is connected; no production path grants consent. |
+| Google site decision | Submitted; last observed Getting ready / Review requested. Not approved. |
+| Vendor/purpose presentation | Unresolved Google dashboard preview discrepancy. Draft remains unpublished. |
+| Live consent and revocation | Not integrated or tested live. Must be completed before tracking is re-enabled or ads are considered. |
+| Ad-serving activation | Disabled. Requires site approval, reviewed CMP/provider/purpose/regional choices, live consent validation, and user approval for the chosen placement. |
 
 ## Sources checked
 

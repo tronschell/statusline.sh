@@ -251,13 +251,7 @@ export function renderCommunityDetailHtml({ row, related = [] }: SsrInput): stri
     <meta name="twitter:image:alt" content="${escapeAttr(ogImageAlt)}" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <script async src="https://www.googletagmanager.com/gtag/js?id=G-JDKLE4R2EV"></script>
-    <script>
-      window.dataLayer = window.dataLayer || [];
-      function gtag(){dataLayer.push(arguments);}
-      gtag('js', new Date());
-      gtag('config', 'G-JDKLE4R2EV', { send_page_view: false });
-    </script>
+    <!-- Analytics requires the SPA's reviewed consent gate; never load GA in SSR. -->
     ${jsonLd}
     <style>
       :root { color-scheme: dark; }
@@ -555,13 +549,7 @@ export function renderCommunityListHtml({ designs }: SsrListInput): string {
     <meta name="twitter:image" content="${escapeAttr(LIST_OG_IMAGE)}" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <script async src="https://www.googletagmanager.com/gtag/js?id=G-JDKLE4R2EV"></script>
-    <script>
-      window.dataLayer = window.dataLayer || [];
-      function gtag(){dataLayer.push(arguments);}
-      gtag('js', new Date());
-      gtag('config', 'G-JDKLE4R2EV', { send_page_view: false });
-    </script>
+    <!-- Analytics requires the SPA's reviewed consent gate; never load GA in SSR. -->
     ${jsonLd}
     <style>
       :root { color-scheme: dark; }

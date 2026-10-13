@@ -7,12 +7,15 @@ no live CMP integration. `/ads.txt` contains the exact Google seller entry
 supplied by this account's AdSense dashboard; it does not enable ads. The
 privacy page excludes Google Analytics and Vercel Analytics. Navigation into and out of `/privacy`
 uses a new document so previously loaded analytics cannot follow a visitor
-into the policy. Analytics on other routes are unchanged.
+into the policy. Google Analytics is paused across the SPA and Worker HTML
+while no reviewed consent adapter is connected. Vercel Web Analytics remains
+unchanged outside the privacy page.
 
 The [readiness review](adsense-readiness.md) records the current review status,
-verified requirements, and remaining consent work. In particular, existing
-Google Analytics on other routes still starts without a consent gate; this
-privacy-page fix does not establish site-wide consent compliance.
+verified requirements, and remaining consent work. The
+[analytics gate](analytics-consent.md) prevents GA loading until an explicit
+analytics grant is supplied by a reviewed CMP adapter. This does not publish
+the CMP, supply real consent controls, or establish site-wide legal compliance.
 
 The footer's **Advertising and choices** link opens `/privacy#advertising`.
 While ads and the CMP are inactive, that section explains the current state;

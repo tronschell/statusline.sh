@@ -18,7 +18,7 @@ export function PrivacyPage() {
     <LegalLayout
       title="Privacy policy."
       subtitle="statusline.sh has a free, open-source builder and optional accounts and Pro subscriptions."
-      lastUpdated="October 12, 2026"
+      lastUpdated="October 13, 2026"
     >
       <LegalSection title="The short version">
         <p>
@@ -26,8 +26,9 @@ export function PrivacyPage() {
           the account information needed to provide your private library and
           other account features. If you subscribe to Pro, Lemon Squeezy
           processes the payment and we store subscription details to manage
-          your access. We also use Google Analytics and Vercel Web Analytics
-          to understand how the site is used. Advertising is currently disabled.
+          your access. We use Vercel Web Analytics to understand how the site
+          is used. Google Analytics is paused while consent controls are being
+          prepared. Advertising is currently disabled.
         </p>
       </LegalSection>
 
@@ -95,10 +96,12 @@ export function PrivacyPage() {
 
       <LegalSection title="Cookies and analytics">
         <p>
-          We run Google Analytics (GA4, measurement ID{" "}
-          <code>G-JDKLE4R2EV</code>) to count page views and understand which
-          parts of the site are used. Google may set its own cookies and
-          process your IP address as described in the{" "}
+          Google Analytics is currently paused: its script is not loaded and
+          activity is not queued for later tracking. Before enabling it, we
+          will provide consent controls. If you choose to allow Google Analytics
+          (GA4, measurement ID <code>G-JDKLE4R2EV</code>), it can count page views
+          and usage events. Google may set its own cookies and process your
+          IP address as described in the{" "}
           <a
             href="https://policies.google.com/privacy"
             target="_blank"
@@ -107,7 +110,17 @@ export function PrivacyPage() {
           >
             Google privacy policy
           </a>
-          . We also use Vercel Web Analytics. The site uses Google Fonts via
+          . We use Vercel Web Analytics on pages other than this privacy policy.
+          See{" "}
+          <a
+            href="https://vercel.com/docs/analytics/privacy-policy"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-[#8FB8DA] underline-offset-2 hover:underline"
+          >
+            Vercel's description of its analytics data
+          </a>
+          . The site uses Google Fonts via
           CDN and Cloudflare Turnstile for abuse prevention. Browser privacy
           tools and tracker blockers can limit third-party analytics requests.
         </p>

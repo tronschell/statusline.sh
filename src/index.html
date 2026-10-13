@@ -38,19 +38,7 @@
     <link rel="icon" type="image/svg+xml" href="./logo.svg" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <!-- Omitted from the built privacy page; the guard also covers dev/fallback shells. -->
-    <script id="page-analytics">
-      if (window.location.pathname.replace(/\/+$/, '') !== '/privacy') {
-        window.dataLayer = window.dataLayer || [];
-        window.gtag = function(){window.dataLayer.push(arguments);};
-        window.gtag('js', new Date());
-        window.gtag('config', 'G-JDKLE4R2EV', { send_page_view: false });
-        var googleTag = document.createElement('script');
-        googleTag.async = true;
-        googleTag.src = 'https://www.googletagmanager.com/gtag/js?id=G-JDKLE4R2EV';
-        document.head.appendChild(googleTag);
-      }
-    </script>
+    <!-- Google Analytics is gated in frontend/lib/googleAnalytics.ts. -->
     <script>
       // Dev-only safety net: the production build inlines every
       // `process.env.NEXT_PUBLIC_*` reference as a string literal via Bun.build's

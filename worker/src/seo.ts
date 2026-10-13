@@ -119,7 +119,7 @@ export function renderRobotsTxt(): string {
 // list, guide, privacy, terms) meaningfully change. Keeping it deterministic
 // avoids ticking lastmod on every deploy, which search engines interpret as
 // noisy churn.
-export const STATIC_ROUTES_LASTMOD = "2026-09-29T00:00:00.000Z";
+export const STATIC_ROUTES_LASTMOD = "2026-10-13T00:00:00.000Z";
 
 type SitemapUrl = {
   loc: string;

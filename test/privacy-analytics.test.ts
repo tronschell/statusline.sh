@@ -1,12 +1,10 @@
 import { afterEach, describe, expect, mock, test } from "bun:test";
 import { readFileSync } from "node:fs";
-import { runInNewContext } from "node:vm";
 import { renderStaticRouteHtmlShell } from "../build";
 import { STATIC_ROUTE_META } from "../src/frontend/seo";
 import { navigate } from "../src/frontend/lib/navigate";
 
 const source = readFileSync(new URL("../src/index.html", import.meta.url), "utf8");
-const bootstrap = source.match(/<script id="page-analytics">([\s\S]*?)<\/script>/)![1]!;
 const originalWindow = Object.getOwnPropertyDescriptor(globalThis, "window");
 const originalPopStateEvent = Object.getOwnPropertyDescriptor(globalThis, "PopStateEvent");
 afterEach(() => {
@@ -24,34 +22,15 @@ describe("privacy page analytics isolation", () => {
     expect(html).toContain('rel="canonical" href="https://statusline.sh/privacy"');
     expect(html).toContain('id="advertising"');
     const home = renderStaticRouteHtmlShell(source, STATIC_ROUTE_META["/"]!);
-    expect(home).toContain("googletagmanager");
+    expect(home).not.toMatch(/page-analytics|googletagmanager/);
     expect(home).toContain('type="application/ld+json"');
   });
 
-  test.each(["/privacy", "/privacy/", "/privacy///"])(
-    "dev/fallback bootstrap does not initialize or load analytics at %s", (pathname) => {
-      const window: Record<string, unknown> = { location: { pathname } };
-      const createElement = mock(() => ({}));
-      const appendChild = mock(() => {});
-      runInNewContext(bootstrap, { window, document: { createElement, head: { appendChild } } });
-      expect(createElement).not.toHaveBeenCalled();
-      expect(appendChild).not.toHaveBeenCalled();
-      expect(window.gtag).toBeUndefined();
-      expect(window.dataLayer).toBeUndefined();
-    },
-  );
-
-  test("other pages keep the existing measurement ID and manual page views", () => {
-    const window: Record<string, any> = { location: { pathname: "/builder" } };
-    const appendChild = mock((_script: object) => {});
-    runInNewContext(bootstrap, { window, document: { createElement: () => ({}), head: { appendChild } } });
-    expect(appendChild.mock.calls).toEqual([[{
-      async: true,
-      src: "https://www.googletagmanager.com/gtag/js?id=G-JDKLE4R2EV",
-    }]]);
-    expect(Array.from(window.dataLayer[1])).toEqual([
-      "config", "G-JDKLE4R2EV", { send_page_view: false },
-    ]);
+  test("no static route loads Google Analytics before the consent gate", () => {
+    for (const meta of Object.values(STATIC_ROUTE_META)) {
+      const html = renderStaticRouteHtmlShell(source, meta);
+      expect(html).not.toMatch(/page-analytics|googletagmanager|gtag\(/);
+    }
   });
 
   function installWindow(path: string) {
