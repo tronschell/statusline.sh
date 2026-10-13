@@ -356,7 +356,7 @@ const FIG_PUBLISH: GuideFigure = {
   src: "/guides/claude-code-statusline-publish-dialog.webp",
   alt: "The Publish to community dialog with Name, Author name and Description fields, a warning that published designs can't be edited or removed, and Export JSON, Cancel and Publish buttons.",
   caption:
-    "Publishing is optional. Note the warning: a published design can't be edited or removed, so use Export JSON first if you want a copy.",
+    "Publishing is optional. Community designs have no self-service edit or unpublish controls, so use Export JSON first if you want a copy.",
   width: 1072,
   height: 1192,
   maxWidth: 520,
@@ -505,7 +505,7 @@ const PILLAR: GuidePageData = {
             },
             {
               title: "Optional: save or publish it",
-              text: "**Publish** adds the design to the [community gallery](/community) under your name so others can preview and fork it. Published designs cannot be edited or removed, so use **Export JSON** first if you want a copy.",
+              text: "**Publish** adds the design to the [community gallery](/community) under your name so others can preview and fork it. Community designs have no self-service edit or unpublish controls, so use **Export JSON** first if you want a copy. See the [privacy policy](/privacy) for data-removal requests.",
               figure: FIG_PUBLISH,
             },
           ],

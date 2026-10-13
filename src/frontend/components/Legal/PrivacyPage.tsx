@@ -141,8 +141,8 @@ export function PrivacyPage() {
 
       <LegalSection title="Deleting your data">
         <p>
-          You can delete private designs from your library and unpublish
-          community designs using the site's controls. For other data-removal
+          You can delete private designs from your library. Community designs
+          have no self-service edit or unpublish controls. For data-removal
           requests, contact us through{" "}
           <a
             href="https://github.com/tronschell/statusline.sh/issues"

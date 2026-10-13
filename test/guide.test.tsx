@@ -7,6 +7,23 @@ import {
 import { COMMAND_GUIDE_PATH, GUIDE_PAGES } from "../src/frontend/components/Guides/guideContent";
 import { STATUSLINE_GUIDE_PATH } from "../src/frontend/seo";
 import { renderStaticRouteBody } from "../src/frontend/static-content/staticContent";
+import { PrivacyPage } from "../src/frontend/components/Legal/PrivacyPage";
+
+test("guide and privacy distinguish library deletion from unavailable community controls", () => {
+  const rendered = [
+    renderToStaticMarkup(<ClaudeCodeStatuslineGuidePage />),
+    renderStaticRouteBody(STATUSLINE_GUIDE_PATH),
+    renderToStaticMarkup(<PrivacyPage />),
+    renderStaticRouteBody("/privacy"),
+  ];
+  for (const html of rendered) {
+    const text = html.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ");
+    expect(text).toContain("Community designs have no self-service edit or unpublish controls");
+    expect(text).toContain("data-removal requests");
+    expect(text).not.toContain("unpublish community designs using");
+  }
+  for (const html of rendered.slice(2)) expect(html).toContain("You can delete private designs from your library");
+});
 
 const PAGES = [
   ["pillar", STATUSLINE_GUIDE_PATH, ClaudeCodeStatuslineGuidePage],

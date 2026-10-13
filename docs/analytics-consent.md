@@ -71,6 +71,38 @@ These tests validate gate mechanics and generated HTML. They do not establish
 real Google CMP consent, legal validity, or actual Google SDK behavior after
 acceptance. A live CMP test is still required before enabling tracking.
 
+### Own-style design preview
+
+The same local server serves `/__consent-design`: a 58-line React component
+using the existing `Btn`, plus a 21-line versioned preview-choice store. The
+fixture's HTML, CSS, and local fake-SDK wiring bring its total to 158 lines.
+There are no new dependencies and no production entry-point changes for this
+preview. Its isolated localStorage key is never read by the application.
+
+Accept, reject, and manage use the same button treatment. Manage expands an
+inline panel with an initially unchecked optional-analytics control; the
+footer's Privacy choices control reopens it. Choices persist across reloads;
+withdrawal uses the existing gate's document reload to discard the fake SDK.
+The page labels all collection as simulated, uses no external font request,
+and restricts network destinations to its own loopback origin with CSP.
+This is an analytics UI design prototype, not a certified advertising CMP,
+production consent record, or substitute for Google's advertising controls.
+
+Focused validation: 32 tests / 185 assertions passed; root TypeScript and
+production build passed. Browser checks at 1280×720 and 390×844 verified equal
+44px choice controls, keyboard operation/focus return, no horizontal overflow,
+zero local SDK/events before consent and after refusal, grant persistence,
+and withdrawal persistence without another SDK load or event. After grant
+and one reload the counters were 2 SDK loads / 2 simulated events; withdrawal
+and another reload left them at 2 / 2 with the SDK absent. Preview assets and
+its storage key are absent from `dist`.
+
+The same draft corrects a separate copy discrepancy: the privacy page claimed
+community designs could be unpublished, while current API/UI only support
+private-library deletion. Privacy and guide copy now describe the available
+controls consistently, with a focused test covering React and static HTML.
+This discrepancy is not evidence of any historical AdSense rejection cause.
+
 Validation recorded for this draft: 528 tests passed, 11 PowerShell execution
 skips on macOS, 0 failures; 1,940 assertions. Root TypeScript and the production
 build passed. Local browser simulation recorded zero SDK/collector requests
