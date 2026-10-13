@@ -3,10 +3,16 @@
 Ads are disabled. The HTML shell includes the existing publisher account's
 public `google-adsense-account` meta tag for site ownership verification. This
 tag does not load an ad SDK, request ads, or establish site approval. There is
-no live CMP integration or ads.txt seller entry. The privacy page excludes
-Google Analytics and Vercel Analytics. Navigation into and out of `/privacy`
+no live CMP integration. `/ads.txt` contains the exact Google seller entry
+supplied by this account's AdSense dashboard; it does not enable ads. The
+privacy page excludes Google Analytics and Vercel Analytics. Navigation into and out of `/privacy`
 uses a new document so previously loaded analytics cannot follow a visitor
 into the policy. Analytics on other routes are unchanged.
+
+The [readiness review](adsense-readiness.md) records the current review status,
+verified requirements, and remaining consent work. In particular, existing
+Google Analytics on other routes still starts without a consent gate; this
+privacy-page fix does not establish site-wide consent compliance.
 
 The footer's **Advertising and choices** link opens `/privacy#advertising`.
 While ads and the CMP are inactive, that section explains the current state;
@@ -40,10 +46,11 @@ explicit content and interaction review; a route name is not proof of value.
 
 ## Before enabling ads (separate reviewed change)
 
-1. Obtain the user's sign-off, deploy the readiness changes, and submit the
-   correct site through the user's AdSense account. Site approval is Google's
-   decision. Use the account's real publisher and manual ad-unit identifiers;
-   do not invent an ads.txt entry.
+1. Obtain the user's sign-off for activation and wait for site approval.
+   statusline.sh was verified and submitted for review on October 12, 2026;
+   approval is Google's decision. Use the account's real publisher and manual
+   ad-unit identifiers. The checked-in ads.txt entry was copied from the
+   statusline.sh verification panel, not generated from an example.
 2. Configure and publish the account's required consent messages. For
    personalized ads in the EEA, UK, and Switzerland, use a Google-certified CMP
    integrated with the IAB TCF, such as Google's Privacy & messaging offering.
