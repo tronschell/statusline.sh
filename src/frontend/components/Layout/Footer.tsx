@@ -1,4 +1,5 @@
 import { GithubLogoIcon } from "@phosphor-icons/react";
+import { GooglePrivacyChoices } from "../Legal/GooglePrivacyChoices";
 import { Link, usePath } from "../../router";
 import { BrandArt } from "../Brand/BrandArt";
 import { ClaudeCodeLogo } from "../ClaudeCodeLogo";
@@ -77,6 +78,7 @@ export function Footer() {
 
           <FooterColumn title="Legal">
             <FooterLink href="/privacy">Privacy policy</FooterLink>
+            <GooglePrivacyChoices />
             <li>
               <a href="/privacy#advertising" className="text-[#8A8A86] no-underline transition-colors hover:text-[#E8E8E6]">
                 Advertising and choices

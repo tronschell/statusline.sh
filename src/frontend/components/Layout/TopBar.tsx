@@ -10,6 +10,7 @@ import { ClaudeCodeLogo } from "../ClaudeCodeLogo";
 import { SaveToLibraryButton } from "../Account/SaveToLibraryButton";
 import { ACCOUNTS_ENABLED } from "../../lib/config";
 import { useCloudStore } from "../../store/cloudStore";
+import { GooglePrivacyChoices } from "../Legal/GooglePrivacyChoices";
 
 export interface TopBarProps {
   slug: string | null;
@@ -130,6 +131,7 @@ export default function TopBar({
             <span className="hidden sm:inline">Claude Code</span>
           </button>
         </div>
+        <GooglePrivacyChoices as="div" />
       </div>
     </div>
   );

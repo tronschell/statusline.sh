@@ -4,6 +4,11 @@
   "outputDirectory": "dist",
   "installCommand": "bun install",
   "framework": null,
+  "git": {
+    "deploymentEnabled": {
+      "codex/analytics-consent-gate": false
+    }
+  },
   "cleanUrls": true,
   "trailingSlash": false,
   "rewrites": [

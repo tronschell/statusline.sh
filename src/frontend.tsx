@@ -8,6 +8,12 @@
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import { App } from "./App";
+import { startGoogleAnalytics } from "./frontend/lib/googleAnalytics";
+import { googleConsent } from "./frontend/lib/googleConsentRuntime";
+
+// Google owns the consent record and UI. Without its configured/published
+// message and explicit analytics grant, the gate stays closed worldwide.
+startGoogleAnalytics(window, googleConsent);
 
 const elem = document.getElementById("root")!;
 const app = (

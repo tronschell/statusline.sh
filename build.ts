@@ -79,7 +79,7 @@ const WORKER_SITEMAP_URL = `${SITE_URL}/sitemap-community.xml`;
 // Deterministic lastmod for the static page routes — kept in lockstep with
 // `STATIC_ROUTES_LASTMOD` in `worker/src/seo.ts`. Bump manually when the
 // static pages meaningfully change so search engines don't see noisy churn.
-export const STATIC_ROUTES_LASTMOD = "2026-09-29T00:00:00.000Z";
+export const STATIC_ROUTES_LASTMOD = "2026-10-13T00:00:00.000Z";
 
 export function renderRobotsTxt(siteUrl = SITE_URL): string {
   const origin = siteUrl.replace(/\/+$/, "");
@@ -251,9 +251,6 @@ export function renderStaticRouteHtmlShell(
   const image = escapeHtml(absoluteUrl(meta.image ?? DEFAULT_OG_IMAGE));
 
   let html = indexHtml;
-  if (meta.canonicalPath === "/privacy") {
-    html = html.replace(/<script\b[^>]*\bid="page-analytics"[^>]*>[\s\S]*?<\/script>/, "");
-  }
   html = replaceFirst(html, /<title>[\s\S]*?<\/title>/, `<title>${title}</title>`);
   html = replaceFirst(
     html,
