@@ -81,7 +81,7 @@ export function Footer() {
             <GooglePrivacyChoices />
             <li>
               <a href="/privacy#advertising" className="text-[#8A8A86] no-underline transition-colors hover:text-[#E8E8E6]">
-                Advertising and choices
+                Advertising
               </a>
             </li>
             <FooterLink href="/terms">Terms of service</FooterLink>
