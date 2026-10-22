@@ -167,7 +167,7 @@ function SubscriptionCard({ me, awaitingPayment }: { me: Me; awaitingPayment: bo
       // Hidden while a just-paid checkout awaits its webhook, so nobody pays twice.
       <Btn
         variant="primary"
-        disabled={busy !== null}
+        disabled={busy !== null || !me.billing_configured}
         onClick={() =>
           run("checkout", async () => {
             window.location.assign((await accountApi.checkout()).url);
@@ -257,7 +257,7 @@ function SubscriptionCard({ me, awaitingPayment }: { me: Me; awaitingPayment: bo
           </Disclosure>
         ) : null}
 
-        {!me.billing_configured ? <Notice tone="info">Billing isn't enabled on this server yet.</Notice> : null}
+        {!me.billing_configured ? <Notice tone="info">Pro checkout is not available yet. Please check back soon.</Notice> : null}
         {error ? <Notice>{error}</Notice> : null}
         {info ? <Notice tone="ok">{info}</Notice> : null}
       </div>
