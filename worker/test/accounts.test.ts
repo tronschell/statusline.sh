@@ -455,6 +455,16 @@ describe("billing (Lemon Squeezy)", () => {
     expect((await api("POST", "/billing/checkout", { token: pro.token })).status).toBe(409);
   });
 
+  test("checkout stays closed when automatic fulfillment is unconfigured", async () => {
+    const u = await devUser("unconfigured");
+    delete env.LEMONSQUEEZY_WEBHOOK_SECRET;
+    expect((await api("GET", "/me", { token: u.token })).json.billing_configured).toBe(false);
+    const r = await api("POST", "/billing/checkout", { token: u.token });
+    expect(r.status).toBe(503);
+    expect(r.json.error).toBe("billing not configured");
+    expect(calls).toHaveLength(0);
+  });
+
   test("signed test or unknown billing modes cannot grant Pro", async () => {
     const u = await devUser("modeguard");
     env.SITE_URL = "https://statusline.sh";

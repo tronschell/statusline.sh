@@ -28,7 +28,7 @@ function choose(value: string) {
   changed();
   void refresh();
 }
-for (const button of document.querySelectorAll<HTMLButtonElement>("[data-choice]")) {
+for (const button of Array.from(document.querySelectorAll<HTMLButtonElement>("[data-choice]"))) {
   button.onclick = () => choose(button.dataset.choice!);
 }
 document.querySelector<HTMLButtonElement>("#manage")!.onclick = () => { gate.openPreferences(); };

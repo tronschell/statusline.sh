@@ -266,7 +266,7 @@ function returnOrigin(req: Request, env: AccountEnv): string {
 export async function handleCheckout(req: Request, env: AccountEnv): Promise<Response> {
   const user = await requireUser(env, req);
   if (user instanceof Response) return user;
-  if (!checkoutConfigured(env)) return privateJson({ error: "billing not configured" }, 503);
+  if (!checkoutConfigured(env) || !env.LEMONSQUEEZY_WEBHOOK_SECRET) return privateJson({ error: "billing not configured" }, 503);
   const mode = billingMode(req, env);
   if (mode === null || mode && env.LEMONSQUEEZY_STORE_ID !== TEST_STORE_ID) {
     return privateJson({ error: "billing environment mismatch" }, 503);

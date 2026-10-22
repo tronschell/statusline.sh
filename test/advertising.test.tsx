@@ -21,8 +21,7 @@ test("unconfigured advertising leaves no slot or consent UI", () => {
   expect(renderToStaticMarkup(<EditorialAdPlacement afterSection="refresh" />)).toBe("");
   expect(renderToStaticMarkup(<ClaudeCodeStatuslineGuidePage />)).not.toContain("data-ad-layout-preview");
   const privacy = renderToStaticMarkup(<PrivacyPage />);
-  expect(privacy).toContain("Advertising is currently disabled");
-  expect(privacy).toContain("There are no advertising consent preferences to change");
+  expect(privacy).toContain("We do not run advertising on statusline.sh.");
   expect(privacy).not.toContain("<button");
 });
 
@@ -57,9 +56,7 @@ test("privacy advertising disclosure and links reach both JS and static readers"
   at("/privacy");
   for (const html of [renderToStaticMarkup(<PrivacyPage />), renderStaticRouteBody("/privacy")]) {
     expect(html).toContain('id="advertising"');
-    expect(html).toContain("Advertising is currently disabled");
-    expect(html).toContain("that setup is not active on this site today");
-    expect(html).toContain('href="https://policies.google.com/technologies/partner-sites"');
-    expect(html).toContain('href="https://policies.google.com/technologies/ads"');
+    expect(html).toContain("We do not run advertising on statusline.sh.");
+    expect(html).not.toContain("Google-certified consent management platform");
   }
 });
