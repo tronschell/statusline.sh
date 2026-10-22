@@ -71,7 +71,7 @@ export function PricingPage() {
             me?.pro.active ? (
               <LinkBtn href="/account" variant="primary" className="w-full">You're on Pro — manage plan</LinkBtn>
             ) : me ? (
-              <Btn variant="primary" className="w-full" onClick={upgrade} disabled={busy}>
+              <Btn variant="primary" className="w-full" onClick={upgrade} disabled={busy || !me.billing_configured}>
                 {busy ? "Opening checkout…" : `Upgrade for $${price}/month`}
               </Btn>
             ) : (
@@ -82,6 +82,10 @@ export function PricingPage() {
           }
         />
       </div>
+
+      {me && !me.pro.active && !me.billing_configured ? (
+        <div className="mt-5"><Notice tone="info">Pro checkout is not available yet. Please check back soon.</Notice></div>
+      ) : null}
 
       {error ? (
         <div className="mt-5" role="alert" ref={(el) => el?.scrollIntoView({ block: "nearest" })}>
