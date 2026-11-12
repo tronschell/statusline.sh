@@ -153,7 +153,7 @@ __git_dirty() {
   cwd="$(__field workspace.current_dir)"
   if [ -z "$cwd" ]; then cwd="$(__field cwd)"; fi
   if [ -n "$cwd" ] && command -v git >/dev/null 2>&1; then
-    if [ -n "$(git -C "$cwd" status --porcelain 2>/dev/null)" ]; then printf '1'; else printf '0'; fi
+    if [ -n "$(git --no-optional-locks -C "$cwd" status --porcelain 2>/dev/null)" ]; then printf '1'; else printf '0'; fi
   else
     printf '0'
   fi
