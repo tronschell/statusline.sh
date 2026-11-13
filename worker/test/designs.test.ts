@@ -1,13 +1,19 @@
 /// <reference types="bun" />
 import { describe, expect, test } from "bun:test";
 import { Database } from "bun:sqlite";
+import { readFileSync } from "node:fs";
+import type { Design } from "@statusline/shared/types";
 import {
   decodeCursor,
   encodeCursor,
+  getDesignTotal,
   kebabCase,
   isCommunityIndexable,
   listCommunitySitemapEntries,
+  publishDesign,
 } from "../src/designs";
+import { handleListCommunity, type Env } from "../src/index";
+import { makeD1 } from "./helpers/d1";
 
 describe("kebabCase", () => {
   test("lowercases and replaces spaces with hyphens", () => {
@@ -212,5 +218,49 @@ describe("community indexability", () => {
     for (const field of ["slug", "name", "author_name"] as const) {
       expect(isCommunityIndexable({ ...row, [field]: " \t\n\u00a0" }, 1)).toBe(false);
     }
+  });
+});
+
+describe("design total counter", () => {
+  const design = { version: 1, name: "T", elements: [{ id: "model", type: "model", style: {} }] } as Design;
+  const migration = (name: string) => readFileSync(new URL(`../migrations/${name}`, import.meta.url), "utf8");
+
+  test("migration seeds the counter from designs that already exist", () => {
+    const db = new Database(":memory:");
+    db.exec(migration("0001_init.sql"));
+    db.exec(
+      `INSERT INTO designs (id, json, slug, name, author_name, description, published_at)
+       VALUES ('a', '{}', 'a', 'A', 'me', '', 1), ('b', '{}', 'b', 'B', 'me', '', 2)`,
+    );
+    db.exec(migration("0006_design_total.sql"));
+    expect(db.query("SELECT total FROM design_total").get()).toEqual({ total: 2 });
+    db.close();
+  });
+
+  test("follows publishes and raw deletes, and only the first /community page carries it", async () => {
+    const env = { DB: makeD1() } as unknown as Env & { DB: ReturnType<typeof makeD1> };
+    const ctx = { waitUntil() {} } as unknown as ExecutionContext;
+    const page = async (query: string) => {
+      const res = await handleListCommunity(new Request(`https://w.test/community?limit=1${query}`), env, ctx, {});
+      return (await res.json()) as { items: unknown[]; nextCursor: string | null; total?: number };
+    };
+
+    expect(await getDesignTotal(env)).toBe(0);
+    for (const name of ["One", "Two"]) {
+      await publishDesign(env, { design, name, author_name: "me", description: "", publisher_hash: name });
+    }
+    expect(await getDesignTotal(env)).toBe(2);
+
+    const first = await page("");
+    expect(first.total).toBe(2);
+    expect("total" in (await page(`&cursor=${first.nextCursor}`))).toBe(false);
+
+    env.DB.raw.exec("DELETE FROM designs WHERE name = 'One'");
+    expect((await page("")).total).toBe(1);
+
+    env.DB.raw.exec("DELETE FROM design_total");
+    const withoutCounter = await page("");
+    expect(withoutCounter.items).toHaveLength(1);
+    expect("total" in withoutCounter).toBe(false);
   });
 });

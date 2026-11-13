@@ -39,6 +39,8 @@ export interface CommunityCardSummary {
 export interface CommunityListResponse {
   items: CommunityCardSummary[];
   nextCursor: string | null;
+  /** Count of all published designs; only present on the first page. */
+  total?: number;
 }
 
 export interface PublishBody {

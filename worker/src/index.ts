@@ -17,6 +17,7 @@ import {
   getCommunitySeoBySlug,
   reapInstallRecords,
   decodeCursor,
+  getDesignTotal,
 } from "./designs";
 import { registerAccountRoutes } from "./accountRoutes";
 import { bearerToken, getSessionUser, reapAuth } from "./auth";
@@ -267,10 +268,13 @@ async function handleListCommunity(
   const rl = await checkRateLimit(env, "list", ip);
   if (rl) return rl;
 
-  const listed = await listCommunity(env, { sort, limit, cursor });
+  const [listed, total] = await Promise.all([
+    listCommunity(env, { sort, limit, cursor }),
+    cursor ? undefined : getDesignTotal(env),
+  ]);
   // Additive: items owned by an account gain `owner`/`featured`; anonymous
   // items are returned exactly as before.
-  const result = { ...listed, items: await attachOwners(env, listed.items) };
+  const result = { ...listed, items: await attachOwners(env, listed.items), total };
   const response = jsonResponse(result, 200, {
     "cache-control": `public, s-maxage=${LIST_CACHE_TTL_SECONDS}`,
     "x-cache": "MISS",
