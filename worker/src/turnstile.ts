@@ -3,6 +3,8 @@
 // Local dev uses Cloudflare's always-passing dev keys
 // (site 1x00000000000000000000AA / secret 1x0000000000000000000000000000000AA).
 
+import { sha256Hex } from "./auth";
+
 export async function verifyTurnstile(
   token: string | null | undefined,
   secret: string,
@@ -26,4 +28,9 @@ export async function verifyTurnstile(
 
 export function getClientIp(req: Request): string | null {
   return req.headers.get("cf-connecting-ip") ?? req.headers.get("x-forwarded-for") ?? null;
+}
+
+// Peppered because an unsalted SHA-256 of an IPv4 address is brute-forced in seconds.
+export function hashClientIp(req: Request, pepper: string): Promise<string> {
+  return sha256Hex(`${pepper}:${getClientIp(req) ?? "anon"}`);
 }

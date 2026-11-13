@@ -48,6 +48,7 @@ export interface PublishInput {
   forked_from?: string | null;
   /** Set only for signed-in publishes; anonymous publishes never carry it. */
   owner_id?: string | null;
+  publisher_hash: string;
 }
 
 export interface ListOptions {
@@ -193,31 +194,10 @@ async function tryInsertDesign(
   // submitted card name even if the design was originally drafted with a
   // different `name` field.
   const designToStore: Design = { ...input.design, name: input.name };
-  if (input.owner_id) {
-    await env.DB
-      .prepare(
-        `INSERT INTO designs (id, json, slug, name, author_name, description, forked_from, published_at, owner_id)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      )
-      .bind(
-        id,
-        JSON.stringify(designToStore),
-        slug,
-        input.name,
-        input.author_name,
-        input.description,
-        input.forked_from ?? null,
-        publishedAt,
-        input.owner_id,
-      )
-      .run();
-    return;
-  }
-  // Anonymous path: byte-for-byte the pre-accounts statement.
   await env.DB
     .prepare(
-      `INSERT INTO designs (id, json, slug, name, author_name, description, forked_from, published_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+      `INSERT INTO designs (id, json, slug, name, author_name, description, forked_from, published_at, owner_id, publisher_hash)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     )
     .bind(
       id,
@@ -228,8 +208,44 @@ async function tryInsertDesign(
       input.description,
       input.forked_from ?? null,
       publishedAt,
+      input.owner_id ?? null,
+      input.publisher_hash,
     )
     .run();
+}
+
+/** Slug of a published design equal to `design` once `name` is ignored. */
+export async function findIdenticalDesignSlug(
+  env: DbEnv,
+  design: Design,
+): Promise<string | null> {
+  // ponytail: full scan per publish, fine for a few hundred rows; add an
+  // expression index or a hash column if `designs` gets large.
+  const row = (await env.DB
+    .prepare(
+      "SELECT slug FROM designs WHERE json_remove(json, '$.name') = json_remove(?, '$.name') LIMIT 1",
+    )
+    .bind(JSON.stringify(design))
+    .first()) as { slug: string } | null;
+  return row?.slug ?? null;
+}
+
+const PUBLISH_WINDOW_MS = 24 * 60 * 60 * 1000;
+
+/** 0 when this publisher (by IP hash or account) has not published in the last 24h. */
+export async function secondsUntilNextPublish(
+  env: DbEnv,
+  publisherHash: string,
+  ownerId: string | null,
+): Promise<number> {
+  const now = Date.now();
+  const row = (await env.DB
+    .prepare(
+      "SELECT MAX(published_at) AS last FROM designs WHERE published_at > ? AND (publisher_hash = ? OR owner_id = ?)",
+    )
+    .bind(now - PUBLISH_WINDOW_MS, publisherHash, ownerId)
+    .first()) as { last: number | null } | null;
+  return row?.last ? Math.ceil((row.last + PUBLISH_WINDOW_MS - now) / 1000) : 0;
 }
 
 export async function publishDesign(

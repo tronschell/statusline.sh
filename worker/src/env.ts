@@ -7,6 +7,7 @@ import type { RateLimitEnv } from "./ratelimit";
  */
 export interface AccountEnv extends RateLimitEnv {
   DB: D1Database;
+  TURNSTILE_SECRET_KEY: string;
   ALLOWED_ORIGINS?: string;
   /** Public SPA origin, used for post-checkout redirects. */
   SITE_URL?: string;

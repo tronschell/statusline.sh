@@ -3,10 +3,12 @@ import { validateDesign, ValidationError } from "@statusline/shared/schema";
 import { cors, mergeCorsHeaders } from "./cors";
 import { match, route } from "./router";
 import { checkRateLimit } from "./ratelimit";
-import { verifyTurnstile, getClientIp } from "./turnstile";
+import { verifyTurnstile, getClientIp, hashClientIp } from "./turnstile";
 import { sanitizePublishField, LIMITS } from "./sanitize";
 import {
   publishDesign,
+  findIdenticalDesignSlug,
+  secondsUntilNextPublish,
   getCommunityBySlug,
   listCommunity,
   forkBump,
@@ -754,12 +756,30 @@ async function handlePublish(
   if (!descRes.ok)
     return jsonResponse({ error: `description: ${descRes.reason}` }, 422);
 
+  const duplicateSlug = await findIdenticalDesignSlug(env, design);
+  if (duplicateSlug) {
+    return jsonResponse(
+      { error: "An identical design is already published.", slug: duplicateSlug },
+      409,
+    );
+  }
+  const publisherHash = await hashClientIp(req, env.TURNSTILE_SECRET_KEY);
+  const retryAfter = await secondsUntilNextPublish(env, publisherHash, owner?.id ?? null);
+  if (retryAfter) {
+    return jsonResponse(
+      { error: "You can publish one design per day. Try again tomorrow." },
+      429,
+      { "retry-after": String(retryAfter) },
+    );
+  }
+
   try {
     const { id, slug } = await publishDesign(env, {
       design,
       name: nameRes.value,
       author_name: authorRes.value,
       description: descRes.value,
+      publisher_hash: publisherHash,
       ...(owner ? { owner_id: owner.id } : {}),
     });
     return jsonResponse({ id, slug }, 200);
