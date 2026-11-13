@@ -8,21 +8,22 @@ async function jsonRequest<T>(path: string, init?: RequestInit): Promise<T> {
   const res = await fetch(url, init);
   if (!res.ok) {
     const body = await res.text().catch(() => "");
-    const { error, detail, upgrade } = errorFields(body);
+    const fields = errorFields(body);
+    const { error, detail } = fields;
     const message =
       typeof error !== "string"
         ? `${res.status} ${res.statusText}: ${body || path}`
         : typeof detail === "string"
           ? `${error}: ${detail}`
           : error;
-    throw new ApiError(res.status, "error", message, upgrade === true);
+    throw new ApiError(res.status, "error", message, fields);
   }
   return (await res.json()) as T;
 }
 
-function errorFields(body: string): { error?: unknown; detail?: unknown; upgrade?: unknown } {
+function errorFields(body: string): Record<string, unknown> {
   try {
-    return (JSON.parse(body) as object | null) ?? {};
+    return (JSON.parse(body) as Record<string, unknown> | null) ?? {};
   } catch {
     return {};
   }

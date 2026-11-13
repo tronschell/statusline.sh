@@ -214,20 +214,26 @@ async function tryInsertDesign(
     .run();
 }
 
-/** Slug of a published design equal to `design` once `name` is ignored. */
-export async function findIdenticalDesignSlug(
+export interface PublishedDesignRef {
+  slug: string;
+  name: string;
+  author_name: string;
+  published_at: number;
+}
+
+/** The published design equal to `design` once `name` is ignored. */
+export async function findIdenticalDesign(
   env: DbEnv,
   design: Design,
-): Promise<string | null> {
+): Promise<PublishedDesignRef | null> {
   // ponytail: full scan per publish, fine for a few hundred rows; add an
   // expression index or a hash column if `designs` gets large.
-  const row = (await env.DB
+  return (await env.DB
     .prepare(
-      "SELECT slug FROM designs WHERE json_remove(json, '$.name') = json_remove(?, '$.name') LIMIT 1",
+      "SELECT slug, name, author_name, published_at FROM designs WHERE json_remove(json, '$.name') = json_remove(?, '$.name') LIMIT 1",
     )
     .bind(JSON.stringify(design))
-    .first()) as { slug: string } | null;
-  return row?.slug ?? null;
+    .first()) as PublishedDesignRef | null;
 }
 
 const PUBLISH_WINDOW_MS = 24 * 60 * 60 * 1000;

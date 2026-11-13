@@ -43,20 +43,26 @@ export function Btn({
 export function LinkBtn({
   href,
   variant = "secondary",
+  dither = false,
   children,
   className = "",
 }: {
   href: string;
   variant?: Variant;
+  dither?: boolean;
   children: ReactNode;
   className?: string;
 }) {
+  const [hover, setHover] = useState(false);
   return (
     <Link
       href={href}
-      className={`inline-flex items-center justify-center gap-1.5 rounded-[6px] border px-3.5 py-2 text-[13px] font-medium no-underline transition-transform duration-150 hover:scale-[0.98] ${variants[variant]} ${className}`}
+      onMouseEnter={dither ? () => setHover(true) : undefined}
+      onMouseLeave={dither ? () => setHover(false) : undefined}
+      className={`${dither ? "relative overflow-hidden " : ""}inline-flex items-center justify-center gap-1.5 rounded-[6px] border px-3.5 py-2 text-[13px] font-medium no-underline transition-transform duration-150 hover:scale-[0.98] ${variants[variant]} ${className}`}
     >
-      {children}
+      {dither && hover ? <DitherGlow className="h-full animate-[fadein_200ms_ease-out]" /> : null}
+      {dither ? <span className="relative">{children}</span> : children}
     </Link>
   );
 }

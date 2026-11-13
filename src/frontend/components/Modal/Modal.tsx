@@ -14,6 +14,8 @@ export interface ModalProps {
   widthClass?: string;
   /** Aria label for the close button. */
   closeLabel?: string;
+  /** Render only the backdrop and panel; children bring their own header and padding. */
+  bare?: boolean;
 }
 
 /**
@@ -34,6 +36,7 @@ export default function Modal({
   headerRight,
   widthClass = "max-w-md",
   closeLabel = "Close",
+  bare = false,
 }: ModalProps) {
   useEffect(() => {
     if (!isOpen) return;
@@ -66,28 +69,31 @@ export default function Modal({
     >
       <div
         className={
-          "w-full mx-4 mt-12 bg-[#161618] border border-white/[0.06] rounded-[10px] p-8 " +
+          "w-full mx-4 mt-12 bg-[#161618] border border-white/[0.06] rounded-[10px] " +
+          (bare ? "" : "p-8 ") +
           widthClass
         }
         onClick={(e) => e.stopPropagation()}
       >
         {aboveTitle ? <div className="mb-4">{aboveTitle}</div> : null}
-        <div className="flex items-start justify-between gap-4 mb-6">
-          <h2 className="text-lg font-medium tracking-tight text-[#E8E8E6]">
-            {title}
-          </h2>
-          <div className="flex items-center gap-2">
-            {headerRight}
-            <button
-              type="button"
-              onClick={onClose}
-              aria-label={closeLabel}
-              className="rounded-[4px] border border-white/[0.06] bg-[#1C1C1F] p-1.5 text-[#8A8A86] transition-transform hover:scale-[0.98] hover:text-[#E8E8E6]"
-            >
-              <X size={14} weight="bold" />
-            </button>
+        {bare ? null : (
+          <div className="flex items-start justify-between gap-4 mb-6">
+            <h2 className="text-lg font-medium tracking-tight text-[#E8E8E6]">
+              {title}
+            </h2>
+            <div className="flex items-center gap-2">
+              {headerRight}
+              <button
+                type="button"
+                onClick={onClose}
+                aria-label={closeLabel}
+                className="rounded-[4px] border border-white/[0.06] bg-[#1C1C1F] p-1.5 text-[#8A8A86] transition-transform hover:scale-[0.98] hover:text-[#E8E8E6]"
+              >
+                <X size={14} weight="bold" />
+              </button>
+            </div>
           </div>
-        </div>
+        )}
         {children}
       </div>
     </div>

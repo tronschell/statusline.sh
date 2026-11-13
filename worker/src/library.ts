@@ -13,7 +13,7 @@ import { validateDesign, ValidationError } from "@statusline/shared/schema";
 import { getUserById, isPro, requireUser, type UserRow } from "./auth";
 import { PLAN, type AccountEnv } from "./env";
 import { jsonResponse, privateJson, readJson } from "./http";
-import { findIdenticalDesignSlug, publishDesign, secondsUntilNextPublish } from "./designs";
+import { findIdenticalDesign, publishDesign, secondsUntilNextPublish } from "./designs";
 import { LIMITS, sanitizePublishField } from "./sanitize";
 import { hashClientIp } from "./turnstile";
 
@@ -357,10 +357,10 @@ export async function handlePublishFromLibrary(
   if (!desc.ok) return privateJson({ error: `description: ${desc.reason}` }, 422);
 
   const design = JSON.parse(row.json) as Design;
-  const duplicateSlug = await findIdenticalDesignSlug(env, design);
-  if (duplicateSlug) {
+  const duplicate = await findIdenticalDesign(env, design);
+  if (duplicate) {
     return privateJson(
-      { error: "An identical design is already published.", slug: duplicateSlug },
+      { error: "An identical design is already published.", ...duplicate },
       409,
     );
   }
@@ -375,8 +375,8 @@ export async function handlePublishFromLibrary(
   if (retryAfter) {
     return jsonResponse(
       pro
-        ? { error: `You can publish ${PLAN.proPublishesPerDay} designs per day. Try again later.` }
-        : { error: "You can publish one design per day. Try again tomorrow.", upgrade: true },
+        ? { error: `You can publish ${PLAN.proPublishesPerDay} designs per day. Try again later.`, retry_after: retryAfter }
+        : { error: "You can publish one design per day. Try again tomorrow.", upgrade: true, retry_after: retryAfter },
       429,
       { "cache-control": "no-store", "retry-after": String(retryAfter) },
     );
