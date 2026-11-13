@@ -963,6 +963,8 @@ describe("community: owners, verified badge, featured, profiles", () => {
 // ---------------------------------------------------------------------------
 describe("publish limits: one per day, no identical designs", () => {
   const DAILY_LIMIT = "You can publish one design per day. Try again tomorrow.";
+  const PRO_DAILY_LIMIT = "You can publish 5 designs per day. Try again later.";
+  const HOUR = DAY / 24;
 
   function anonPublish(ip: string, design: object, name: string) {
     return api("POST", "/designs", {
@@ -970,6 +972,17 @@ describe("publish limits: one per day, no identical designs", () => {
       body: { design, name, author_name: "me", description: "", turnstile_token: "t" },
     });
   }
+
+  function userPublish(token: string, ip: string, text: string) {
+    return api("POST", "/designs", {
+      token,
+      headers: { "cf-connecting-ip": ip },
+      body: { design: variant(text), name: text, description: "" },
+    });
+  }
+
+  const save = async (token: string, text: string) =>
+    (await api("POST", "/library", { token, body: { design: variant(text), name: text } })).json.id as string;
 
   beforeEach(() => {
     fetchImpl = () => Response.json({ success: true });
@@ -982,7 +995,7 @@ describe("publish limits: one per day, no identical designs", () => {
 
     const second = await anonPublish("1.1.1.1", variant("b"), "B");
     expect(second.status).toBe(429);
-    expect(second.json).toEqual({ error: DAILY_LIMIT });
+    expect(second.json).toEqual({ error: DAILY_LIMIT, upgrade: true });
     const retryAfter = Number(second.headers.get("retry-after"));
     expect(retryAfter).toBeGreaterThan(86_390);
     expect(retryAfter).toBeLessThanOrEqual(86_400);
@@ -993,11 +1006,56 @@ describe("publish limits: one per day, no identical designs", () => {
 
   test("same owner from a different IP is a 429, and signing out does not grant another publish", async () => {
     const u = await devUser("daily");
-    const signedIn = (ip: string, text: string) =>
-      api("POST", "/designs", { token: u.token, headers: { "cf-connecting-ip": ip }, body: { design: variant(text), name: text, description: "" } });
-    expect((await signedIn("2.2.2.2", "a")).status).toBe(200);
-    expect((await signedIn("3.3.3.3", "b")).status).toBe(429);
+    expect((await userPublish(u.token, "2.2.2.2", "a")).status).toBe(200);
+    expect((await userPublish(u.token, "3.3.3.3", "b")).status).toBe(429);
     expect((await anonPublish("2.2.2.2", variant("c"), "C")).status).toBe(429);
+  });
+
+  test("Pro publishes 5 a day; the 6th is a 429 until the oldest leaves the window", async () => {
+    const u = await devUser("pro-daily", true);
+    for (let i = 0; i < 5; i++) {
+      expect((await userPublish(u.token, "2.2.2.2", `p${i}`)).status).toBe(200);
+      env.DB.raw.exec(`UPDATE designs SET published_at = published_at - ${HOUR}`);
+    }
+
+    const sixth = await userPublish(u.token, "2.2.2.2", "p5");
+    expect(sixth.status).toBe(429);
+    expect(sixth.json).toEqual({ error: PRO_DAILY_LIMIT });
+    const retryAfter = Number(sixth.headers.get("retry-after"));
+    expect(retryAfter).toBeGreaterThan(19 * 3600 - 10);
+    expect(retryAfter).toBeLessThanOrEqual(19 * 3600);
+
+    env.DB.raw.exec(`UPDATE designs SET published_at = published_at - ${19 * HOUR + 1000}`);
+    expect((await userPublish(u.token, "2.2.2.2", "p5")).status).toBe(200);
+    expect((await userPublish(u.token, "2.2.2.2", "p6")).status).toBe(429);
+  });
+
+  test("lapsed Pro is held to one a day", async () => {
+    const u = await devUser("lapsed", true);
+    env.DB.raw.exec(`UPDATE users SET pro_until = ${Date.now() - 1000} WHERE username = 'lapsed'`);
+    expect((await userPublish(u.token, "2.2.2.2", "a")).status).toBe(200);
+    const second = await userPublish(u.token, "2.2.2.2", "b");
+    expect(second.status).toBe(429);
+    expect(second.json).toEqual({ error: DAILY_LIMIT, upgrade: true });
+  });
+
+  test("Pro signing out on the same IP after publishing is still blocked", async () => {
+    const u = await devUser("pro-out", true);
+    expect((await userPublish(u.token, "2.2.2.2", "a")).status).toBe(200);
+    const anon = await anonPublish("2.2.2.2", variant("b"), "B");
+    expect(anon.status).toBe(429);
+    expect(anon.json).toEqual({ error: DAILY_LIMIT, upgrade: true });
+  });
+
+  test("Pro publishes 5 a day from the library", async () => {
+    const u = await devUser("pro-lib", true);
+    const publishSaved = async (text: string) =>
+      api("POST", `/library/${await save(u.token, text)}/publish`, { token: u.token, body: {} });
+    for (let i = 0; i < 5; i++) expect((await publishSaved(`l${i}`)).status).toBe(200);
+    const sixth = await publishSaved("l5");
+    expect(sixth.status).toBe(429);
+    expect(sixth.json).toEqual({ error: PRO_DAILY_LIMIT });
+    expect(sixth.headers.get("retry-after")).toBeTruthy();
   });
 
   test("identical design under a different name is a 409 with the existing slug; a one-element change is accepted", async () => {
@@ -1014,14 +1072,12 @@ describe("publish limits: one per day, no identical designs", () => {
 
   test("publishing from the library enforces both rules", async () => {
     const u = await devUser("lib-pub");
-    const save = async (token: string, text: string) =>
-      (await api("POST", "/library", { token, body: { design: variant(text), name: text } })).json.id as string;
     const first = await api("POST", `/library/${await save(u.token, "a")}/publish`, { token: u.token, body: {} });
     expect(first.status).toBe(200);
 
     const second = await api("POST", `/library/${await save(u.token, "b")}/publish`, { token: u.token, body: {} });
     expect(second.status).toBe(429);
-    expect(second.json).toEqual({ error: DAILY_LIMIT });
+    expect(second.json).toEqual({ error: DAILY_LIMIT, upgrade: true });
     expect(second.headers.get("retry-after")).toBeTruthy();
 
     const other = await devUser("lib-copy");

@@ -91,7 +91,7 @@ function LibraryItem({ d, pro, onChanged }: { d: CloudDesign; pro: boolean; onCh
   const [versions, setVersions] = useState<{ current: number; versions: VersionRow[] } | null>(null);
   const [desc, setDesc] = useState("");
   const [published, setPublished] = useState<string | null>(null);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<{ message: string; upgrade?: boolean } | null>(null);
   const [busy, setBusy] = useState(false);
 
   async function guard(fn: () => Promise<void>) {
@@ -100,7 +100,10 @@ function LibraryItem({ d, pro, onChanged }: { d: CloudDesign; pro: boolean; onCh
     try {
       await fn();
     } catch (e) {
-      setError(e instanceof ApiError && e.code === "pro_required" ? `${e.message} See Pricing.` : errMsg(e));
+      setError({
+        message: e instanceof ApiError && e.code === "pro_required" ? `${e.message} See Pricing.` : errMsg(e),
+        upgrade: e instanceof ApiError && e.upgrade,
+      });
     } finally {
       setBusy(false);
     }
@@ -109,7 +112,7 @@ function LibraryItem({ d, pro, onChanged }: { d: CloudDesign; pro: boolean; onCh
   const toggle = (which: "versions" | "publish" | "install") => {
     const next = open === which ? null : which;
     setOpen(next);
-    if (next === "versions") void accountApi.libraryVersions(d.id).then(setVersions).catch((e) => setError(errMsg(e)));
+    if (next === "versions") void accountApi.libraryVersions(d.id).then(setVersions).catch((e) => setError({ message: errMsg(e) }));
   };
 
   return (
@@ -245,8 +248,9 @@ function LibraryItem({ d, pro, onChanged }: { d: CloudDesign; pro: boolean; onCh
         </Btn>
       </div>
       {error ? (
-        <div className="mt-3">
-          <Notice>{error}</Notice>
+        <div className="mt-3 flex flex-col gap-3">
+          <Notice>{error.message}</Notice>
+          {error.upgrade ? <LinkBtn href="/pricing" className="self-start">Upgrade to Pro</LinkBtn> : null}
         </div>
       ) : null}
     </Card>

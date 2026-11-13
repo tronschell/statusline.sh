@@ -232,20 +232,21 @@ export async function findIdenticalDesignSlug(
 
 const PUBLISH_WINDOW_MS = 24 * 60 * 60 * 1000;
 
-/** 0 when this publisher (by IP hash or account) has not published in the last 24h. */
+/** 0 when this publisher (by IP hash or account) has published fewer than `limit` designs in the last 24h. */
 export async function secondsUntilNextPublish(
   env: DbEnv,
   publisherHash: string,
   ownerId: string | null,
+  limit: number,
 ): Promise<number> {
   const now = Date.now();
   const row = (await env.DB
     .prepare(
-      "SELECT MAX(published_at) AS last FROM designs WHERE published_at > ? AND (publisher_hash = ? OR owner_id = ?)",
+      "SELECT published_at FROM designs WHERE published_at > ? AND (publisher_hash = ? OR owner_id = ?) ORDER BY published_at DESC LIMIT 1 OFFSET ?",
     )
-    .bind(now - PUBLISH_WINDOW_MS, publisherHash, ownerId)
-    .first()) as { last: number | null } | null;
-  return row?.last ? Math.ceil((row.last + PUBLISH_WINDOW_MS - now) / 1000) : 0;
+    .bind(now - PUBLISH_WINDOW_MS, publisherHash, ownerId, limit - 1)
+    .first()) as { published_at: number } | null;
+  return row ? Math.ceil((row.published_at + PUBLISH_WINDOW_MS - now) / 1000) : 0;
 }
 
 export async function publishDesign(

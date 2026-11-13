@@ -20,8 +20,8 @@ import {
   getDesignTotal,
 } from "./designs";
 import { registerAccountRoutes } from "./accountRoutes";
-import { bearerToken, getSessionUser, reapAuth } from "./auth";
-import type { AccountEnv } from "./env";
+import { bearerToken, getSessionUser, isPro, reapAuth } from "./auth";
+import { PLAN, type AccountEnv } from "./env";
 import { attachOwners } from "./owners";
 import { handleInstaller } from "./handlers/installer";
 import { renderCommunityOgSvg } from "./og";
@@ -768,10 +768,18 @@ async function handlePublish(
     );
   }
   const publisherHash = await hashClientIp(req, env.TURNSTILE_SECRET_KEY);
-  const retryAfter = await secondsUntilNextPublish(env, publisherHash, owner?.id ?? null);
+  const pro = owner !== null && isPro(owner);
+  const retryAfter = await secondsUntilNextPublish(
+    env,
+    publisherHash,
+    owner?.id ?? null,
+    pro ? PLAN.proPublishesPerDay : PLAN.freePublishesPerDay,
+  );
   if (retryAfter) {
     return jsonResponse(
-      { error: "You can publish one design per day. Try again tomorrow." },
+      pro
+        ? { error: `You can publish ${PLAN.proPublishesPerDay} designs per day. Try again later.` }
+        : { error: "You can publish one design per day. Try again tomorrow.", upgrade: true },
       429,
       { "retry-after": String(retryAfter) },
     );

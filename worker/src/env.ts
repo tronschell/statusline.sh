@@ -36,6 +36,8 @@ export const PLAN = {
   freeLibraryCap: 3,
   proLibraryCap: 200,
   featuredCap: 3,
+  freePublishesPerDay: 1,
+  proPublishesPerDay: 5,
   versionsKept: 20,
   teamCap: 3,
   teamMemberCap: 25,

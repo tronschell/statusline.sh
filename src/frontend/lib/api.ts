@@ -1,24 +1,30 @@
 import type { Design } from "@statusline/shared/types";
 import { WORKER_URL } from "./config";
 import { getToken } from "./session";
+import { ApiError } from "./accountApi";
 
 async function jsonRequest<T>(path: string, init?: RequestInit): Promise<T> {
   const url = path.startsWith("http") ? path : `${WORKER_URL}${path}`;
   const res = await fetch(url, init);
   if (!res.ok) {
     const body = await res.text().catch(() => "");
-    throw new Error(serverError(body) ?? `${res.status} ${res.statusText}: ${body || path}`);
+    const { error, detail, upgrade } = errorFields(body);
+    const message =
+      typeof error !== "string"
+        ? `${res.status} ${res.statusText}: ${body || path}`
+        : typeof detail === "string"
+          ? `${error}: ${detail}`
+          : error;
+    throw new ApiError(res.status, "error", message, upgrade === true);
   }
   return (await res.json()) as T;
 }
 
-function serverError(body: string): string | undefined {
+function errorFields(body: string): { error?: unknown; detail?: unknown; upgrade?: unknown } {
   try {
-    const { error, detail } = JSON.parse(body) as { error?: unknown; detail?: unknown };
-    if (typeof error !== "string") return undefined;
-    return typeof detail === "string" ? `${error}: ${detail}` : error;
+    return (JSON.parse(body) as object | null) ?? {};
   } catch {
-    return undefined;
+    return {};
   }
 }
 
