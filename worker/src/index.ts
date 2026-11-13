@@ -734,6 +734,9 @@ async function handlePublish(
           : "invalid design";
     return jsonResponse({ error: "invalid design", detail: message }, 422);
   }
+  if (design.elements.length === 0) {
+    return jsonResponse({ error: "Add at least one element before publishing." }, 422);
+  }
 
   // Sanitize the three text fields.
   const nameRes = sanitizePublishField(body.name ?? "", {

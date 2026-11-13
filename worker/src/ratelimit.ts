@@ -5,6 +5,8 @@
 // isn't configured (e.g. `wrangler dev --local` without the unsafe bindings),
 // we treat the request as allowed.
 
+import { jsonResponse } from "./http";
+
 export interface RateLimitBinding {
   limit(opts: { key: string }): Promise<{ success: boolean }>;
 }
@@ -50,8 +52,9 @@ export async function checkRateLimit(
   if (!binding) return null; // not configured (e.g. local dev): allow
   const { success } = await binding.limit({ key });
   if (success) return null;
-  return new Response("rate limited", {
-    status: 429,
-    headers: { "retry-after": "60", "content-type": "text/plain" },
-  });
+  return jsonResponse(
+    { error: "Too many requests. Wait a minute and try again." },
+    429,
+    { "retry-after": "60" },
+  );
 }

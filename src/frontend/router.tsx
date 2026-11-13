@@ -52,6 +52,8 @@ export function Router({ children }: RouterProps) {
   useEffect(() => {
     const h = () => setPath(getPath());
     window.addEventListener("popstate", h);
+    // Child effects run first, so one may have navigated before this listener existed.
+    h();
     return () => window.removeEventListener("popstate", h);
   }, []);
 
