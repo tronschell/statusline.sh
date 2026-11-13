@@ -14,8 +14,9 @@ async function jsonRequest<T>(path: string, init?: RequestInit): Promise<T> {
 
 function serverError(body: string): string | undefined {
   try {
-    const { error } = JSON.parse(body) as { error?: unknown };
-    return typeof error === "string" ? error : undefined;
+    const { error, detail } = JSON.parse(body) as { error?: unknown; detail?: unknown };
+    if (typeof error !== "string") return undefined;
+    return typeof detail === "string" ? `${error}: ${detail}` : error;
   } catch {
     return undefined;
   }
