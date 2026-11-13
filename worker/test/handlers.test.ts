@@ -117,7 +117,7 @@ function makeD1(db: FakeDb): D1Database {
           } as unknown as T;
         }
         // Publish guards never match here; accounts.test.ts covers them on real SQLite.
-        if (/^SELECT (slug|MAX\(published_at\) AS last) FROM designs WHERE /.test(norm)) {
+        if (/^SELECT (slug|published_at) FROM designs WHERE /.test(norm)) {
           return null;
         }
         throw new Error("unexpected first() SQL: " + norm);

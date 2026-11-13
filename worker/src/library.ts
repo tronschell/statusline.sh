@@ -365,10 +365,20 @@ export async function handlePublishFromLibrary(
     );
   }
   const publisherHash = await hashClientIp(req, env.TURNSTILE_SECRET_KEY);
-  const retryAfter = await secondsUntilNextPublish(env, publisherHash, user.id);
+  const pro = isPro(user);
+  const retryAfter = await secondsUntilNextPublish(
+    env,
+    publisherHash,
+    user.id,
+    pro ? PLAN.proPublishesPerDay : PLAN.freePublishesPerDay,
+  );
   if (retryAfter) {
     return jsonResponse(
-      { error: "You can publish one design per day. Try again tomorrow." },
+      {
+        error: pro
+          ? `You can publish ${PLAN.proPublishesPerDay} designs per day. Try again later.`
+          : "You can publish one design per day. Try again tomorrow.",
+      },
       429,
       { "cache-control": "no-store", "retry-after": String(retryAfter) },
     );
