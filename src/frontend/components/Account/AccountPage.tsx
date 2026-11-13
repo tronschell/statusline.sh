@@ -218,7 +218,7 @@ function SubscriptionCard({ me, awaitingPayment }: { me: Me; awaitingPayment: bo
         {!pro.active && !cancelled && !hasSub ? (
           <p className="max-w-[60ch] text-[13px] leading-relaxed text-[#8A8A86]">
             Pro is ${plan.priceUsdPerMonth}/month: permanent auto-updating links, a {plan.proLibraryCap}-design private
-            library, teams, featured slots and a verified badge. <Link href="/pricing" className="text-[#E8E8E6] underline underline-offset-[4px]">See what's included</Link>.
+            library, teams, featured slots, {plan.proPublishesPerDay} community publishes a day and a verified badge. <Link href="/pricing" className="text-[#E8E8E6] underline underline-offset-[4px]">See what's included</Link>.
           </p>
         ) : null}
 

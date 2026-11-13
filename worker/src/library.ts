@@ -374,11 +374,9 @@ export async function handlePublishFromLibrary(
   );
   if (retryAfter) {
     return jsonResponse(
-      {
-        error: pro
-          ? `You can publish ${PLAN.proPublishesPerDay} designs per day. Try again later.`
-          : "You can publish one design per day. Try again tomorrow.",
-      },
+      pro
+        ? { error: `You can publish ${PLAN.proPublishesPerDay} designs per day. Try again later.` }
+        : { error: "You can publish one design per day. Try again tomorrow.", upgrade: true },
       429,
       { "cache-control": "no-store", "retry-after": String(retryAfter) },
     );

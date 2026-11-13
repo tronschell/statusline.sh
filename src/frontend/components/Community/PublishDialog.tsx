@@ -1,6 +1,9 @@
 import { useEffect, useState } from "react";
 import { Copy, Check, DownloadSimple } from "@phosphor-icons/react";
 import { api } from "../../lib/api";
+import { ApiError } from "../../lib/accountApi";
+import { ACCOUNTS_ENABLED } from "../../lib/config";
+import { Link } from "../../router";
 import { TurnstileWidget } from "../../lib/turnstile";
 import { useDesignStore } from "../../store/designStore";
 import { exportDesignAsJson } from "../../lib/exportDesign";
@@ -34,7 +37,7 @@ export default function PublishDialog({
   const [author, setAuthor] = useState("");
   const [description, setDescription] = useState("");
   const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<{ message: string; upgrade?: boolean } | null>(null);
   const [publishedSlug, setPublishedSlug] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
   const [token, setToken] = useState<string | null>(null);
@@ -84,7 +87,10 @@ export default function PublishDialog({
       }
       onPublished?.(res.slug);
     } catch (e) {
-      setError((e as Error).message || "Failed to publish");
+      setError({
+        message: (e as Error).message || "Failed to publish",
+        upgrade: e instanceof ApiError && e.upgrade,
+      });
     } finally {
       setBusy(false);
     }
@@ -240,17 +246,25 @@ export default function PublishDialog({
               }}
               onError={(code) => {
                 setToken(null);
-                setError(
-                  `Cloudflare challenge failed (code ${code}). Disable script blockers or reload, then try again.`,
-                );
+                setError({
+                  message: `Cloudflare challenge failed (code ${code}). Disable script blockers or reload, then try again.`,
+                });
               }}
             />
           ) : null}
 
           {error && (
-            <p className="text-xs text-[#E8A08A]" role="alert">
-              {error}
-            </p>
+            <div className="flex flex-col items-start gap-3" role="alert">
+              <p className="text-xs text-[#E8A08A]">{error.message}</p>
+              {error.upgrade && ACCOUNTS_ENABLED ? (
+                <Link
+                  href="/pricing"
+                  className="rounded-[4px] border border-white/[0.06] bg-[#1C1C1F] px-3 py-2 text-xs uppercase tracking-wider text-[#E8E8E6] transition-transform hover:scale-[0.98]"
+                >
+                  Upgrade to Pro
+                </Link>
+              ) : null}
+            </div>
           )}
 
           <div className="flex items-center justify-between gap-2">

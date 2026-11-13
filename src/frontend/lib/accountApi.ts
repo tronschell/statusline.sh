@@ -8,6 +8,8 @@ export class ApiError extends Error {
     public status: number,
     public code: string,
     message: string,
+    /** The server says a Pro plan would lift the limit that was hit. */
+    public upgrade = false,
   ) {
     super(message);
   }
@@ -33,6 +35,7 @@ async function call<T>(method: string, path: string, body?: unknown): Promise<T>
       res.status,
       data.error ?? "error",
       data.message ?? data.error ?? `${res.status} ${res.statusText}`,
+      data.upgrade === true,
     );
   }
   return data as T;
@@ -65,6 +68,8 @@ export interface Me {
     freeLibraryCap: number;
     proLibraryCap: number;
     featuredCap: number;
+    freePublishesPerDay: number;
+    proPublishesPerDay: number;
     versionsKept: number;
     teamCap: number;
     teamMemberCap: number;

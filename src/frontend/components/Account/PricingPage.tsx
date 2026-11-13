@@ -8,7 +8,7 @@ import { Btn, LinkBtn, Notice, Page, VerifiedBadge } from "./ui";
 const FREE = [
   "Full builder and every element",
   "One-line installers for macOS, Linux, Windows",
-  "Publish and fork on the community",
+  "Publish and fork on the community, 1 new design a day",
   "Save 3 designs to a private library",
   "Public @username and donation link",
 ];
@@ -24,6 +24,7 @@ const PRO: React.ReactNode[] = [
   "Private cloud library, up to 200 designs, 20 versions each with restore",
   "Team statuslines: one shared design for up to 25 people",
   "Featured slots at the top of the community gallery",
+  "Publish up to 5 community designs a day",
 ];
 
 export function PricingPage() {
