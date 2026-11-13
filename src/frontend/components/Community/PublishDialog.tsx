@@ -100,6 +100,8 @@ export default function PublishDialog({
     }
   }, [isOpen, designName]);
 
+  const emptyDesign = design.elements.length === 0;
+  const notice = error ?? (emptyDesign ? "Add at least one element before publishing." : null);
   const publishName = name.trim() || designName;
   const authorName = me ? me.user.display_name : author.trim();
   const communityPath = `/community/${publishedSlug}`;
@@ -380,9 +382,9 @@ export default function PublishDialog({
               </>
             )}
 
-            {error ? (
+            {notice ? (
               <p className="text-[13px] text-[#E8A08A]" role="alert">
-                {error}
+                {notice}
               </p>
             ) : null}
 
@@ -426,7 +428,7 @@ export default function PublishDialog({
                     ) : (
                       <button
                         type="submit"
-                        disabled={busy || !name.trim() || (!me && (!author.trim() || !token))}
+                        disabled={busy || emptyDesign || !name.trim() || (!me && (!author.trim() || !token))}
                         className={`${primaryClass} px-5`}
                       >
                         {busy ? "Publishing..." : "Publish"}

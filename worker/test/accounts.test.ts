@@ -1097,4 +1097,28 @@ describe("publish limits: one per day, no identical designs", () => {
       published_at: expect.any(Number),
     });
   });
+
+  test("a design with no elements is a 422 on both publish paths, ahead of the duplicate and daily-limit checks", async () => {
+    const empty = { ...DESIGN, elements: [] };
+    const rejected = { error: "Add at least one element before publishing." };
+    env.DB.raw
+      .query("INSERT INTO designs (id, json, slug, name, author_name, description, forked_from, published_at) VALUES ('empty00001', ?, 'empty-abcd', 'Empty', 'someone', '', NULL, ?)")
+      .run(JSON.stringify(empty), Date.now());
+    const u = await devUser("empty-pub");
+    expect((await userPublish(u.token, "2.2.2.2", "a")).status).toBe(200);
+
+    const anon = await anonPublish("2.2.2.2", empty, "Empty");
+    expect(anon.status).toBe(422);
+    expect(anon.json).toEqual(rejected);
+
+    const signedIn = await api("POST", "/designs", { token: u.token, body: { design: empty, name: "Empty", description: "" } });
+    expect(signedIn.status).toBe(422);
+    expect(signedIn.json).toEqual(rejected);
+
+    const saved = await api("POST", "/library", { token: u.token, body: { design: empty, name: "Empty" } });
+    expect(saved.status).toBe(201);
+    const fromLibrary = await api("POST", `/library/${saved.json.id}/publish`, { token: u.token, body: {} });
+    expect(fromLibrary.status).toBe(422);
+    expect(fromLibrary.json).toEqual(rejected);
+  });
 });

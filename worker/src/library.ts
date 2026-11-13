@@ -357,6 +357,9 @@ export async function handlePublishFromLibrary(
   if (!desc.ok) return privateJson({ error: `description: ${desc.reason}` }, 422);
 
   const design = JSON.parse(row.json) as Design;
+  if (design.elements.length === 0) {
+    return privateJson({ error: "Add at least one element before publishing." }, 422);
+  }
   const duplicate = await findIdenticalDesign(env, design);
   if (duplicate) {
     return privateJson(
