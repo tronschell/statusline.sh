@@ -45,7 +45,7 @@ test.each(["statusline.sh", "www.statusline.sh", "preview.vercel.app", "localhos
 
 test.each([
   "/", "/builder", "/community", "/community/example", "/u/example",
-  "/signin", "/auth/callback", "/account", "/pricing", "/library", "/teams",
+  "/signin", "/auth/callback", "/account", "/account/cancel", "/pricing", "/library", "/teams",
   "/privacy", "/terms", "/unknown", "/claude-code-statusline-git-branch",
   "/claude-code-statusline-command",
 ])("%s has no eligible placement, including with local preview requested", (pathname) => {

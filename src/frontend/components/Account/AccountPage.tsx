@@ -238,20 +238,7 @@ function SubscriptionCard({ me, awaitingPayment }: { me: Me; awaitingPayment: bo
               </Btn>
               {!pastDue ? paymentBtn : null}
               {canCancel && !cancelled ? (
-                <Btn
-                  variant="danger"
-                  disabled={busy !== null}
-                  onClick={() => {
-                    if (!window.confirm(`Cancel Pro? You keep it until ${fmtDate(pro.renews_at ?? pro.until)}.`)) return;
-                    void run("cancel", async () => {
-                      await accountApi.cancelSub();
-                      await refresh();
-                      setInfo("Subscription cancelled. Pro stays on until the end of the period you paid for.");
-                    });
-                  }}
-                >
-                  Cancel subscription
-                </Btn>
+                <LinkBtn href="/account/cancel" variant="danger">Cancel subscription</LinkBtn>
               ) : null}
             </div>
           </Disclosure>

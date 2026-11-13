@@ -478,6 +478,7 @@ export const STATIC_ROUTE_META: Record<string, RouteMeta> = {
       ["/signin", "Sign in"],
       ["/reset-password", "Reset password"],
       ["/account", "Account"],
+      ["/account/cancel", "Cancel Pro"],
       ["/library", "Library"],
       ["/teams", "Teams"],
       ["/join-team", "Join a team"],
