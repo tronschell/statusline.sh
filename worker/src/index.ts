@@ -7,7 +7,7 @@ import { verifyTurnstile, getClientIp, hashClientIp } from "./turnstile";
 import { sanitizePublishField, LIMITS } from "./sanitize";
 import {
   publishDesign,
-  findIdenticalDesignSlug,
+  findIdenticalDesign,
   secondsUntilNextPublish,
   getCommunityBySlug,
   listCommunity,
@@ -760,10 +760,10 @@ async function handlePublish(
   if (!descRes.ok)
     return jsonResponse({ error: `description: ${descRes.reason}` }, 422);
 
-  const duplicateSlug = await findIdenticalDesignSlug(env, design);
-  if (duplicateSlug) {
+  const duplicate = await findIdenticalDesign(env, design);
+  if (duplicate) {
     return jsonResponse(
-      { error: "An identical design is already published.", slug: duplicateSlug },
+      { error: "An identical design is already published.", ...duplicate },
       409,
     );
   }
@@ -778,8 +778,8 @@ async function handlePublish(
   if (retryAfter) {
     return jsonResponse(
       pro
-        ? { error: `You can publish ${PLAN.proPublishesPerDay} designs per day. Try again later.` }
-        : { error: "You can publish one design per day. Try again tomorrow.", upgrade: true },
+        ? { error: `You can publish ${PLAN.proPublishesPerDay} designs per day. Try again later.`, retry_after: retryAfter }
+        : { error: "You can publish one design per day. Try again tomorrow.", upgrade: true, retry_after: retryAfter },
       429,
       { "retry-after": String(retryAfter) },
     );

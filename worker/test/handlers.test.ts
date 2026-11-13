@@ -120,7 +120,7 @@ function makeD1(db: FakeDb): D1Database {
           return { total: db.designs.length } as unknown as T;
         }
         // Publish guards never match here; accounts.test.ts covers them on real SQLite.
-        if (/^SELECT (slug|published_at) FROM designs WHERE /.test(norm)) {
+        if (/^SELECT (slug, name, author_name, )?published_at FROM designs WHERE /.test(norm)) {
           return null;
         }
         throw new Error("unexpected first() SQL: " + norm);

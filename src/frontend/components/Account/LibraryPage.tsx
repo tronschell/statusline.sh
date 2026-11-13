@@ -102,7 +102,7 @@ function LibraryItem({ d, pro, onChanged }: { d: CloudDesign; pro: boolean; onCh
     } catch (e) {
       setError({
         message: e instanceof ApiError && e.code === "pro_required" ? `${e.message} See Pricing.` : errMsg(e),
-        upgrade: e instanceof ApiError && e.upgrade,
+        upgrade: e instanceof ApiError && e.body.upgrade === true,
       });
     } finally {
       setBusy(false);

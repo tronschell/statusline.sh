@@ -995,8 +995,8 @@ describe("publish limits: one per day, no identical designs", () => {
 
     const second = await anonPublish("1.1.1.1", variant("b"), "B");
     expect(second.status).toBe(429);
-    expect(second.json).toEqual({ error: DAILY_LIMIT, upgrade: true });
     const retryAfter = Number(second.headers.get("retry-after"));
+    expect(second.json).toEqual({ error: DAILY_LIMIT, upgrade: true, retry_after: retryAfter });
     expect(retryAfter).toBeGreaterThan(86_390);
     expect(retryAfter).toBeLessThanOrEqual(86_400);
 
@@ -1020,8 +1020,8 @@ describe("publish limits: one per day, no identical designs", () => {
 
     const sixth = await userPublish(u.token, "2.2.2.2", "p5");
     expect(sixth.status).toBe(429);
-    expect(sixth.json).toEqual({ error: PRO_DAILY_LIMIT });
     const retryAfter = Number(sixth.headers.get("retry-after"));
+    expect(sixth.json).toEqual({ error: PRO_DAILY_LIMIT, retry_after: retryAfter });
     expect(retryAfter).toBeGreaterThan(19 * 3600 - 10);
     expect(retryAfter).toBeLessThanOrEqual(19 * 3600);
 
@@ -1036,7 +1036,7 @@ describe("publish limits: one per day, no identical designs", () => {
     expect((await userPublish(u.token, "2.2.2.2", "a")).status).toBe(200);
     const second = await userPublish(u.token, "2.2.2.2", "b");
     expect(second.status).toBe(429);
-    expect(second.json).toEqual({ error: DAILY_LIMIT, upgrade: true });
+    expect(second.json).toEqual({ error: DAILY_LIMIT, upgrade: true, retry_after: expect.any(Number) });
   });
 
   test("Pro signing out on the same IP after publishing is still blocked", async () => {
@@ -1044,7 +1044,7 @@ describe("publish limits: one per day, no identical designs", () => {
     expect((await userPublish(u.token, "2.2.2.2", "a")).status).toBe(200);
     const anon = await anonPublish("2.2.2.2", variant("b"), "B");
     expect(anon.status).toBe(429);
-    expect(anon.json).toEqual({ error: DAILY_LIMIT, upgrade: true });
+    expect(anon.json).toEqual({ error: DAILY_LIMIT, upgrade: true, retry_after: expect.any(Number) });
   });
 
   test("Pro publishes 5 a day from the library", async () => {
@@ -1054,8 +1054,8 @@ describe("publish limits: one per day, no identical designs", () => {
     for (let i = 0; i < 5; i++) expect((await publishSaved(`l${i}`)).status).toBe(200);
     const sixth = await publishSaved("l5");
     expect(sixth.status).toBe(429);
-    expect(sixth.json).toEqual({ error: PRO_DAILY_LIMIT });
     expect(sixth.headers.get("retry-after")).toBeTruthy();
+    expect(sixth.json).toEqual({ error: PRO_DAILY_LIMIT, retry_after: Number(sixth.headers.get("retry-after")) });
   });
 
   test("identical design under a different name is a 409 with the existing slug; a one-element change is accepted", async () => {
@@ -1064,7 +1064,13 @@ describe("publish limits: one per day, no identical designs", () => {
 
     const renamed = await anonPublish("2.2.2.2", variant("a"), "Renamed");
     expect(renamed.status).toBe(409);
-    expect(renamed.json).toEqual({ error: "An identical design is already published.", slug: first.json.slug });
+    expect(renamed.json).toEqual({
+      error: "An identical design is already published.",
+      slug: first.json.slug,
+      name: "First",
+      author_name: "me",
+      published_at: expect.any(Number),
+    });
     expect((await anonPublish("1.1.1.1", variant("a"), "Again")).status).toBe(409);
 
     expect((await anonPublish("2.2.2.2", variant("a2"), "Changed")).status).toBe(200);
@@ -1077,12 +1083,18 @@ describe("publish limits: one per day, no identical designs", () => {
 
     const second = await api("POST", `/library/${await save(u.token, "b")}/publish`, { token: u.token, body: {} });
     expect(second.status).toBe(429);
-    expect(second.json).toEqual({ error: DAILY_LIMIT, upgrade: true });
     expect(second.headers.get("retry-after")).toBeTruthy();
+    expect(second.json).toEqual({ error: DAILY_LIMIT, upgrade: true, retry_after: Number(second.headers.get("retry-after")) });
 
     const other = await devUser("lib-copy");
     const copy = await api("POST", `/library/${await save(other.token, "a")}/publish`, { token: other.token, body: { name: "Renamed" } });
     expect(copy.status).toBe(409);
-    expect(copy.json.slug).toBe(first.json.slug);
+    expect(copy.json).toEqual({
+      error: "An identical design is already published.",
+      slug: first.json.slug,
+      name: "a",
+      author_name: "lib-pub",
+      published_at: expect.any(Number),
+    });
   });
 });
