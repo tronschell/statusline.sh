@@ -16,7 +16,7 @@ function CancelInner({ me }: { me: Me }) {
   const { pro, plan } = me;
 
   const cancelled = pro.status === "cancelled";
-  const pastDue = pro.status === "past_due" || pro.status === "unpaid";
+  const pastDue = pro.status === "past_due";
   const canCancel = pro.status === "active" || pro.status === "on_trial" || pastDue;
 
   if (!canCancel && !(cancelled && pro.active)) {
@@ -28,7 +28,9 @@ function CancelInner({ me }: { me: Me }) {
         lead={
           pro.status === null
             ? "You don't have a Pro subscription, so there is nothing to cancel."
-            : `Your subscription is already ${pro.status}, so there is nothing to cancel.`
+            : pro.status === "unpaid"
+              ? "Your last payment didn't go through, so there is nothing to cancel. You can update your payment method from your account."
+              : `Your subscription is already ${pro.status}, so there is nothing to cancel.`
         }
       >
         <LinkBtn href={neverPro ? "/pricing" : "/account"}>{neverPro ? "See Pro" : "Back to account"}</LinkBtn>

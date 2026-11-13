@@ -152,7 +152,7 @@ function SubscriptionCard({ me, awaitingPayment }: { me: Me; awaitingPayment: bo
   const cancelled = pro.status === "cancelled";
   const pastDue = pro.status === "past_due" || pro.status === "unpaid";
   const hasSub = pro.status !== null;
-  const canCancel = hasSub && (pro.status === "active" || pro.status === "on_trial" || pastDue);
+  const canCancel = pro.status === "active" || pro.status === "on_trial" || pro.status === "past_due";
 
   let summary: string;
   if (!hasSub) summary = pro.active ? `Pro is active until ${fmtDate(pro.until)}.` : "You're on the Free plan.";
