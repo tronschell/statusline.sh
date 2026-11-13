@@ -12,9 +12,10 @@ import type { Design } from "@statusline/shared/types";
 import { validateDesign, ValidationError } from "@statusline/shared/schema";
 import { getUserById, isPro, requireUser, type UserRow } from "./auth";
 import { PLAN, type AccountEnv } from "./env";
-import { privateJson, readJson } from "./http";
-import { publishDesign } from "./designs";
+import { jsonResponse, privateJson, readJson } from "./http";
+import { findIdenticalDesignSlug, publishDesign, secondsUntilNextPublish } from "./designs";
 import { LIMITS, sanitizePublishField } from "./sanitize";
+import { hashClientIp } from "./turnstile";
 
 /**
  * Cloud ids are 12 chars; anonymous/published ids are 10. The installer uses
@@ -355,12 +356,31 @@ export async function handlePublishFromLibrary(
   });
   if (!desc.ok) return privateJson({ error: `description: ${desc.reason}` }, 422);
 
+  const design = JSON.parse(row.json) as Design;
+  const duplicateSlug = await findIdenticalDesignSlug(env, design);
+  if (duplicateSlug) {
+    return privateJson(
+      { error: "An identical design is already published.", slug: duplicateSlug },
+      409,
+    );
+  }
+  const publisherHash = await hashClientIp(req, env.TURNSTILE_SECRET_KEY);
+  const retryAfter = await secondsUntilNextPublish(env, publisherHash, user.id);
+  if (retryAfter) {
+    return jsonResponse(
+      { error: "You can publish one design per day. Try again tomorrow." },
+      429,
+      { "cache-control": "no-store", "retry-after": String(retryAfter) },
+    );
+  }
+
   const { id: designId, slug } = await publishDesign(env, {
-    design: JSON.parse(row.json) as Design,
+    design,
     name,
     author_name: user.display_name.slice(0, LIMITS.author),
     description: desc.value,
     owner_id: user.id,
+    publisher_hash: publisherHash,
   });
   return privateJson({ id: designId, slug });
 }

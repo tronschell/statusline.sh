@@ -7,9 +7,19 @@ async function jsonRequest<T>(path: string, init?: RequestInit): Promise<T> {
   const res = await fetch(url, init);
   if (!res.ok) {
     const body = await res.text().catch(() => "");
-    throw new Error(`${res.status} ${res.statusText}: ${body || path}`);
+    throw new Error(serverError(body) ?? `${res.status} ${res.statusText}: ${body || path}`);
   }
   return (await res.json()) as T;
+}
+
+function serverError(body: string): string | undefined {
+  try {
+    const { error, detail } = JSON.parse(body) as { error?: unknown; detail?: unknown };
+    if (typeof error !== "string") return undefined;
+    return typeof detail === "string" ? `${error}: ${detail}` : error;
+  } catch {
+    return undefined;
+  }
 }
 
 export interface CommunityCardSummary {

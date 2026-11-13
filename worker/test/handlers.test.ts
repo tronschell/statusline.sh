@@ -116,6 +116,10 @@ function makeD1(db: FakeDb): D1Database {
             last_rollup_at: db.view_rollup_state.last_rollup_at,
           } as unknown as T;
         }
+        // Publish guards never match here; accounts.test.ts covers them on real SQLite.
+        if (/^SELECT (slug|MAX\(published_at\) AS last) FROM designs WHERE /.test(norm)) {
+          return null;
+        }
         throw new Error("unexpected first() SQL: " + norm);
       },
       async all<T = unknown>(): Promise<{ results: T[] }> {

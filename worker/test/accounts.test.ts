@@ -104,6 +104,9 @@ async function sendWebhook(userId: string, attrs: Record<string, unknown>, subId
   return { status: res.status, json: (await res.json()) as any };
 }
 
+const variant = (text: string) => ({ ...DESIGN, elements: [{ ...DESIGN.elements[0]!, text }] });
+const agePublishedDesigns = () => env.DB.raw.exec(`UPDATE designs SET published_at = published_at - ${DAY + 1000}`);
+
 const iso = (ms: number) => new Date(ms).toISOString();
 function activeSub(over: Record<string, unknown> = {}) {
   return { test_mode: false, store_id: 1, variant_id: 2, status: "active", customer_id: 9, renews_at: iso(Date.now() + 20 * DAY), ends_at: null, updated_at: iso(Date.now()), ...over };
@@ -870,7 +873,7 @@ describe("teams", () => {
 // ---------------------------------------------------------------------------
 describe("community: owners, verified badge, featured, profiles", () => {
   async function publish(token: string, name: string) {
-    const r = await api("POST", "/designs", { token, body: { design: DESIGN, name, description: "d" } });
+    const r = await api("POST", "/designs", { token, body: { design: variant(name), name, description: "d" } });
     expect(r.status).toBe(200);
     return r.json as { id: string; slug: string };
   }
@@ -903,7 +906,10 @@ describe("community: owners, verified badge, featured, profiles", () => {
     const u = await devUser("creator", true);
     await api("PATCH", "/me", { token: u.token, body: { donation_url: "https://ko-fi.com/creator" } });
     const ds = [];
-    for (let i = 0; i < 4; i++) ds.push(await publish(u.token, `Design ${i}`));
+    for (let i = 0; i < 4; i++) {
+      ds.push(await publish(u.token, `Design ${i}`));
+      agePublishedDesigns();
+    }
 
     const detail = await api("GET", `/community/${ds[0]!.slug}`);
     expect(detail.json.owner).toMatchObject({ username: "creator", verified: true, donation_url: "https://ko-fi.com/creator" });
@@ -951,5 +957,76 @@ describe("community: owners, verified badge, featured, profiles", () => {
     const mine = await api("GET", "/me/designs", { token: u.token });
     expect(mine.json).toMatchObject({ featured_cap: 3, featured_count: 0 });
     expect(mine.json.items).toHaveLength(1);
+  });
+});
+
+// ---------------------------------------------------------------------------
+describe("publish limits: one per day, no identical designs", () => {
+  const DAILY_LIMIT = "You can publish one design per day. Try again tomorrow.";
+
+  function anonPublish(ip: string, design: object, name: string) {
+    return api("POST", "/designs", {
+      headers: { "cf-connecting-ip": ip },
+      body: { design, name, author_name: "me", description: "", turnstile_token: "t" },
+    });
+  }
+
+  beforeEach(() => {
+    fetchImpl = () => Response.json({ success: true });
+  });
+
+  test("second publish from the same IP within 24h is a 429; allowed again after 24h", async () => {
+    expect((await anonPublish("1.1.1.1", variant("a"), "A")).status).toBe(200);
+    const stored = env.DB.raw.query("SELECT publisher_hash FROM designs").get() as { publisher_hash: string };
+    expect(stored.publisher_hash).toMatch(/^[0-9a-f]{64}$/);
+
+    const second = await anonPublish("1.1.1.1", variant("b"), "B");
+    expect(second.status).toBe(429);
+    expect(second.json).toEqual({ error: DAILY_LIMIT });
+    const retryAfter = Number(second.headers.get("retry-after"));
+    expect(retryAfter).toBeGreaterThan(86_390);
+    expect(retryAfter).toBeLessThanOrEqual(86_400);
+
+    agePublishedDesigns();
+    expect((await anonPublish("1.1.1.1", variant("b"), "B")).status).toBe(200);
+  });
+
+  test("same owner from a different IP is a 429, and signing out does not grant another publish", async () => {
+    const u = await devUser("daily");
+    const signedIn = (ip: string, text: string) =>
+      api("POST", "/designs", { token: u.token, headers: { "cf-connecting-ip": ip }, body: { design: variant(text), name: text, description: "" } });
+    expect((await signedIn("2.2.2.2", "a")).status).toBe(200);
+    expect((await signedIn("3.3.3.3", "b")).status).toBe(429);
+    expect((await anonPublish("2.2.2.2", variant("c"), "C")).status).toBe(429);
+  });
+
+  test("identical design under a different name is a 409 with the existing slug; a one-element change is accepted", async () => {
+    const first = await anonPublish("1.1.1.1", variant("a"), "First");
+    expect(first.status).toBe(200);
+
+    const renamed = await anonPublish("2.2.2.2", variant("a"), "Renamed");
+    expect(renamed.status).toBe(409);
+    expect(renamed.json).toEqual({ error: "An identical design is already published.", slug: first.json.slug });
+    expect((await anonPublish("1.1.1.1", variant("a"), "Again")).status).toBe(409);
+
+    expect((await anonPublish("2.2.2.2", variant("a2"), "Changed")).status).toBe(200);
+  });
+
+  test("publishing from the library enforces both rules", async () => {
+    const u = await devUser("lib-pub");
+    const save = async (token: string, text: string) =>
+      (await api("POST", "/library", { token, body: { design: variant(text), name: text } })).json.id as string;
+    const first = await api("POST", `/library/${await save(u.token, "a")}/publish`, { token: u.token, body: {} });
+    expect(first.status).toBe(200);
+
+    const second = await api("POST", `/library/${await save(u.token, "b")}/publish`, { token: u.token, body: {} });
+    expect(second.status).toBe(429);
+    expect(second.json).toEqual({ error: DAILY_LIMIT });
+    expect(second.headers.get("retry-after")).toBeTruthy();
+
+    const other = await devUser("lib-copy");
+    const copy = await api("POST", `/library/${await save(other.token, "a")}/publish`, { token: other.token, body: { name: "Renamed" } });
+    expect(copy.status).toBe(409);
+    expect(copy.json.slug).toBe(first.json.slug);
   });
 });
