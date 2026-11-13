@@ -22,6 +22,7 @@ type Sort = "recent" | "popular";
 interface CacheEntry {
   items: CommunityCardSummary[];
   nextCursor: string | null;
+  total?: number;
 }
 const pageCache = new Map<Sort, CacheEntry>();
 
@@ -67,6 +68,7 @@ export function CommunityPage() {
   const [nextCursor, setNextCursor] = useState<string | null>(
     () => pageCache.get("recent")?.nextCursor ?? null,
   );
+  const [total, setTotal] = useState(() => pageCache.get("recent")?.total);
   const [loading, setLoading] = useState(false);
   const [loadingMore, setLoadingMore] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -90,6 +92,7 @@ export function CommunityPage() {
     if (cached) {
       setItems(cached.items);
       setNextCursor(cached.nextCursor);
+      setTotal(cached.total);
       setLoading(false);
       setError(null);
       return;
@@ -98,9 +101,10 @@ export function CommunityPage() {
     setError(null);
     try {
       const res = await api.listCommunity({ sort: s, limit: PAGE_SIZE });
-      pageCache.set(s, { items: res.items, nextCursor: res.nextCursor });
+      pageCache.set(s, res);
       setItems(res.items);
       setNextCursor(res.nextCursor);
+      setTotal(res.total);
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
     } finally {
@@ -125,7 +129,7 @@ export function CommunityPage() {
       });
       setItems((prev) => {
         const merged = [...prev, ...res.items];
-        pageCache.set(sort, { items: merged, nextCursor: res.nextCursor });
+        pageCache.set(sort, { ...pageCache.get(sort), items: merged, nextCursor: res.nextCursor });
         return merged;
       });
       setNextCursor(res.nextCursor);
@@ -156,6 +160,7 @@ export function CommunityPage() {
   const searching = trimmedQuery.length > 0;
   const filtering = searching || facet !== null;
   const totalLabel = `${items.length}${nextCursor ? "+" : ""}`;
+  const publishedLabel = total === undefined ? totalLabel : String(total);
   const clearFilters = () => {
     setQuery("");
     setFacet(null);
@@ -282,7 +287,7 @@ export function CommunityPage() {
                 ? "Loading…"
                 : filtering
                   ? `${shownItems.length} of ${totalLabel} loaded`
-                  : `${totalLabel} design${items.length === 1 && !nextCursor ? "" : "s"}`}
+                  : `${publishedLabel} design${publishedLabel === "1" ? "" : "s"}`}
             </span>
             {filtering ? (
               <button

@@ -290,6 +290,14 @@ export async function getCommunityBySlug(
   return r ? rowToDesignRow(r) : null;
 }
 
+/** Count of published designs, maintained by the triggers in migration 0006. */
+export async function getDesignTotal(env: DbEnv): Promise<number | undefined> {
+  const row = (await env.DB
+    .prepare("SELECT total FROM design_total WHERE id = 1")
+    .first()) as { total: number } | null;
+  return row?.total;
+}
+
 export async function listCommunity(
   env: DbEnv,
   opts: ListOptions,
