@@ -3,6 +3,7 @@ import { ACCOUNTS_ENABLED } from "./frontend/lib/config";
 import { AuthCallbackPage, ResetPasswordPage, SignInPage } from "./frontend/components/Account/AuthPages";
 import { PricingPage } from "./frontend/components/Account/PricingPage";
 import { AccountPage } from "./frontend/components/Account/AccountPage";
+import { CancelPage } from "./frontend/components/Account/CancelPage";
 import { LibraryPage } from "./frontend/components/Account/LibraryPage";
 import { JoinTeamPage, TeamDetailPage, TeamsPage } from "./frontend/components/Account/TeamPages";
 import { ProfilePage } from "./frontend/components/Account/ProfilePage";
@@ -91,6 +92,7 @@ export function App() {
           <Route path="/reset-password"><ResetPasswordPage /></Route>
           <Route path="/pricing"><PricingPage /></Route>
           <Route path="/account"><AccountPage /></Route>
+          <Route path="/account/cancel"><CancelPage /></Route>
           <Route path="/library"><LibraryPage /></Route>
           <Route path="/teams"><TeamsPage /></Route>
           <Route path="/teams/:id"><TeamDetailPage /></Route>
