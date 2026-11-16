@@ -194,7 +194,7 @@ function __gitDirty() {
   $cwd = __field 'workspace.current_dir'
   if (-not $cwd) { $cwd = __field 'cwd' }
   if ($cwd -and (Get-Command git -ErrorAction SilentlyContinue)) {
-    $s = & git -C "$cwd" status --porcelain 2>$null
+    $s = & git --no-optional-locks -C "$cwd" status --porcelain 2>$null
     if ($s) { return '1' }
   }
   return '0'
