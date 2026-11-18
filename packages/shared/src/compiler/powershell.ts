@@ -109,9 +109,13 @@ function __truncate([string]$s, [int]$n) {
   if ($n -le 1) { return $s.Substring(0, $n) }
   return $s.Substring(0, $n - 1) + [char]0x2026
 }
-function __costFmt([string]$v, [int]$prec) {
+function __toDouble([string]$v) {
   $n = 0.0
-  [double]::TryParse($v, [ref]$n) | Out-Null
+  [double]::TryParse($v, [System.Globalization.NumberStyles]::Float, [System.Globalization.CultureInfo]::InvariantCulture, [ref]$n) | Out-Null
+  return $n
+}
+function __costFmt([string]$v, [int]$prec) {
+  $n = __toDouble $v
   return '$' + $n.ToString('F' + $prec)
 }
 function __durHms([string]$v) {
@@ -133,7 +137,7 @@ function __durHuman([string]$v) {
   if ($mm -gt 0) { return ('{0}h {1}m' -f $h, $mm) } else { return ('{0}h' -f $h) }
 }
 function __bar([string]$v, [int]$width, [string]$filled, [string]$empty) {
-  $p = 0.0; [double]::TryParse($v, [ref]$p) | Out-Null
+  $p = __toDouble $v
   if ($p -lt 0) { $p = 0 } elseif ($p -gt 100) { $p = 100 }
   $n = [int][math]::Round(($p * $width) / 100)
   $e = $width - $n
@@ -208,8 +212,7 @@ function __tick() {
 }
 function __relTime([string]$v) {
   if ([string]::IsNullOrEmpty($v)) { return '' }
-  $target = 0.0
-  if (-not [double]::TryParse($v, [ref]$target)) { return '' }
+  $target = __toDouble $v
   $now = __tick
   $diff = [int]([math]::Floor($target - $now))
   if ($diff -le 0) { return '' }

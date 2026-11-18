@@ -105,7 +105,7 @@ __truncate() {
   if [ "$n" -le 1 ]; then printf '%s' "\${s:0:$n}"; return; fi
   printf '%s…' "\${s:0:$((n-1))}"
 }
-__cost_fmt() { printf '$%.*f' "$2" "$1"; }
+__cost_fmt() { LC_ALL=C printf '$%.*f' "$2" "$1"; }
 __dur_hms() {
   local ms="$1" total h m s
   total=$((ms/1000)); h=$((total/3600)); m=$(((total%3600)/60)); s=$((total%60))
@@ -297,9 +297,9 @@ function emitOp(op: RenderOp, depth = 0): string {
       } else if (op.expr.op === "eq") {
         test = `[ "$(__field '${path}')" = '${bashEscapeSingleQuoted(String(op.expr.value))}' ]`;
       } else if (op.expr.op === "gt") {
-        test = `awk -v v="$(__field '${path}')" 'BEGIN{exit !(v+0 > ${Number(op.expr.value)})}'`;
+        test = `LC_ALL=C awk -v v="$(__field '${path}')" 'BEGIN{exit !(v+0 > ${Number(op.expr.value)})}'`;
       } else if (op.expr.op === "lt") {
-        test = `awk -v v="$(__field '${path}')" 'BEGIN{exit !(v+0 < ${Number(op.expr.value)})}'`;
+        test = `LC_ALL=C awk -v v="$(__field '${path}')" 'BEGIN{exit !(v+0 < ${Number(op.expr.value)})}'`;
       }
       let out = `${pad}if ${test}; then\n`;
       if (op.then.length === 0) {
